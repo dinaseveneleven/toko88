@@ -250,12 +250,12 @@ const Index = () => {
     setCurrentReceipt(null);
   };
 
-  // Calculate cart totals for floating button (with item discounts)
+  // Calculate cart totals for floating button (with item discounts in Rp)
   const cartTotal = cart.reduce((sum, item) => {
     const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
     const discount = item.discount || 0;
-    const discountedPrice = price * (1 - discount / 100);
-    return sum + discountedPrice * item.quantity;
+    const discountedTotal = (price * item.quantity) - discount;
+    return sum + Math.max(0, discountedTotal);
   }, 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 

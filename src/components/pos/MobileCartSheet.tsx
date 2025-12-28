@@ -1,5 +1,5 @@
 import { CartItem } from '@/types/pos';
-import { Minus, Plus, Trash2, ShoppingCart, X, Percent } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -43,8 +43,8 @@ export function MobileCartSheet({
   const subtotal = items.reduce((sum, item) => {
     const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
     const discount = item.discount || 0;
-    const discountedPrice = price * (1 - discount / 100);
-    return sum + discountedPrice * item.quantity;
+    const discountedTotal = (price * item.quantity) - discount;
+    return sum + Math.max(0, discountedTotal);
   }, 0);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -88,9 +88,8 @@ export function MobileCartSheet({
             items.map((item) => {
                 const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
                 const discount = item.discount || 0;
-                const discountedPrice = price * (1 - discount / 100);
-                const itemTotal = discountedPrice * item.quantity;
                 const originalTotal = price * item.quantity;
+                const itemTotal = Math.max(0, originalTotal - discount);
                 
                 return (
                   <div 
@@ -116,23 +115,21 @@ export function MobileCartSheet({
                       </button>
                     </div>
 
-                    {/* Discount input row */}
+                    {/* Discount input row - now in Rupiah */}
                     <div className="flex items-center gap-2 mb-2">
-                      <Percent className="w-3 h-3 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">Disc:</span>
+                      <span className="text-xs text-muted-foreground">Rp</span>
                       <Input
                         type="number"
                         value={discount || ''}
                         onChange={(e) => {
-                          const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                          const val = Math.max(0, parseInt(e.target.value) || 0);
                           onSetDiscount(item.product.id, item.priceType, val);
                         }}
                         placeholder="0"
-                        className="w-14 h-6 text-center font-mono text-xs px-1"
+                        className="w-20 h-6 text-right font-mono text-xs px-1"
                         min={0}
-                        max={100}
                       />
-                      <span className="text-xs text-muted-foreground">%</span>
                     </div>
 
                     <div className="flex items-center justify-between">
