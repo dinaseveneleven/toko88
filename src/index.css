@@ -112,28 +112,6 @@
                 0 0 60px hsl(var(--pos-glow) / 0.15);
   }
 
-  /* Visible elevation for sticky bars on dark UI (won't get "lost" on same-colored backgrounds) */
-  .pos-sticky-shadow {
-    box-shadow:
-      0 12px 24px -18px hsl(var(--foreground) / 0.9),
-      0 28px 54px -42px hsl(var(--foreground) / 0.8);
-  }
-
-  .pos-sticky-shadow::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -1px;
-    height: 18px;
-    pointer-events: none;
-    background: linear-gradient(
-      to bottom,
-      hsl(var(--foreground) / 0.14),
-      transparent
-    );
-  }
-
   .pos-card {
     @apply bg-card border border-border rounded-xl;
     transition: all 0.2s ease;
