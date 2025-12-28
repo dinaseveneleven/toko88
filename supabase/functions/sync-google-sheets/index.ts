@@ -267,42 +267,63 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Generate request ID for audit trail
     const requestId = crypto.randomUUID();
-
-    // Apply rate limiting
-    if (!checkRateLimit(user.id)) {
-      console.log(`[${requestId}] Rate limit exceeded for user ${user.id}`);
+    
+    // Parse request body first to check action
+    const { action, data } = await req.json();
+    
+    // Validate action
+    if (!action || !isValidAction(action)) {
+      console.log(`[${requestId}] Invalid action attempted: ${action}`);
       return new Response(
-        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: 'Invalid action' }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[${requestId}] Request from user ${user.id}`);
+    // Actions that require authentication
+    const authRequiredActions = ['addTransaction', 'updateStock', 'updateInventory'];
+    
+    let user = null;
+    
+    // Check authentication for protected actions
+    if (authRequiredActions.includes(action)) {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !authUser) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      user = authUser;
+
+      // Apply rate limiting for authenticated users
+      if (!checkRateLimit(user.id)) {
+        console.log(`[${requestId}] Rate limit exceeded for user ${user.id}`);
+        return new Response(
+          JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    console.log(`[${requestId}] Processing action: ${action}${user ? ` by user ${user.id}` : ''}`);
 
     const email = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL");
     const privateKey = Deno.env.get("GOOGLE_PRIVATE_KEY");
@@ -324,19 +345,6 @@ serve(async (req) => {
 
     // Parse the private key
     const formattedKey = privateKey.replace(/\\n/g, '\n');
-
-    const { action, data } = await req.json();
-    
-    // Validate action
-    if (!action || !isValidAction(action)) {
-      console.log(`[${requestId}] Invalid action attempted: ${action}`);
-      return new Response(
-        JSON.stringify({ error: 'Invalid action' }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`[${requestId}] Processing action: ${action}`);
 
     const accessToken = await getAccessToken(email, formattedKey);
 
