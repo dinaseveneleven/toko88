@@ -154,6 +154,17 @@ const Index = () => {
     });
   };
 
+  const handleSetItemDiscount = (productId: string, priceType: 'retail' | 'bulk', discount: number) => {
+    setCart((prev) => {
+      return prev.map((item) => {
+        if (item.product.id === productId && item.priceType === priceType) {
+          return { ...item, discount: Math.min(100, Math.max(0, discount)) };
+        }
+        return item;
+      });
+    });
+  };
+
   const handleRemoveFromCart = (productId: string, priceType: 'retail' | 'bulk') => {
     setCart((prev) => prev.filter(
       (item) => !(item.product.id === productId && item.priceType === priceType)
@@ -239,10 +250,12 @@ const Index = () => {
     setCurrentReceipt(null);
   };
 
-  // Calculate cart totals for floating button
+  // Calculate cart totals for floating button (with item discounts)
   const cartTotal = cart.reduce((sum, item) => {
     const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
-    return sum + price * item.quantity;
+    const discount = item.discount || 0;
+    const discountedPrice = price * (1 - discount / 100);
+    return sum + discountedPrice * item.quantity;
   }, 0);
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -384,6 +397,7 @@ const Index = () => {
                 items={cart}
                 onUpdateQuantity={handleUpdateQuantity}
                 onSetQuantity={handleSetQuantity}
+                onSetDiscount={handleSetItemDiscount}
                 onRemove={handleRemoveFromCart}
                 onClear={handleClearCart}
                 onCheckout={() => setCheckoutOpen(true)}
@@ -407,6 +421,7 @@ const Index = () => {
         items={cart}
         onUpdateQuantity={handleUpdateQuantity}
         onSetQuantity={handleSetQuantity}
+        onSetDiscount={handleSetItemDiscount}
         onRemove={handleRemoveFromCart}
         onClear={handleClearCart}
         onCheckout={() => setCheckoutOpen(true)}

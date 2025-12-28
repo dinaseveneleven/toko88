@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CartItem } from '@/types/pos';
-import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, Percent } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -8,6 +8,7 @@ interface CartPanelProps {
   items: CartItem[];
   onUpdateQuantity: (productId: string, priceType: 'retail' | 'bulk', delta: number) => void;
   onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number) => void;
+  onSetDiscount: (productId: string, priceType: 'retail' | 'bulk', discount: number) => void;
   onRemove: (productId: string, priceType: 'retail' | 'bulk') => void;
   onClear: () => void;
   onCheckout: () => void;
@@ -21,10 +22,12 @@ const formatRupiah = (num: number) => {
   }).format(num);
 };
 
-export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onRemove, onClear, onCheckout }: CartPanelProps) {
+export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscount, onRemove, onClear, onCheckout }: CartPanelProps) {
   const subtotal = items.reduce((sum, item) => {
     const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
-    return sum + price * item.quantity;
+    const discount = item.discount || 0;
+    const discountedPrice = price * (1 - discount / 100);
+    return sum + discountedPrice * item.quantity;
   }, 0);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -63,7 +66,10 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onRemove, on
         ) : (
           items.map((item) => {
             const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
-            const itemTotal = price * item.quantity;
+            const discount = item.discount || 0;
+            const discountedPrice = price * (1 - discount / 100);
+            const itemTotal = discountedPrice * item.quantity;
+            const originalTotal = price * item.quantity;
             
             return (
               <div 
@@ -87,6 +93,25 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onRemove, on
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                </div>
+
+                {/* Discount input row */}
+                <div className="flex items-center gap-2 mb-2">
+                  <Percent className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Disc:</span>
+                  <Input
+                    type="number"
+                    value={discount || ''}
+                    onChange={(e) => {
+                      const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                      onSetDiscount(item.product.id, item.priceType, val);
+                    }}
+                    placeholder="0"
+                    className="w-14 h-6 text-center font-mono text-xs px-1"
+                    min={0}
+                    max={100}
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -116,9 +141,16 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onRemove, on
                       <Plus className="w-3 h-3" />
                     </button>
                   </div>
-                  <span className="font-mono text-sm font-semibold">
-                    {formatRupiah(itemTotal)}
-                  </span>
+                  <div className="text-right">
+                    <span className="font-mono text-sm font-semibold">
+                      {formatRupiah(itemTotal)}
+                    </span>
+                    {discount > 0 && (
+                      <div className="text-xs text-muted-foreground line-through">
+                        {formatRupiah(originalTotal)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );

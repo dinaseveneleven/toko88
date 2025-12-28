@@ -12,6 +12,7 @@ export interface CartItem {
   product: Product;
   quantity: number;
   priceType: 'retail' | 'bulk';
+  discount?: number; // Item-level discount percentage (0-100)
 }
 
 export interface ReceiptData {
