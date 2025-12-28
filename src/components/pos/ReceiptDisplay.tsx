@@ -87,12 +87,8 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
     window.open(`https://wa.me/${formattedPhone}?text=${encodedText}`, '_blank');
   };
 
-  // Generate QR data
-  const qrData = JSON.stringify({
-    receiptId: receipt.id,
-    total: receipt.total,
-    timestamp: receipt.timestamp.toISOString(),
-  });
+  // Generate QR URL that links to the invoice page
+  const qrData = `${window.location.origin}/invoice/${receipt.id}`;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

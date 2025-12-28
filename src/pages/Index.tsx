@@ -11,6 +11,7 @@ import { MobileCartSheet } from '@/components/pos/MobileCartSheet';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Package, LogOut, Shield, RefreshCw } from 'lucide-react';
 import logo88 from '@/assets/logo-88.png';
 import { Button } from '@/components/ui/button';
@@ -168,6 +169,27 @@ const Index = () => {
     method: ReceiptDeliveryMethod,
     phone?: string
   ) => {
+    // Save transaction to database for QR code invoice
+    const { error: dbError } = await supabase
+      .from('transactions')
+      .insert([{
+        id: receipt.id,
+        items: JSON.parse(JSON.stringify(receipt.items)),
+        subtotal: receipt.subtotal,
+        discount: receipt.discount,
+        total: receipt.total,
+        payment_method: receipt.paymentMethod,
+        cash_received: receipt.cashReceived || null,
+        change: receipt.change || null,
+        customer_phone: receipt.customerPhone || null,
+        customer_name: receipt.customerName || null,
+        cashier: 'Admin',
+      }]);
+
+    if (dbError) {
+      console.error('Error saving to database:', dbError);
+    }
+
     // Save transaction to Google Sheets
     const saved = await saveTransaction(receipt);
     if (saved) {
