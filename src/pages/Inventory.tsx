@@ -431,110 +431,43 @@ export default function Inventory() {
                   </div>
 
                   {/* Mobile Layout */}
-                  <div className="lg:hidden space-y-4">
-                    {/* Product Name and Category */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
-                          {product.category}
-                        </span>
-                        {isOutOfStock && (
-                          <span className="inline-flex items-center gap-1 text-xs text-destructive ml-2">
-                            <AlertTriangle className="w-3 h-3" /> Stok Habis
+                  <div className="lg:hidden space-y-3">
+                    {/* Product Name + Edit + Stock Row */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{product.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
+                            {product.category}
                           </span>
-                        )}
-                        {isLowStock && !isOutOfStock && (
-                          <span className="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500 ml-2">
-                            <AlertTriangle className="w-3 h-3" /> Stok Rendah
-                          </span>
-                        )}
+                          {isOutOfStock && (
+                            <span className="text-xs text-destructive flex items-center gap-0.5">
+                              <AlertTriangle className="w-3 h-3" /> Habis
+                            </span>
+                          )}
+                          {isLowStock && !isOutOfStock && (
+                            <span className="text-xs text-yellow-600 dark:text-yellow-500 flex items-center gap-0.5">
+                              <AlertTriangle className="w-3 h-3" /> Rendah
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => isEditing ? confirmEditing() : startEditing(product.id)}
-                      >
-                        {isEditing ? <Check className="w-4 h-4 text-green-600" /> : <Edit2 className="w-4 h-4" />}
-                      </Button>
-                    </div>
-
-                    {/* Prices */}
-                    <div className="grid grid-cols-3 gap-2 text-sm">
-                      <div>
-                        <p className="text-muted-foreground text-xs mb-1">Modal</p>
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            value={edited?.purchasePrice ?? 0}
-                            onChange={(e) => handleFieldChange(product.id, 'purchasePrice', parseInt(e.target.value) || 0)}
-                            className="h-8 text-sm"
-                            min={0}
-                          />
-                        ) : (
-                          <p className="font-mono text-orange-600 dark:text-orange-400">
-                            {formatRupiah(edited?.purchasePrice ?? product.purchasePrice)}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs mb-1">Eceran</p>
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            value={edited?.retailPrice ?? 0}
-                            onChange={(e) => handleFieldChange(product.id, 'retailPrice', parseInt(e.target.value) || 0)}
-                            className="h-8 text-sm"
-                            min={0}
-                          />
-                        ) : (
-                          <p className="font-mono">{formatRupiah(edited?.retailPrice ?? product.retailPrice)}</p>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs mb-1">Grosir</p>
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            value={edited?.bulkPrice ?? 0}
-                            onChange={(e) => handleFieldChange(product.id, 'bulkPrice', parseInt(e.target.value) || 0)}
-                            className="h-8 text-sm"
-                            min={0}
-                          />
-                        ) : (
-                          <p className="font-mono">{formatRupiah(edited?.bulkPrice ?? product.bulkPrice)}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Stock Controls */}
-                    <div className="flex items-center justify-between">
-                      <p className="text-muted-foreground text-sm">Stok:</p>
-                      <div className="flex items-center gap-2">
-                        {isEditing && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => cancelEditing(product.id)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
+                      
+                      {/* Stock Controls - Always visible */}
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-7 w-7"
                           onClick={() => handleDecrement(product.id)}
                         >
-                          <Minus className="w-4 h-4" />
+                          <Minus className="w-3 h-3" />
                         </Button>
                         <Input
                           type="number"
                           value={edited?.stock ?? product.stock}
                           onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
-                          className={`w-16 text-center font-mono text-sm h-8 ${
+                          className={`w-12 text-center font-mono text-sm h-7 px-1 ${
                             isOutOfStock ? 'text-destructive' : 
                             isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
                           }`}
@@ -543,13 +476,82 @@ export default function Inventory() {
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-7 w-7"
                           onClick={() => handleIncrement(product.id)}
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
+
+                    {/* Prices Row - Compact */}
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground">Modal:</span>
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={edited?.purchasePrice ?? 0}
+                            onChange={(e) => handleFieldChange(product.id, 'purchasePrice', parseInt(e.target.value) || 0)}
+                            className="h-6 w-20 text-xs px-1"
+                            min={0}
+                          />
+                        ) : (
+                          <span className="font-mono text-orange-600 dark:text-orange-400">
+                            {formatRupiah(edited?.purchasePrice ?? product.purchasePrice)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground">Eceran:</span>
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={edited?.retailPrice ?? 0}
+                            onChange={(e) => handleFieldChange(product.id, 'retailPrice', parseInt(e.target.value) || 0)}
+                            className="h-6 w-20 text-xs px-1"
+                            min={0}
+                          />
+                        ) : (
+                          <span className="font-mono text-primary">
+                            {formatRupiah(edited?.retailPrice ?? product.retailPrice)}
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => isEditing ? confirmEditing() : startEditing(product.id)}
+                      >
+                        {isEditing ? <Check className="w-3 h-3 text-green-600" /> : <Edit2 className="w-3 h-3" />}
+                      </Button>
+                    </div>
+
+                    {/* Bulk price only shown when editing */}
+                    {isEditing && (
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50">
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted-foreground">Grosir:</span>
+                          <Input
+                            type="number"
+                            value={edited?.bulkPrice ?? 0}
+                            onChange={(e) => handleFieldChange(product.id, 'bulkPrice', parseInt(e.target.value) || 0)}
+                            className="h-6 w-20 text-xs px-1"
+                            min={0}
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs text-destructive"
+                          onClick={() => cancelEditing(product.id)}
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          Batal
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

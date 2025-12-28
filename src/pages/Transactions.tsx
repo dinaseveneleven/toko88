@@ -216,72 +216,132 @@ export default function Transactions() {
                 <p>Tidak ada transaksi ditemukan</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID Transaksi</TableHead>
-                      <TableHead>Tanggal</TableHead>
-                      <TableHead>Pelanggan</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead>Pembayaran</TableHead>
-                      <TableHead className="text-right">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTransactions.map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell className="font-mono text-xs">
-                          {t.id.slice(0, 20)}...
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {new Date(t.created_at).toLocaleDateString('id-ID')}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(t.created_at).toLocaleTimeString('id-ID')}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {t.customer_name || t.customer_phone || '-'}
-                        </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {formatRupiah(t.total)}
-                        </TableCell>
-                        <TableCell>
-                          <span className="capitalize">{t.payment_method}</span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleViewDetail(t)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            {t.customer_phone && (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID Transaksi</TableHead>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Pelanggan</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead>Pembayaran</TableHead>
+                        <TableHead className="text-right">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTransactions.map((t) => (
+                        <TableRow key={t.id}>
+                          <TableCell className="font-mono text-xs">
+                            {t.id.slice(0, 20)}...
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {new Date(t.created_at).toLocaleDateString('id-ID')}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(t.created_at).toLocaleTimeString('id-ID')}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {t.customer_name || t.customer_phone || '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatRupiah(t.total)}
+                          </TableCell>
+                          <TableCell>
+                            <span className="capitalize">{t.payment_method}</span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => handleResendWhatsApp(t)}
-                                disabled={sendingWhatsApp === t.id}
-                                className="text-green-500 hover:text-green-600"
+                                onClick={() => handleViewDetail(t)}
                               >
-                                {sendingWhatsApp === t.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <MessageCircle className="w-4 h-4" />
-                                )}
+                                <Eye className="w-4 h-4" />
                               </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                              {t.customer_phone && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleResendWhatsApp(t)}
+                                  disabled={sendingWhatsApp === t.id}
+                                  className="text-green-500 hover:text-green-600"
+                                >
+                                  {sendingWhatsApp === t.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <MessageCircle className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                  {filteredTransactions.map((t) => (
+                    <div 
+                      key={t.id} 
+                      className="bg-muted/30 rounded-lg p-3 border border-border"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-primary text-lg">
+                            {formatRupiah(t.total)}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {t.customer_name || t.customer_phone || 'Pelanggan Umum'}
+                          </p>
+                        </div>
+                        <div className="text-right text-xs text-muted-foreground">
+                          <p>{new Date(t.created_at).toLocaleDateString('id-ID')}</p>
+                          <p>{new Date(t.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                        <span className="text-xs px-2 py-0.5 bg-secondary rounded-full capitalize">
+                          {t.payment_method}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDetail(t)}
+                            className="h-8 px-2"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            Detail
+                          </Button>
+                          {t.customer_phone && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleResendWhatsApp(t)}
+                              disabled={sendingWhatsApp === t.id}
+                              className="h-8 px-2 text-green-500 hover:text-green-600"
+                            >
+                              {sendingWhatsApp === t.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <MessageCircle className="w-4 h-4" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
