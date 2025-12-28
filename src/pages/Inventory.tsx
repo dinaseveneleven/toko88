@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
 import { AddProductModal } from '@/components/inventory/AddProductModal';
+import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import type { Product } from '@/types/pos';
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -39,7 +39,7 @@ export default function Inventory() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Get unique categories from products
@@ -52,7 +52,7 @@ export default function Inventory() {
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+      const matchesCategory = selectedCategory === null || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
   }, [products, searchQuery, selectedCategory]);
@@ -255,19 +255,11 @@ export default function Inventory() {
               </div>
               
               {/* Category Filter Dropdown */}
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Kategori</SelectItem>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CategoryFilter
+                categories={categories}
+                selected={selectedCategory}
+                onSelect={setSelectedCategory}
+              />
             </div>
 
             {/* Header Row - Desktop */}
