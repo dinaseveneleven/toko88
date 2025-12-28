@@ -95,6 +95,21 @@ const Index = () => {
     });
   };
 
+  const handleSetQuantity = (productId: string, priceType: 'retail' | 'bulk', quantity: number) => {
+    setCart((prev) => {
+      return prev
+        .map((item) => {
+          if (item.product.id === productId && item.priceType === priceType) {
+            if (quantity <= 0) return null;
+            const newQty = Math.min(quantity, item.product.stock);
+            return { ...item, quantity: newQty };
+          }
+          return item;
+        })
+        .filter(Boolean) as CartItem[];
+    });
+  };
+
   const handleRemoveFromCart = (productId: string, priceType: 'retail' | 'bulk') => {
     setCart((prev) => prev.filter(
       (item) => !(item.product.id === productId && item.priceType === priceType)
@@ -222,6 +237,7 @@ const Index = () => {
               <CartPanel
                 items={cart}
                 onUpdateQuantity={handleUpdateQuantity}
+                onSetQuantity={handleSetQuantity}
                 onRemove={handleRemoveFromCart}
                 onClear={handleClearCart}
                 onCheckout={() => setCheckoutOpen(true)}
