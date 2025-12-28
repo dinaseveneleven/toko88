@@ -241,25 +241,27 @@ export default function Inventory() {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Search and Filter Bar */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Cari produk..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+            {/* Sticky Search and Filter Bar */}
+            <div className="sticky top-[57px] sm:top-[65px] z-30 bg-background/95 backdrop-blur-sm py-2 -mx-4 px-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Search */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari produk..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                {/* Category Filter Dropdown */}
+                <CategoryFilter
+                  categories={categories}
+                  selected={selectedCategory}
+                  onSelect={setSelectedCategory}
                 />
               </div>
-              
-              {/* Category Filter Dropdown */}
-              <CategoryFilter
-                categories={categories}
-                selected={selectedCategory}
-                onSelect={setSelectedCategory}
-              />
             </div>
 
             {/* Header Row - Desktop */}
