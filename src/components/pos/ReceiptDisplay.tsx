@@ -174,9 +174,13 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
           {deliveryMethod === 'whatsapp' && (
             <div className="animate-slide-up space-y-4">
               <div className="bg-green-500/10 rounded-xl p-4 border border-green-500/20">
-                <p className="text-sm text-muted-foreground">Struk akan dikirim ke:</p>
+                <p className="text-sm text-muted-foreground">Struk otomatis dikirim ke:</p>
                 <p className="font-mono text-lg font-semibold text-green-400">
                   {receipt.customerPhone}
+                </p>
+                <p className="text-xs text-green-500 mt-1 flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  WhatsApp terkirim otomatis
                 </p>
               </div>
               
@@ -184,10 +188,11 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
 
               <Button 
                 onClick={handleWhatsAppSend} 
-                className="w-full bg-green-600 hover:bg-green-700"
+                variant="outline"
+                className="w-full border-green-500/30 text-green-400 hover:bg-green-500/10"
               >
                 <MessageCircle className="w-4 h-4 mr-2" />
-                Kirim via WhatsApp
+                Kirim Ulang via WhatsApp
               </Button>
             </div>
           )}
