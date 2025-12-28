@@ -74,6 +74,14 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    /* Prevent "caret browsing" cursor from showing on non-editable text */
+    caret-color: transparent;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"] {
+    caret-color: currentColor;
   }
 
   .font-mono {
