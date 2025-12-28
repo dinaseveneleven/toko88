@@ -9,7 +9,8 @@ import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
-import { Store, Package, LogOut } from 'lucide-react';
+import { Package, LogOut } from 'lucide-react';
+import logo88 from '@/assets/logo-88.png';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
@@ -153,9 +154,7 @@ const Index = () => {
         <div className="container max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-semibold text-lg tracking-tighter">88</span>
-              </div>
+              <img src={logo88} alt="Toko 88" className="h-10 w-auto" />
               <div>
                 <h1 className="font-bold text-xl tracking-tight">TOKO 88</h1>
                 <p className="text-xs text-muted-foreground">Point of Sale System</p>
