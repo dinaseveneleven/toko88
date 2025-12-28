@@ -96,7 +96,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
             type="number"
             value={quantity}
             onChange={(e) => handleInputChange(e.target.value)}
-            className="w-14 h-8 text-center text-sm font-mono"
+            className="w-14 h-8 text-center text-sm font-mono bg-transparent border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={1}
             max={product.stock}
           />
