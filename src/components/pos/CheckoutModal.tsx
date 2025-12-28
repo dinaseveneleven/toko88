@@ -121,8 +121,8 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
 
   return (
     <Dialog open={open} onOpenChange={resetAndClose}>
-      <DialogContent className="sm:max-w-md bg-card border-border">
-        <DialogHeader>
+      <DialogContent className="max-w-[95vw] sm:max-w-md md:max-w-lg max-h-[90vh] overflow-hidden flex flex-col bg-card border-border">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center gap-2">
             {step !== 'payment' && (
               <button onClick={goBack} className="p-1 hover:bg-secondary rounded-lg transition-colors">
@@ -136,6 +136,8 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
             </DialogTitle>
           </div>
         </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto pr-1 -mr-1">
 
         {/* Customer Name & Total Display */}
         <div className="bg-secondary/50 rounded-xl p-4 mb-4">
@@ -350,6 +352,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
             </Button>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
