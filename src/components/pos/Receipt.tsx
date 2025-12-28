@@ -14,14 +14,24 @@ const formatRupiah = (num: number) => {
   }).format(num);
 };
 
+const paymentMethodLabels: Record<string, string> = {
+  'cash': 'Tunai',
+  'qris': 'QRIS',
+  'transfer': 'Transfer Bank',
+};
+
 export function Receipt({ data }: ReceiptProps) {
+  const storeAddress = data.storeInfo?.address || 'Jl. Raya No. 88, Jakarta';
+  const storePhone = data.storeInfo?.phone || '(021) 1234-5678';
+  const paymentLabel = paymentMethodLabels[data.paymentMethod] || data.paymentMethod;
+
   return (
     <div className="receipt-paper text-gray-900 p-6 rounded-lg max-w-xs mx-auto">
       {/* Header */}
       <div className="text-center border-b-2 border-dashed border-gray-400 pb-4 mb-4">
         <h1 className="text-xl font-bold tracking-wide">TOKO 88</h1>
-        <p className="text-xs mt-1">Jl. Raya No. 88, Jakarta</p>
-        <p className="text-xs">Tel: (021) 1234-5678</p>
+        <p className="text-xs mt-1">{storeAddress}</p>
+        <p className="text-xs">Tel: {storePhone}</p>
       </div>
 
       {/* Transaction Info */}
@@ -105,7 +115,7 @@ export function Receipt({ data }: ReceiptProps) {
       <div className="text-xs space-y-1 border-b border-dashed border-gray-400 pb-3 mb-3">
         <div className="flex justify-between">
           <span>Pembayaran:</span>
-          <span>{data.paymentMethod}</span>
+          <span>{paymentLabel}</span>
         </div>
         {data.cashReceived && (
           <>
@@ -118,6 +128,23 @@ export function Receipt({ data }: ReceiptProps) {
               <span>{formatRupiah(data.change || 0)}</span>
             </div>
           </>
+        )}
+        {data.paymentMethod === 'transfer' && data.bankInfo && (
+          <div className="mt-2 pt-2 border-t border-gray-300">
+            <p className="font-semibold mb-1">Transfer ke:</p>
+            <div className="flex justify-between">
+              <span>Bank:</span>
+              <span>{data.bankInfo.bankName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>No. Rek:</span>
+              <span className="font-mono">{data.bankInfo.accountNumber}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>A/N:</span>
+              <span>{data.bankInfo.accountHolder}</span>
+            </div>
+          </div>
         )}
       </div>
 

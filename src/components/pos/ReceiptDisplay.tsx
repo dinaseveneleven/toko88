@@ -22,23 +22,37 @@ const formatRupiah = (num: number) => {
   }).format(num);
 };
 
+const paymentMethodLabels: Record<string, string> = {
+  'cash': 'Tunai',
+  'qris': 'QRIS',
+  'transfer': 'Transfer Bank',
+};
+
 export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: ReceiptDisplayProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null);
+  const [storeInfo, setStoreInfo] = useState<{ address: string; phone: string } | null>(null);
 
   useEffect(() => {
-    const fetchPublicUrl = async () => {
+    const fetchSettings = async () => {
       const { data } = await supabase
         .from('app_settings')
-        .select('value')
-        .eq('key', 'public_invoice_base_url')
-        .single();
+        .select('key, value');
       
-      setPublicBaseUrl(data?.value || null);
+      const settings = data?.reduce((acc, item) => {
+        acc[item.key] = item.value || '';
+        return acc;
+      }, {} as Record<string, string>) || {};
+      
+      setPublicBaseUrl(settings['public_invoice_base_url'] || null);
+      setStoreInfo({
+        address: settings['store_address'] || 'Jl. Raya No. 88, Jakarta',
+        phone: settings['store_phone'] || '(021) 1234-5678',
+      });
     };
     
     if (open) {
-      fetchPublicUrl();
+      fetchSettings();
     }
   }, [open]);
 
@@ -49,17 +63,22 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const baseUrl = publicBaseUrl || window.location.origin;
   const showWarning = !publicBaseUrl && isPreviewUrl;
 
+  const storeAddress = storeInfo?.address || receipt.storeInfo?.address || 'Jl. Raya No. 88, Jakarta';
+  const storePhone = storeInfo?.phone || receipt.storeInfo?.phone || '(021) 1234-5678';
+  const paymentLabel = paymentMethodLabels[receipt.paymentMethod] || receipt.paymentMethod;
+
   const generateReceiptText = () => {
     const lines = [
       '================================',
       '         TOKO 88',
-      '    Jl. Raya No. 88, Jakarta',
-      '      Tel: (021) 1234-5678',
+      `    ${storeAddress}`,
+      `      Tel: ${storePhone}`,
       '================================',
       '',
       `No: ${receipt.id}`,
       `Tanggal: ${receipt.timestamp.toLocaleDateString('id-ID')}`,
       `Waktu: ${receipt.timestamp.toLocaleTimeString('id-ID')}`,
+      ...(receipt.customerName ? [`Pelanggan: ${receipt.customerName}`] : []),
       '',
       '--------------------------------',
       ...receipt.items.map(item => {
@@ -71,10 +90,17 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
       ...(receipt.discount > 0 ? [`Diskon: -${formatRupiah(receipt.discount)}`] : []),
       `TOTAL: ${formatRupiah(receipt.total)}`,
       '',
-      `Pembayaran: ${receipt.paymentMethod}`,
+      `Pembayaran: ${paymentLabel}`,
       ...(receipt.cashReceived ? [
         `Tunai: ${formatRupiah(receipt.cashReceived)}`,
         `Kembalian: ${formatRupiah(receipt.change || 0)}`
+      ] : []),
+      ...(receipt.paymentMethod === 'transfer' && receipt.bankInfo ? [
+        '',
+        'Transfer ke:',
+        `Bank: ${receipt.bankInfo.bankName}`,
+        `No. Rek: ${receipt.bankInfo.accountNumber}`,
+        `A/N: ${receipt.bankInfo.accountHolder}`,
       ] : []),
       '',
       '================================',

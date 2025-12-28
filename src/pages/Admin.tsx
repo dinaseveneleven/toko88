@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2, Link, Save } from 'lucide-react';
+import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2, Link, Save, MapPin, Phone, Building2, CreditCard, Upload, Image } from 'lucide-react';
 
 type AppRole = 'admin' | 'cashier';
 
@@ -47,6 +47,22 @@ export default function Admin() {
   const [publicInvoiceUrl, setPublicInvoiceUrl] = useState('');
   const [isSavingUrl, setIsSavingUrl] = useState(false);
 
+  // Store info settings
+  const [storeAddress, setStoreAddress] = useState('');
+  const [storePhone, setStorePhone] = useState('');
+  const [isSavingStoreInfo, setIsSavingStoreInfo] = useState(false);
+
+  // Bank transfer settings
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountHolder, setBankAccountHolder] = useState('');
+  const [isSavingBank, setIsSavingBank] = useState(false);
+
+  // QRIS image
+  const [qrisImageUrl, setQrisImageUrl] = useState('');
+  const [isUploadingQris, setIsUploadingQris] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (!isLoadingRole && !isAdmin) {
       toast.error('Akses ditolak. Hanya admin yang dapat mengakses halaman ini.');
@@ -57,38 +73,49 @@ export default function Admin() {
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
-      fetchPublicInvoiceUrl();
+      fetchAllSettings();
     }
   }, [isAdmin]);
 
-  const fetchPublicInvoiceUrl = async () => {
+  const fetchAllSettings = async () => {
     try {
       const { data, error } = await supabase
         .from('app_settings')
-        .select('value')
-        .eq('key', 'public_invoice_base_url')
-        .single();
+        .select('key, value');
       
-      if (error && error.code !== 'PGRST116') throw error;
-      setPublicInvoiceUrl(data?.value || '');
+      if (error) throw error;
+      
+      const settings = data?.reduce((acc, item) => {
+        acc[item.key] = item.value || '';
+        return acc;
+      }, {} as Record<string, string>) || {};
+
+      setPublicInvoiceUrl(settings['public_invoice_base_url'] || '');
+      setStoreAddress(settings['store_address'] || '');
+      setStorePhone(settings['store_phone'] || '');
+      setBankName(settings['bank_name'] || '');
+      setBankAccountNumber(settings['bank_account_number'] || '');
+      setBankAccountHolder(settings['bank_account_holder'] || '');
+      setQrisImageUrl(settings['qris_image_url'] || '');
     } catch (error) {
-      console.error('Error fetching public invoice URL:', error);
+      console.error('Error fetching settings:', error);
     }
+  };
+
+  const updateSetting = async (key: string, value: string | null) => {
+    const { error } = await supabase
+      .from('app_settings')
+      .update({ value, updated_at: new Date().toISOString() })
+      .eq('key', key);
+    
+    if (error) throw error;
   };
 
   const handleSavePublicUrl = async () => {
     setIsSavingUrl(true);
     try {
-      // Normalize URL: remove trailing slash
       const normalizedUrl = publicInvoiceUrl.trim().replace(/\/$/, '');
-      
-      const { error } = await supabase
-        .from('app_settings')
-        .update({ value: normalizedUrl || null, updated_at: new Date().toISOString() })
-        .eq('key', 'public_invoice_base_url');
-      
-      if (error) throw error;
-      
+      await updateSetting('public_invoice_base_url', normalizedUrl || null);
       setPublicInvoiceUrl(normalizedUrl);
       toast.success('URL struk publik berhasil disimpan');
     } catch (error) {
@@ -96,6 +123,92 @@ export default function Admin() {
       toast.error('Gagal menyimpan URL');
     } finally {
       setIsSavingUrl(false);
+    }
+  };
+
+  const handleSaveStoreInfo = async () => {
+    setIsSavingStoreInfo(true);
+    try {
+      await Promise.all([
+        updateSetting('store_address', storeAddress.trim() || null),
+        updateSetting('store_phone', storePhone.trim() || null),
+      ]);
+      toast.success('Informasi toko berhasil disimpan');
+    } catch (error) {
+      console.error('Error saving store info:', error);
+      toast.error('Gagal menyimpan informasi toko');
+    } finally {
+      setIsSavingStoreInfo(false);
+    }
+  };
+
+  const handleSaveBankInfo = async () => {
+    setIsSavingBank(true);
+    try {
+      await Promise.all([
+        updateSetting('bank_name', bankName.trim() || null),
+        updateSetting('bank_account_number', bankAccountNumber.trim() || null),
+        updateSetting('bank_account_holder', bankAccountHolder.trim() || null),
+      ]);
+      toast.success('Informasi bank berhasil disimpan');
+    } catch (error) {
+      console.error('Error saving bank info:', error);
+      toast.error('Gagal menyimpan informasi bank');
+    } finally {
+      setIsSavingBank(false);
+    }
+  };
+
+  const handleQrisUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('File harus berupa gambar');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Ukuran file maksimal 2MB');
+      return;
+    }
+
+    setIsUploadingQris(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `qris.${fileExt}`;
+
+      // Delete existing QRIS image if exists
+      await supabase.storage.from('qris').remove([fileName]);
+
+      // Upload new image
+      const { error: uploadError } = await supabase.storage
+        .from('qris')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('qris')
+        .getPublicUrl(fileName);
+
+      const imageUrl = urlData.publicUrl + '?t=' + Date.now(); // Cache bust
+
+      // Save URL to settings
+      await updateSetting('qris_image_url', imageUrl);
+      setQrisImageUrl(imageUrl);
+      toast.success('Gambar QRIS berhasil diupload');
+    } catch (error) {
+      console.error('Error uploading QRIS:', error);
+      toast.error('Gagal mengupload gambar QRIS');
+    } finally {
+      setIsUploadingQris(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -108,10 +221,9 @@ export default function Admin() {
       
       if (error) throw error;
 
-      // Get user emails from auth (we can only see users with roles)
       const usersWithRoles: UserWithRole[] = rolesData.map(r => ({
         id: r.user_id,
-        email: '', // We'll need to store this separately or use a profiles table
+        email: '',
         role: r.role as AppRole,
         created_at: r.created_at
       }));
@@ -140,7 +252,6 @@ export default function Admin() {
 
     setIsCreating(true);
     try {
-      // Create user via Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newEmail,
         password: newPassword,
@@ -159,7 +270,6 @@ export default function Admin() {
         return;
       }
 
-      // Assign role to the new user
       const { error: roleError } = await supabase
         .from('user_roles')
         .insert({
@@ -245,7 +355,7 @@ export default function Admin() {
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
-                <h1 className="font-bold text-xl">Kelola Pengguna</h1>
+                <h1 className="font-bold text-xl">Pengaturan Admin</h1>
                 <p className="text-xs text-muted-foreground">Admin Panel</p>
               </div>
             </div>
@@ -254,6 +364,152 @@ export default function Admin() {
       </header>
 
       <main className="container max-w-4xl mx-auto px-4 py-6 space-y-8">
+        {/* Store Info Settings */}
+        <section className="pos-card p-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            <MapPin className="w-5 h-5" />
+            Informasi Toko
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Alamat dan nomor telepon yang akan tampil di struk
+          </p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Alamat Toko</label>
+              <Input
+                type="text"
+                placeholder="Jl. Raya No. 88, Jakarta"
+                value={storeAddress}
+                onChange={(e) => setStoreAddress(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Nomor Telepon</label>
+              <div className="flex gap-2">
+                <Input
+                  type="tel"
+                  placeholder="(021) 1234-5678"
+                  value={storePhone}
+                  onChange={(e) => setStorePhone(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={handleSaveStoreInfo} disabled={isSavingStoreInfo}>
+                  {isSavingStoreInfo ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Simpan
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* QRIS Image Upload */}
+        <section className="pos-card p-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            <Image className="w-5 h-5" />
+            Gambar QRIS
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Upload gambar QRIS untuk ditampilkan saat pelanggan memilih pembayaran QRIS
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+            {qrisImageUrl && (
+              <div className="w-40 h-40 border border-border rounded-lg overflow-hidden bg-white flex items-center justify-center">
+                <img 
+                  src={qrisImageUrl} 
+                  alt="QRIS" 
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+            )}
+            <div className="flex-1 space-y-2">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleQrisUpload}
+                ref={fileInputRef}
+                className="hidden"
+              />
+              <Button 
+                onClick={() => fileInputRef.current?.click()} 
+                disabled={isUploadingQris}
+                variant="outline"
+              >
+                {isUploadingQris ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Upload className="w-4 h-4 mr-2" />
+                )}
+                {qrisImageUrl ? 'Ganti Gambar' : 'Upload Gambar'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Format: JPG, PNG. Maksimal 2MB
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Bank Transfer Settings */}
+        <section className="pos-card p-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            <Building2 className="w-5 h-5" />
+            Informasi Transfer Bank
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Informasi rekening untuk pembayaran transfer
+          </p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Nama Bank</label>
+              <Input
+                type="text"
+                placeholder="BCA, Mandiri, BRI, dll"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Nomor Rekening</label>
+              <Input
+                type="text"
+                placeholder="1234567890"
+                value={bankAccountNumber}
+                onChange={(e) => setBankAccountNumber(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Atas Nama</label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Nama pemilik rekening"
+                  value={bankAccountHolder}
+                  onChange={(e) => setBankAccountHolder(e.target.value)}
+                  className="flex-1"
+                />
+                <Button onClick={handleSaveBankInfo} disabled={isSavingBank}>
+                  {isSavingBank ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Simpan
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Public Invoice URL Setting */}
         <section className="pos-card p-6">
           <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
