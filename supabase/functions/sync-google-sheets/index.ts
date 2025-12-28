@@ -156,7 +156,7 @@ serve(async (req) => {
         new Date(receipt.timestamp).toLocaleString("id-ID"),
         itemsSummary,
         receipt.subtotal,
-        receipt.tax,
+        receipt.discount,
         receipt.total,
         receipt.paymentMethod,
         receipt.cashReceived || "",
