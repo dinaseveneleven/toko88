@@ -1,0 +1,185 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Google Sheets API helper
+async function getAccessToken(email: string, privateKey: string): Promise<string> {
+  const header = { alg: "RS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const claim = {
+    iss: email,
+    scope: "https://www.googleapis.com/auth/spreadsheets",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const encoder = new TextEncoder();
+  const headerB64 = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const claimB64 = btoa(JSON.stringify(claim)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const unsignedToken = `${headerB64}.${claimB64}`;
+
+  // Import private key and sign
+  const pemContents = privateKey
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\n/g, '');
+  
+  const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryDer,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    encoder.encode(unsignedToken)
+  );
+
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const jwt = `${unsignedToken}.${signatureB64}`;
+
+  // Exchange JWT for access token
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenResponse.ok) {
+    console.error("Token exchange failed:", tokenData);
+    throw new Error(`Failed to get access token: ${tokenData.error_description || tokenData.error}`);
+  }
+
+  return tokenData.access_token;
+}
+
+async function getSheetData(accessToken: string, sheetId: string, range: string): Promise<any[][]> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("Failed to get sheet data:", error);
+    throw new Error(`Failed to get sheet data: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.values || [];
+}
+
+async function appendSheetData(accessToken: string, sheetId: string, range: string, values: any[][]): Promise<void> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ values }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("Failed to append sheet data:", error);
+    throw new Error(`Failed to append data: ${error}`);
+  }
+}
+
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const email = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL");
+    const privateKey = Deno.env.get("GOOGLE_PRIVATE_KEY");
+    const sheetId = Deno.env.get("GOOGLE_SHEET_ID");
+
+    if (!email || !privateKey || !sheetId) {
+      throw new Error("Missing Google Sheets configuration");
+    }
+
+    // Parse the private key (handle escaped newlines)
+    const formattedKey = privateKey.replace(/\\n/g, '\n');
+
+    const { action, data } = await req.json();
+    console.log(`Processing action: ${action}`);
+
+    const accessToken = await getAccessToken(email, formattedKey);
+
+    if (action === "getProducts") {
+      // Get products from Products sheet
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:F");
+      
+      const products = rows.map((row, index) => ({
+        id: row[0] || String(index + 1),
+        name: row[1] || "",
+        retailPrice: parseFloat(row[2]) || 0,
+        bulkPrice: parseFloat(row[3]) || 0,
+        stock: parseInt(row[4]) || 0,
+        category: row[5] || "Lainnya",
+      }));
+
+      console.log(`Fetched ${products.length} products from sheet`);
+
+      return new Response(JSON.stringify({ products }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "addTransaction") {
+      // Add transaction to Transactions sheet
+      const { receipt } = data;
+      
+      // Format items for the sheet
+      const itemsSummary = receipt.items.map((item: any) => 
+        `${item.product.name} x${item.quantity} (${item.priceType === 'retail' ? 'Eceran' : 'Grosir'})`
+      ).join("; ");
+
+      const row = [
+        receipt.id,
+        new Date(receipt.timestamp).toLocaleString("id-ID"),
+        itemsSummary,
+        receipt.subtotal,
+        receipt.tax,
+        receipt.total,
+        receipt.paymentMethod,
+        receipt.cashReceived || "",
+        receipt.change || "",
+        receipt.customerPhone || "",
+      ];
+
+      await appendSheetData(accessToken, sheetId, "Transactions!A:J", [row]);
+      console.log(`Transaction ${receipt.id} added to sheet`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    throw new Error(`Unknown action: ${action}`);
+
+  } catch (error) {
+    console.error("Error in sync-google-sheets:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
