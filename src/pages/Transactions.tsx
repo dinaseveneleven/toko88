@@ -62,6 +62,9 @@ export default function Transactions() {
   const [sendingWhatsApp, setSendingWhatsApp] = useState<string | null>(null);
 
   useEffect(() => {
+    // Wait for auth to be determined (not null)
+    if (isAuthenticated === null) return;
+    
     if (!isAuthenticated) {
       navigate('/login');
       return;
