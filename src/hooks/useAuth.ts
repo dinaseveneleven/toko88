@@ -36,6 +36,14 @@ export function useAuth() {
     }
   }, []);
 
+  // Define public routes that don't require authentication
+  const isPublicRoute = (pathname: string) => {
+    const publicRoutes = ['/login', '/invoice'];
+    return publicRoutes.some(route => 
+      pathname === route || pathname.startsWith(`${route}/`)
+    );
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -52,7 +60,7 @@ export function useAuth() {
         setIsLoadingRole(false);
       }
       
-      if (!session && location.pathname !== '/login') {
+      if (!session && !isPublicRoute(location.pathname)) {
         navigate('/login');
       }
     });
@@ -68,7 +76,7 @@ export function useAuth() {
         setIsLoadingRole(false);
       }
       
-      if (!session && location.pathname !== '/login') {
+      if (!session && !isPublicRoute(location.pathname)) {
         navigate('/login');
       }
     });
