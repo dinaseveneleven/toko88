@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Save, Lock, RefreshCw, Edit2, Check, X, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Save, Lock, RefreshCw, Edit2, Check, X, Search, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import type { Product } from '@/types/pos';
+
+const LOW_STOCK_THRESHOLD = 5;
 
 const PASSCODE = "8888";
 
@@ -295,28 +298,20 @@ export default function Inventory() {
                 />
               </div>
               
-              {/* Category Filter */}
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                <Button
-                  variant={selectedCategory === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedCategory('all')}
-                  className="whitespace-nowrap"
-                >
-                  Semua
-                </Button>
-                {categories.map(category => (
-                  <Button
-                    key={category}
-                    variant={selectedCategory === category ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedCategory(category)}
-                    className="whitespace-nowrap"
-                  >
-                    {category}
-                  </Button>
-                ))}
-              </div>
+              {/* Category Filter Dropdown */}
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Kategori</SelectItem>
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Header Row - Desktop */}
@@ -338,12 +333,17 @@ export default function Inventory() {
               const edited = editedProducts[product.id];
               const isEditing = editingProductId === product.id;
               const isChanged = hasProductChanges(product);
+              const currentStock = edited?.stock ?? product.stock;
+              const isLowStock = currentStock > 0 && currentStock <= LOW_STOCK_THRESHOLD;
+              const isOutOfStock = currentStock === 0;
               
               return (
                 <div 
                   key={product.id}
                   className={`bg-card rounded-xl border p-4 transition-colors ${
-                    isChanged ? 'border-primary bg-primary/5' : 'border-border'
+                    isChanged ? 'border-primary bg-primary/5' : 
+                    isOutOfStock ? 'border-destructive/50 bg-destructive/5' :
+                    isLowStock ? 'border-yellow-500/50 bg-yellow-500/5' : 'border-border'
                   }`}
                 >
                   {/* Desktop Layout */}
@@ -351,6 +351,16 @@ export default function Inventory() {
                     {/* Product Name */}
                     <div className="col-span-3">
                       <p className="font-medium">{product.name}</p>
+                      {isOutOfStock && (
+                        <span className="inline-flex items-center gap-1 text-xs text-destructive mt-1">
+                          <AlertTriangle className="w-3 h-3" /> Stok Habis
+                        </span>
+                      )}
+                      {isLowStock && !isOutOfStock && (
+                        <span className="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500 mt-1">
+                          <AlertTriangle className="w-3 h-3" /> Stok Rendah
+                        </span>
+                      )}
                     </div>
                     
                     {/* Modal / Purchase Price */}
@@ -472,9 +482,21 @@ export default function Inventory() {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="font-medium">{product.name}</p>
-                        <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
-                          {product.category}
-                        </span>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
+                            {product.category}
+                          </span>
+                          {isOutOfStock && (
+                            <span className="inline-flex items-center gap-1 text-xs text-destructive">
+                              <AlertTriangle className="w-3 h-3" /> Stok Habis
+                            </span>
+                          )}
+                          {isLowStock && !isOutOfStock && (
+                            <span className="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500">
+                              <AlertTriangle className="w-3 h-3" /> Stok Rendah
+                            </span>
+                          )}
+                        </div>
                       </div>
                       {isEditing ? (
                         <div className="flex gap-1">
