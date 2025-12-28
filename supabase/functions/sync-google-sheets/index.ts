@@ -134,6 +134,23 @@ async function updateSheetData(accessToken: string, sheetId: string, range: stri
   }
 }
 
+// Helper to parse Indonesian Rupiah format (e.g., "Rp18,000" or "Rp 18.000")
+function parseRupiah(value: string | number): number {
+  if (typeof value === 'number') return value;
+  if (!value) return 0;
+  
+  // Remove "Rp", "IDR", spaces, dots (thousand separator), and commas
+  const cleaned = String(value)
+    .replace(/Rp\.?/gi, '')
+    .replace(/IDR/gi, '')
+    .replace(/\s/g, '')
+    .replace(/\./g, '') // Indonesian thousand separator
+    .replace(/,/g, '')  // Alternative thousand separator
+    .trim();
+  
+  return parseFloat(cleaned) || 0;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -175,10 +192,10 @@ serve(async (req) => {
       const products = rows.map((row, index) => ({
         id: row[0] || String(index + 1),
         name: row[1] || "",
-        retailPrice: parseFloat(row[2]) || 0,
-        bulkPrice: parseFloat(row[3]) || 0,
-        purchasePrice: parseFloat(row[4]) || 0, // Harga Beli / Modal
-        stock: parseInt(row[5]) || 0,
+        retailPrice: parseRupiah(row[2]),
+        bulkPrice: parseRupiah(row[3]),
+        purchasePrice: parseRupiah(row[4]), // Harga Beli / Modal
+        stock: parseInt(String(row[5]).replace(/[^\d]/g, '')) || 0,
         category: row[6] || "Lainnya",
       }));
 
