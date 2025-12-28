@@ -37,12 +37,16 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
   const [receiptMethod, setReceiptMethod] = useState<ReceiptDeliveryMethod | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState('');
 
+  const [discountPercent, setDiscountPercent] = useState('');
+
   const subtotal = items.reduce((sum, item) => {
     const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
     return sum + price * item.quantity;
   }, 0);
-  const tax = 0; // No tax for now
-  const total = subtotal + tax;
+  
+  const discountValue = parseInt(discountPercent) || 0;
+  const discountAmount = Math.round(subtotal * (discountValue / 100));
+  const total = subtotal - discountAmount;
 
   const cashValue = parseInt(cashReceived.replace(/\D/g, '')) || 0;
   const change = cashValue - total;
@@ -75,7 +79,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
       id: generateReceiptId(),
       items,
       subtotal,
-      tax,
+      discount: discountAmount,
       total,
       paymentMethod,
       cashReceived: paymentMethod === 'Tunai' ? cashValue : undefined,
@@ -92,6 +96,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
     setStep('payment');
     setPaymentMethod(null);
     setCashReceived('');
+    setDiscountPercent('');
     setReceiptMethod(null);
     setWhatsappNumber('');
     onClose();
@@ -131,8 +136,29 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
 
         {/* Total Display */}
         <div className="bg-secondary/50 rounded-xl p-4 mb-4">
-          <p className="text-sm text-muted-foreground">Total Pembayaran</p>
-          <p className="font-mono text-3xl font-bold text-primary">{formatRupiah(total)}</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-muted-foreground">Subtotal</p>
+            <p className="font-mono text-lg">{formatRupiah(subtotal)}</p>
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-sm text-muted-foreground">Diskon (%)</p>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={discountPercent}
+              onChange={(e) => setDiscountPercent(e.target.value)}
+              placeholder="0"
+              className="w-16 h-8 px-2 rounded-lg bg-background border border-border text-center font-mono text-sm"
+            />
+            {discountAmount > 0 && (
+              <span className="text-sm text-pos-retail">-{formatRupiah(discountAmount)}</span>
+            )}
+          </div>
+          <div className="border-t border-border pt-2">
+            <p className="text-sm text-muted-foreground">Total Pembayaran</p>
+            <p className="font-mono text-3xl font-bold text-primary">{formatRupiah(total)}</p>
+          </div>
         </div>
 
         {/* Payment Selection */}

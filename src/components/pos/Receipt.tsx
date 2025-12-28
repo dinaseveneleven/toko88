@@ -83,10 +83,12 @@ export function Receipt({ data }: ReceiptProps) {
           <span>Subtotal:</span>
           <span>{formatRupiah(data.subtotal)}</span>
         </div>
-        <div className="flex justify-between">
-          <span>Pajak (0%):</span>
-          <span>{formatRupiah(data.tax)}</span>
-        </div>
+        {data.discount > 0 && (
+          <div className="flex justify-between text-green-600">
+            <span>Diskon:</span>
+            <span>-{formatRupiah(data.discount)}</span>
+          </div>
+        )}
         <div className="flex justify-between font-bold text-sm mt-2 pt-2 border-t border-gray-300">
           <span>TOTAL:</span>
           <span>{formatRupiah(data.total)}</span>

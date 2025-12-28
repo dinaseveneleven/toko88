@@ -17,7 +17,7 @@ export interface ReceiptData {
   id: string;
   items: CartItem[];
   subtotal: number;
-  tax: number;
+  discount: number;
   total: number;
   paymentMethod: string;
   cashReceived?: number;

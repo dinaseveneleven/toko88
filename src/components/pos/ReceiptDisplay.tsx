@@ -45,7 +45,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
       }),
       '--------------------------------',
       `Subtotal: ${formatRupiah(receipt.subtotal)}`,
-      `Pajak: ${formatRupiah(receipt.tax)}`,
+      ...(receipt.discount > 0 ? [`Diskon: -${formatRupiah(receipt.discount)}`] : []),
       `TOTAL: ${formatRupiah(receipt.total)}`,
       '',
       `Pembayaran: ${receipt.paymentMethod}`,
