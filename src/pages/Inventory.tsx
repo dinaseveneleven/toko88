@@ -102,7 +102,7 @@ export default function Inventory() {
               </div>
             </div>
             
-            <h1 className="text-2xl font-bold text-center mb-2">Inventaris</h1>
+            <h1 className="text-2xl font-bold text-center mb-2">Inventory</h1>
             <p className="text-muted-foreground text-center mb-6">
               Masukkan passcode untuk mengakses
             </p>
@@ -148,7 +148,7 @@ export default function Inventory() {
             <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <h1 className="text-xl font-bold">Inventaris</h1>
+            <h1 className="text-xl font-bold">Inventory</h1>
           </div>
           
           <div className="flex items-center gap-2">
