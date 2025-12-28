@@ -9,10 +9,12 @@ import { SearchBar } from '@/components/pos/SearchBar';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
-import { Store, RefreshCw } from 'lucide-react';
+import { Store, RefreshCw, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { loading: sheetsLoading, fetchProducts, saveTransaction } = useGoogleSheets();
   
@@ -148,6 +150,15 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/inventory')}
+                className="gap-2"
+              >
+                <Package className="w-4 h-4" />
+                Inventaris
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm"
