@@ -1,3 +1,11 @@
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 interface CategoryFilterProps {
   categories: string[];
   selected: string | null;
@@ -6,30 +14,21 @@ interface CategoryFilterProps {
 
 export function CategoryFilter({ categories, selected, onSelect }: CategoryFilterProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-      <button
-        onClick={() => onSelect(null)}
-        className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-          selected === null
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'
-        }`}
-      >
-        Semua
-      </button>
-      {categories.map((category) => (
-        <button
-          key={category}
-          onClick={() => onSelect(category)}
-          className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
-            selected === category
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary/50 text-muted-foreground hover:bg-secondary'
-          }`}
-        >
-          {category}
-        </button>
-      ))}
-    </div>
+    <Select
+      value={selected ?? "all"}
+      onValueChange={(value) => onSelect(value === "all" ? null : value)}
+    >
+      <SelectTrigger className="w-[200px] bg-card">
+        <SelectValue placeholder="Pilih Kategori" />
+      </SelectTrigger>
+      <SelectContent className="bg-card z-50">
+        <SelectItem value="all">Semua Kategori</SelectItem>
+        {categories.map((category) => (
+          <SelectItem key={category} value={category}>
+            {category}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
