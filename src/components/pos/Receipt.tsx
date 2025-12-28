@@ -1,0 +1,127 @@
+import { ReceiptData } from '@/types/pos';
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
+
+interface ReceiptProps {
+  data: ReceiptData;
+}
+
+const formatRupiah = (num: number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+  }).format(num);
+};
+
+export function Receipt({ data }: ReceiptProps) {
+  return (
+    <div className="receipt-paper text-gray-900 p-6 rounded-lg max-w-xs mx-auto">
+      {/* Header */}
+      <div className="text-center border-b-2 border-dashed border-gray-400 pb-4 mb-4">
+        <h1 className="text-xl font-bold tracking-wide">TOKO 88</h1>
+        <p className="text-xs mt-1">Jl. Raya No. 88, Jakarta</p>
+        <p className="text-xs">Tel: (021) 1234-5678</p>
+      </div>
+
+      {/* Transaction Info */}
+      <div className="text-xs border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="flex justify-between">
+          <span>No:</span>
+          <span className="font-semibold">{data.id}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Tanggal:</span>
+          <span>{format(data.timestamp, 'dd MMM yyyy', { locale: id })}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Waktu:</span>
+          <span>{format(data.timestamp, 'HH:mm:ss')}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Kasir:</span>
+          <span>Admin</span>
+        </div>
+      </div>
+
+      {/* Items */}
+      <div className="border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="text-xs font-semibold flex justify-between mb-2 text-gray-600">
+          <span className="flex-1">Item</span>
+          <span className="w-16 text-right">Qty</span>
+          <span className="w-20 text-right">Total</span>
+        </div>
+        {data.items.map((item, idx) => {
+          const price = item.priceType === 'retail' 
+            ? item.product.retailPrice 
+            : item.product.bulkPrice;
+          const total = price * item.quantity;
+          
+          return (
+            <div key={idx} className="text-xs mb-2">
+              <div className="flex justify-between">
+                <span className="flex-1 truncate pr-2">
+                  {item.product.name}
+                  <span className="text-gray-500 ml-1">
+                    ({item.priceType === 'retail' ? 'E' : 'G'})
+                  </span>
+                </span>
+                <span className="w-16 text-right">{item.quantity}x</span>
+                <span className="w-20 text-right">{formatRupiah(total)}</span>
+              </div>
+              <div className="text-gray-500 text-right">
+                @ {formatRupiah(price)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Totals */}
+      <div className="text-xs space-y-1 border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="flex justify-between">
+          <span>Subtotal:</span>
+          <span>{formatRupiah(data.subtotal)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Pajak (0%):</span>
+          <span>{formatRupiah(data.tax)}</span>
+        </div>
+        <div className="flex justify-between font-bold text-sm mt-2 pt-2 border-t border-gray-300">
+          <span>TOTAL:</span>
+          <span>{formatRupiah(data.total)}</span>
+        </div>
+      </div>
+
+      {/* Payment */}
+      <div className="text-xs space-y-1 border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="flex justify-between">
+          <span>Pembayaran:</span>
+          <span>{data.paymentMethod}</span>
+        </div>
+        {data.cashReceived && (
+          <>
+            <div className="flex justify-between">
+              <span>Tunai:</span>
+              <span>{formatRupiah(data.cashReceived)}</span>
+            </div>
+            <div className="flex justify-between font-semibold">
+              <span>Kembalian:</span>
+              <span>{formatRupiah(data.change || 0)}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="text-center text-xs text-gray-600 mt-4">
+        <p className="font-semibold">Terima Kasih!</p>
+        <p>Barang yang sudah dibeli</p>
+        <p>tidak dapat ditukar/dikembalikan</p>
+        <div className="mt-3 pt-3 border-t border-dashed border-gray-400">
+          <p>*** SIMPAN STRUK INI ***</p>
+        </div>
+      </div>
+    </div>
+  );
+}
