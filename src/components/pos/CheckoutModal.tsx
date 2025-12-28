@@ -40,9 +40,12 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
 
   const [discountPercent, setDiscountPercent] = useState('');
 
+  // Subtotal now includes item-level discounts
   const subtotal = items.reduce((sum, item) => {
     const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
-    return sum + price * item.quantity;
+    const itemDiscount = item.discount || 0;
+    const discountedPrice = price * (1 - itemDiscount / 100);
+    return sum + discountedPrice * item.quantity;
   }, 0);
   
   const discountValue = parseInt(discountPercent) || 0;
