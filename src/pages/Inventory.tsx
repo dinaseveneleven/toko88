@@ -1,16 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Save, Lock, RefreshCw, Edit2, Check, X, Search, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
+import { useAuth } from '@/hooks/useAuth';
 import type { Product } from '@/types/pos';
 
 const LOW_STOCK_THRESHOLD = 5;
-
-const PASSCODE = "8888";
 
 const formatRupiah = (amount: number): string => {
   return new Intl.NumberFormat('id-ID', {
@@ -32,9 +31,8 @@ export default function Inventory() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { fetchProducts, updateInventory, loading: isLoading } = useGoogleSheets();
+  const { isAuthenticated } = useAuth();
   
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passcodeInput, setPasscodeInput] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [editedProducts, setEditedProducts] = useState<Record<string, EditedProduct>>({});
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -57,19 +55,12 @@ export default function Inventory() {
     });
   }, [products, searchQuery, selectedCategory]);
 
-  const handlePasscodeSubmit = () => {
-    if (passcodeInput === PASSCODE) {
-      setIsAuthenticated(true);
+  // Load products when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
       loadProducts();
-    } else {
-      toast({
-        title: "Kode Salah",
-        description: "Passcode yang dimasukkan tidak valid",
-        variant: "destructive",
-      });
-      setPasscodeInput('');
     }
-  };
+  }, [isAuthenticated]);
 
   const loadProducts = async () => {
     const fetchedProducts = await fetchProducts();
@@ -148,7 +139,6 @@ export default function Inventory() {
   };
 
   const handleSaveChanges = async () => {
-    // Build the list of changed products
     const inventoryUpdates = products
       .filter(p => hasProductChanges(p))
       .map(p => ({
@@ -171,7 +161,6 @@ export default function Inventory() {
         title: "Berhasil",
         description: `${inventoryUpdates.length} produk berhasil diperbarui`,
       });
-      // Reload products to get the updated state
       await loadProducts();
     } else {
       toast({
@@ -182,56 +171,11 @@ export default function Inventory() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handlePasscodeSubmit();
-    }
-  };
-
-  if (!isAuthenticated) {
+  // Show loading while checking auth
+  if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <div className="bg-card rounded-2xl shadow-xl p-8 border border-border">
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-                <Lock className="w-8 h-8 text-primary" />
-              </div>
-            </div>
-            
-            <h1 className="text-2xl font-bold text-center mb-2">Inventory</h1>
-            <p className="text-muted-foreground text-center mb-6">
-              Masukkan passcode untuk mengakses
-            </p>
-            
-            <Input
-              type="password"
-              placeholder="Masukkan passcode"
-              value={passcodeInput}
-              onChange={(e) => setPasscodeInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="text-center text-2xl tracking-widest mb-4"
-              maxLength={10}
-            />
-            
-            <Button 
-              onClick={handlePasscodeSubmit} 
-              className="w-full"
-              size="lg"
-            >
-              Masuk
-            </Button>
-            
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/')}
-              className="w-full mt-4"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Kembali ke POS
-            </Button>
-          </div>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -462,7 +406,10 @@ export default function Inventory() {
                         type="number"
                         value={edited?.stock ?? product.stock}
                         onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
-                        className="w-16 text-center font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className={`w-16 text-center font-mono text-sm h-8 ${
+                          isOutOfStock ? 'text-destructive' : 
+                          isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
+                        }`}
                         min={0}
                       />
                       
@@ -478,67 +425,45 @@ export default function Inventory() {
                   </div>
 
                   {/* Mobile Layout */}
-                  <div className="lg:hidden space-y-3">
-                    <div className="flex items-start justify-between">
+                  <div className="lg:hidden space-y-4">
+                    {/* Product Name and Category */}
+                    <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-medium">{product.name}</p>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
-                            {product.category}
+                        <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
+                          {product.category}
+                        </span>
+                        {isOutOfStock && (
+                          <span className="inline-flex items-center gap-1 text-xs text-destructive ml-2">
+                            <AlertTriangle className="w-3 h-3" /> Stok Habis
                           </span>
-                          {isOutOfStock && (
-                            <span className="inline-flex items-center gap-1 text-xs text-destructive">
-                              <AlertTriangle className="w-3 h-3" /> Stok Habis
-                            </span>
-                          )}
-                          {isLowStock && !isOutOfStock && (
-                            <span className="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500">
-                              <AlertTriangle className="w-3 h-3" /> Stok Rendah
-                            </span>
-                          )}
-                        </div>
+                        )}
+                        {isLowStock && !isOutOfStock && (
+                          <span className="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-500 ml-2">
+                            <AlertTriangle className="w-3 h-3" /> Stok Rendah
+                          </span>
+                        )}
                       </div>
-                      {isEditing ? (
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => cancelEditing(product.id)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-green-600"
-                            onClick={confirmEditing}
-                          >
-                            <Check className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => startEditing(product.id)}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => isEditing ? confirmEditing() : startEditing(product.id)}
+                      >
+                        {isEditing ? <Check className="w-4 h-4 text-green-600" /> : <Edit2 className="w-4 h-4" />}
+                      </Button>
                     </div>
-                    
+
                     {/* Prices */}
                     <div className="grid grid-cols-3 gap-2 text-sm">
                       <div>
-                        <p className="text-muted-foreground text-xs">Modal</p>
+                        <p className="text-muted-foreground text-xs mb-1">Modal</p>
                         {isEditing ? (
                           <Input
                             type="number"
                             value={edited?.purchasePrice ?? 0}
                             onChange={(e) => handleFieldChange(product.id, 'purchasePrice', parseInt(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs mt-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            className="h-8 text-sm"
                             min={0}
                           />
                         ) : (
@@ -548,13 +473,13 @@ export default function Inventory() {
                         )}
                       </div>
                       <div>
-                        <p className="text-muted-foreground text-xs">Eceran</p>
+                        <p className="text-muted-foreground text-xs mb-1">Eceran</p>
                         {isEditing ? (
                           <Input
                             type="number"
                             value={edited?.retailPrice ?? 0}
                             onChange={(e) => handleFieldChange(product.id, 'retailPrice', parseInt(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs mt-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            className="h-8 text-sm"
                             min={0}
                           />
                         ) : (
@@ -562,13 +487,13 @@ export default function Inventory() {
                         )}
                       </div>
                       <div>
-                        <p className="text-muted-foreground text-xs">Grosir</p>
+                        <p className="text-muted-foreground text-xs mb-1">Grosir</p>
                         {isEditing ? (
                           <Input
                             type="number"
                             value={edited?.bulkPrice ?? 0}
                             onChange={(e) => handleFieldChange(product.id, 'bulkPrice', parseInt(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs mt-1 focus-visible:ring-0 focus-visible:ring-offset-0"
+                            className="h-8 text-sm"
                             min={0}
                           />
                         ) : (
@@ -576,43 +501,50 @@ export default function Inventory() {
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Stock Controls */}
-                    <div className="flex items-center justify-center gap-2 pt-2 border-t border-border">
-                      <span className="text-sm text-muted-foreground mr-2">Stok:</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9"
-                        onClick={() => handleDecrement(product.id)}
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                      
-                      <Input
-                        type="number"
-                        value={edited?.stock ?? product.stock}
-                        onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
-                        className="w-20 text-center font-mono focus-visible:ring-0 focus-visible:ring-offset-0"
-                        min={0}
-                      />
-                      
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9"
-                        onClick={() => handleIncrement(product.id)}
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
+                    <div className="flex items-center justify-between">
+                      <p className="text-muted-foreground text-sm">Stok:</p>
+                      <div className="flex items-center gap-2">
+                        {isEditing && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => cancelEditing(product.id)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleDecrement(product.id)}
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <Input
+                          type="number"
+                          value={edited?.stock ?? product.stock}
+                          onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
+                          className={`w-16 text-center font-mono text-sm h-8 ${
+                            isOutOfStock ? 'text-destructive' : 
+                            isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
+                          }`}
+                          min={0}
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleIncrement(product.id)}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  
-                  {isChanged && (
-                    <div className="mt-2 text-xs text-primary">
-                      ● Ada perubahan yang belum disimpan
-                    </div>
-                  )}
                 </div>
               );
             })}

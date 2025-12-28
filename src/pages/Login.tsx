@@ -4,32 +4,50 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Lock, Store } from 'lucide-react';
 import { toast } from 'sonner';
-
-const CREDENTIALS = {
-  username: 'toko88',
-  password: 'toko8888',
-};
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (username === CREDENTIALS.username && password === CREDENTIALS.password) {
-        sessionStorage.setItem('pos_authenticated', 'true');
-        toast.success('Login berhasil!');
-        navigate('/');
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Akun berhasil dibuat! Silakan login.');
+          setIsSignUp(false);
+        }
       } else {
-        toast.error('Username atau password salah');
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Login berhasil!');
+          navigate('/');
+        }
       }
+    } catch (error) {
+      toast.error('Terjadi kesalahan. Silakan coba lagi.');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -46,14 +64,14 @@ export default function Login() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-sm text-muted-foreground mb-1.5 block">Username</label>
+              <label className="text-sm text-muted-foreground mb-1.5 block">Email</label>
               <Input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Masukkan username"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Masukkan email"
                 className="h-11"
-                autoComplete="username"
+                autoComplete="email"
               />
             </div>
 
@@ -65,19 +83,29 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Masukkan password"
                 className="h-11"
-                autoComplete="current-password"
+                autoComplete={isSignUp ? "new-password" : "current-password"}
               />
             </div>
 
             <Button 
               type="submit" 
               className="w-full h-11 mt-2"
-              disabled={isLoading || !username || !password}
+              disabled={isLoading || !email || !password}
             >
               <Lock className="w-4 h-4 mr-2" />
-              {isLoading ? 'Memproses...' : 'Masuk'}
+              {isLoading ? 'Memproses...' : (isSignUp ? 'Daftar' : 'Masuk')}
             </Button>
           </form>
+
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              onClick={() => setIsSignUp(!isSignUp)}
+            >
+              {isSignUp ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
