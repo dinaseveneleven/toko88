@@ -1,9 +1,78 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Input validation schemas
+const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory'] as const;
+type ValidAction = typeof VALID_ACTIONS[number];
+
+function isValidAction(action: string): action is ValidAction {
+  return VALID_ACTIONS.includes(action as ValidAction);
+}
+
+function sanitizeForSheets(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  // Prefix formulas with single quote to render as text (prevents formula injection)
+  if (str.match(/^[=+@-]/)) {
+    return "'" + str;
+  }
+  return str;
+}
+
+function validatePositiveNumber(value: unknown, fieldName: string, max: number = 100000000): number {
+  if (typeof value !== 'number' || isNaN(value)) {
+    throw new Error(`${fieldName} must be a valid number`);
+  }
+  if (value < 0) {
+    throw new Error(`${fieldName} cannot be negative`);
+  }
+  if (value > max) {
+    throw new Error(`${fieldName} exceeds maximum allowed value`);
+  }
+  return value;
+}
+
+function validateStock(value: unknown): number {
+  if (typeof value !== 'number' || isNaN(value) || !Number.isInteger(value)) {
+    throw new Error('Stock must be a valid integer');
+  }
+  if (value < 0) {
+    throw new Error('Stock cannot be negative');
+  }
+  if (value > 100000) {
+    throw new Error('Stock exceeds maximum allowed value');
+  }
+  return value;
+}
+
+function validateString(value: unknown, fieldName: string, maxLength: number = 200): string {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+  if (value.length > maxLength) {
+    throw new Error(`${fieldName} exceeds maximum length of ${maxLength}`);
+  }
+  return value;
+}
+
+function validatePhoneNumber(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value !== 'string') {
+    throw new Error('Phone number must be a string');
+  }
+  if (value.length > 20) {
+    throw new Error('Phone number is too long');
+  }
+  if (!value.match(/^[0-9+().\-\s]*$/)) {
+    throw new Error('Phone number contains invalid characters');
+  }
+  return value;
+}
 
 // Google Sheets API helper
 async function getAccessToken(email: string, privateKey: string): Promise<string> {
@@ -26,23 +95,19 @@ async function getAccessToken(email: string, privateKey: string): Promise<string
   let pemContents = privateKey
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/\\n/g, '') // Handle escaped newlines (literal \n)
-    .replace(/\n/g, '')  // Handle actual newlines
-    .replace(/\r/g, '')  // Handle carriage returns
-    .replace(/\\/g, '')  // Remove trailing backslashes
-    .replace(/\s/g, '') // Remove any whitespace
+    .replace(/\\n/g, '')
+    .replace(/\n/g, '')
+    .replace(/\r/g, '')
+    .replace(/\\/g, '')
+    .replace(/\s/g, '')
     .trim();
-  
-  console.log("PEM content length after cleanup:", pemContents.length);
   
   // Decode base64 to binary
   let binaryString: string;
   try {
     binaryString = atob(pemContents);
   } catch (e: unknown) {
-    console.error("Base64 decode failed. First 50 chars:", pemContents.substring(0, 50));
-    const message = e instanceof Error ? e.message : String(e);
-    throw new Error(`Invalid private key format: ${message}`);
+    throw new Error("Invalid private key format");
   }
   
   const binaryDer = Uint8Array.from(binaryString, c => c.charCodeAt(0));
@@ -75,8 +140,8 @@ async function getAccessToken(email: string, privateKey: string): Promise<string
 
   const tokenData = await tokenResponse.json();
   if (!tokenResponse.ok) {
-    console.error("Token exchange failed:", tokenData);
-    throw new Error(`Failed to get access token: ${tokenData.error_description || tokenData.error}`);
+    console.error("Token exchange failed");
+    throw new Error("Failed to authenticate with Google");
   }
 
   return tokenData.access_token;
@@ -89,9 +154,8 @@ async function getSheetData(accessToken: string, sheetId: string, range: string)
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error("Failed to get sheet data:", error);
-    throw new Error(`Failed to get sheet data: ${error}`);
+    console.error("Failed to get sheet data");
+    throw new Error("Failed to retrieve data");
   }
 
   const data = await response.json();
@@ -110,9 +174,8 @@ async function appendSheetData(accessToken: string, sheetId: string, range: stri
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error("Failed to append sheet data:", error);
-    throw new Error(`Failed to append data: ${error}`);
+    console.error("Failed to append sheet data");
+    throw new Error("Failed to save data");
   }
 }
 
@@ -128,61 +191,40 @@ async function updateSheetData(accessToken: string, sheetId: string, range: stri
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error("Failed to update sheet data:", error);
-    throw new Error(`Failed to update data: ${error}`);
+    console.error("Failed to update sheet data");
+    throw new Error("Failed to update data");
   }
 }
 
-// Helper to parse Indonesian Rupiah format (e.g., "Rp18,000" or "Rp 18.000")
+// Helper to parse Indonesian Rupiah format
 function parseRupiah(value: string | number): number {
   if (typeof value === 'number') {
-    console.log(`parseRupiah: already a number: ${value}`);
     return value;
   }
   if (!value) {
-    console.log(`parseRupiah: empty value, returning 0`);
     return 0;
   }
   
   const original = String(value);
-  console.log(`parseRupiah: raw input = "${original}"`);
   
-  // Remove "Rp", "IDR", and spaces
   let cleaned = original
     .replace(/Rp\.?/gi, '')
     .replace(/IDR/gi, '')
     .replace(/\s/g, '')
     .trim();
   
-  console.log(`parseRupiah: after removing Rp/IDR/spaces = "${cleaned}"`);
-  
-  // Determine format: Indonesian uses dot for thousands, comma for decimals
-  // If format is "18.000,50" -> 18000.50
-  // If format is "18,000.50" -> 18000.50 (US format)
-  // If format is "18,000" or "18.000" with no decimal -> 18000
-  
   const hasDecimalComma = /\d,\d{1,2}$/.test(cleaned);
   const hasDecimalDot = /\d\.\d{1,2}$/.test(cleaned);
   
   if (hasDecimalComma) {
-    // Indonesian format: 18.000,50 -> 18000.50
     cleaned = cleaned.replace(/\./g, '').replace(',', '.');
-    console.log(`parseRupiah: Indonesian decimal format detected, cleaned = "${cleaned}"`);
   } else if (hasDecimalDot) {
-    // US format: 18,000.50 -> 18000.50
     cleaned = cleaned.replace(/,/g, '');
-    console.log(`parseRupiah: US decimal format detected, cleaned = "${cleaned}"`);
   } else {
-    // No decimal, just remove all separators
     cleaned = cleaned.replace(/[.,]/g, '');
-    console.log(`parseRupiah: no decimal detected, cleaned = "${cleaned}"`);
   }
   
-  const result = parseFloat(cleaned) || 0;
-  console.log(`parseRupiah: FINAL "${original}" -> ${result}`);
-  
-  return result;
+  return parseFloat(cleaned) || 0;
 }
 
 serve(async (req) => {
@@ -192,12 +234,35 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const email = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL");
     const privateKey = Deno.env.get("GOOGLE_PRIVATE_KEY");
     let sheetId = Deno.env.get("GOOGLE_SHEET_ID");
 
     if (!email || !privateKey || !sheetId) {
-      throw new Error("Missing Google Sheets configuration");
+      throw new Error("Server configuration error");
     }
 
     // Extract sheet ID if full URL was provided
@@ -205,35 +270,38 @@ serve(async (req) => {
       const match = sheetId.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
       if (match) {
         sheetId = match[1];
-        console.log("Extracted sheet ID from URL:", sheetId);
       } else {
-        throw new Error("Could not extract sheet ID from URL");
+        throw new Error("Invalid sheet configuration");
       }
     }
 
-    // Parse the private key (handle escaped newlines)
+    // Parse the private key
     const formattedKey = privateKey.replace(/\\n/g, '\n');
 
     const { action, data } = await req.json();
-    console.log(`Processing action: ${action}`);
+    
+    // Validate action
+    if (!action || !isValidAction(action)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid action' }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const accessToken = await getAccessToken(email, formattedKey);
 
     if (action === "getProducts") {
-      // Get products from Products sheet (columns: ID, Name, RetailPrice, BulkPrice, PurchasePrice, Stock, Category)
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
       const products = rows.map((row, index) => ({
-        id: row[0] || String(index + 1),
-        name: row[1] || "",
+        id: sanitizeForSheets(row[0]) || String(index + 1),
+        name: sanitizeForSheets(row[1]) || "",
         retailPrice: parseRupiah(row[2]),
         bulkPrice: parseRupiah(row[3]),
-        purchasePrice: parseRupiah(row[4]), // Harga Beli / Modal
+        purchasePrice: parseRupiah(row[4]),
         stock: parseInt(String(row[5]).replace(/[^\d]/g, '')) || 0,
-        category: row[6] || "Lainnya",
+        category: sanitizeForSheets(row[6]) || "Lainnya",
       }));
-
-      console.log(`Fetched ${products.length} products from sheet`);
 
       return new Response(JSON.stringify({ products }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -241,29 +309,70 @@ serve(async (req) => {
     }
 
     if (action === "addTransaction") {
-      // Add transaction to Transactions sheet
-      const { receipt } = data;
+      const { receipt } = data || {};
       
-      // Format items for the sheet
+      if (!receipt || !receipt.id || !receipt.items || !Array.isArray(receipt.items)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid transaction data' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate receipt data
+      validateString(receipt.id, 'Receipt ID', 100);
+      validatePositiveNumber(receipt.subtotal, 'Subtotal');
+      validatePositiveNumber(receipt.total, 'Total');
+      if (receipt.discount !== undefined) {
+        validatePositiveNumber(receipt.discount, 'Discount');
+      }
+      
+      const validPaymentMethods = ['cash', 'transfer', 'qris'];
+      if (!validPaymentMethods.includes(receipt.paymentMethod)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid payment method' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const customerPhone = validatePhoneNumber(receipt.customerPhone);
+
+      // Validate items
+      for (const item of receipt.items) {
+        if (!item.product?.name) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid item data' }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        validateString(item.product.name, 'Product name');
+        validatePositiveNumber(item.quantity, 'Quantity', 10000);
+        if (!['retail', 'bulk'].includes(item.priceType)) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid price type' }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // Format items for the sheet (sanitized)
       const itemsSummary = receipt.items.map((item: any) => 
-        `${item.product.name} x${item.quantity} (${item.priceType === 'retail' ? 'Eceran' : 'Grosir'})`
+        `${sanitizeForSheets(item.product.name)} x${item.quantity} (${item.priceType === 'retail' ? 'Eceran' : 'Grosir'})`
       ).join("; ");
 
       const row = [
-        receipt.id,
+        sanitizeForSheets(receipt.id),
         new Date(receipt.timestamp).toLocaleString("id-ID"),
-        itemsSummary,
+        sanitizeForSheets(itemsSummary),
         receipt.subtotal,
-        receipt.discount,
+        receipt.discount || 0,
         receipt.total,
         receipt.paymentMethod,
         receipt.cashReceived || "",
         receipt.change || "",
-        receipt.customerPhone || "",
+        sanitizeForSheets(customerPhone),
       ];
 
       await appendSheetData(accessToken, sheetId, "Transactions!A:J", [row]);
-      console.log(`Transaction ${receipt.id} added to sheet`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -271,27 +380,33 @@ serve(async (req) => {
     }
 
     if (action === "updateStock") {
-      // Update stock values in the Products sheet
-      const { stockUpdates } = data;
+      const { stockUpdates } = data || {};
       
-      // stockUpdates is an array of { id: string, stock: number }
-      // We need to get the current data first to find row numbers
+      if (!stockUpdates || !Array.isArray(stockUpdates)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid stock update data' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate stock updates
+      for (const update of stockUpdates) {
+        validateString(update.id, 'Product ID', 50);
+        validateStock(update.stock);
+      }
+
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
-      // Build updated rows maintaining all original data but with new stock values
       const updatedRows = rows.map((row) => {
         const productId = row[0];
         const update = stockUpdates.find((u: { id: string; stock: number }) => u.id === productId);
         if (update) {
-          // Update column F (index 5) with new stock value
           return [row[0], row[1], row[2], row[3], row[4], update.stock, row[6]];
         }
         return row;
       });
 
-      // Write back the entire data range
       await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
-      console.log(`Updated stock for ${stockUpdates.length} products`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -299,47 +414,69 @@ serve(async (req) => {
     }
 
     if (action === "updateInventory") {
-      // Update inventory data (prices, stock) in the Products sheet
-      const { inventoryUpdates } = data;
+      const { inventoryUpdates } = data || {};
       
-      // inventoryUpdates is an array of { id: string, retailPrice?: number, bulkPrice?: number, purchasePrice?: number, stock?: number }
+      if (!inventoryUpdates || !Array.isArray(inventoryUpdates)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid inventory update data' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate inventory updates
+      for (const update of inventoryUpdates) {
+        validateString(update.id, 'Product ID', 50);
+        if (update.retailPrice !== undefined) {
+          validatePositiveNumber(update.retailPrice, 'Retail price');
+        }
+        if (update.bulkPrice !== undefined) {
+          validatePositiveNumber(update.bulkPrice, 'Bulk price');
+        }
+        if (update.purchasePrice !== undefined) {
+          validatePositiveNumber(update.purchasePrice, 'Purchase price');
+        }
+        if (update.stock !== undefined) {
+          validateStock(update.stock);
+        }
+      }
+
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
-      // Build updated rows maintaining all original data but with new values
       const updatedRows = rows.map((row) => {
         const productId = row[0];
         const update = inventoryUpdates.find((u: any) => u.id === productId);
         if (update) {
           return [
-            row[0], // ID
-            row[1], // Name
+            row[0],
+            row[1],
             update.retailPrice !== undefined ? update.retailPrice : row[2],
             update.bulkPrice !== undefined ? update.bulkPrice : row[3],
             update.purchasePrice !== undefined ? update.purchasePrice : row[4],
             update.stock !== undefined ? update.stock : row[5],
-            row[6], // Category
+            row[6],
           ];
         }
         return row;
       });
 
-      // Write back the entire data range
       await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
-      console.log(`Updated inventory for ${inventoryUpdates.length} products`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    throw new Error(`Unknown action: ${action}`);
+    return new Response(
+      JSON.stringify({ error: 'Invalid action' }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
 
   } catch (error) {
     console.error("Error in sync-google-sheets:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // Return generic error message to client
+    return new Response(
+      JSON.stringify({ error: 'An error occurred processing your request' }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
