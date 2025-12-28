@@ -36,6 +36,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
   const [cashReceived, setCashReceived] = useState('');
   const [receiptMethod, setReceiptMethod] = useState<ReceiptDeliveryMethod | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState('');
+  const [customerName, setCustomerName] = useState('');
 
   const [discountPercent, setDiscountPercent] = useState('');
 
@@ -86,6 +87,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
       change: paymentMethod === 'Tunai' ? change : undefined,
       timestamp: new Date(),
       customerPhone: receiptMethod === 'whatsapp' ? whatsappNumber : undefined,
+      customerName: customerName.trim() || undefined,
     };
 
     onComplete(receipt, receiptMethod, receiptMethod === 'whatsapp' ? whatsappNumber : undefined);
@@ -99,6 +101,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
     setDiscountPercent('');
     setReceiptMethod(null);
     setWhatsappNumber('');
+    setCustomerName('');
     onClose();
   };
 
@@ -134,8 +137,18 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
           </div>
         </DialogHeader>
 
-        {/* Total Display */}
+        {/* Customer Name & Total Display */}
         <div className="bg-secondary/50 rounded-xl p-4 mb-4">
+          <div className="mb-3">
+            <label className="text-sm text-muted-foreground mb-1 block">Nama Pelanggan (Opsional)</label>
+            <Input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Masukkan nama pelanggan..."
+              className="h-10"
+            />
+          </div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-muted-foreground">Subtotal</p>
             <p className="font-mono text-lg">{formatRupiah(subtotal)}</p>

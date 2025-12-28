@@ -24,6 +24,7 @@ export interface ReceiptData {
   change?: number;
   timestamp: Date;
   customerPhone?: string;
+  customerName?: string;
 }
 
 export type ReceiptDeliveryMethod = 'display' | 'barcode' | 'whatsapp';
