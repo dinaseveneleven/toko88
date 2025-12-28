@@ -41,6 +41,15 @@ serve(async (req) => {
       );
     }
 
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('[send-whatsapp-invoice] LOVABLE_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'AI service not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -61,43 +70,88 @@ serve(async (req) => {
       );
     }
 
-    // Generate receipt text
+    // Generate receipt text for AI prompt
     const items = transaction.items as any[];
     const timestamp = new Date(transaction.created_at);
     
-    const receiptLines = [
-      '================================',
-      '         TOKO 88',
-      '    Jl. Raya No. 88, Jakarta',
-      '      Tel: (021) 1234-5678',
-      '================================',
-      '',
-      `No: ${transaction.id}`,
-      `Tanggal: ${timestamp.toLocaleDateString('id-ID')}`,
-      `Waktu: ${timestamp.toLocaleTimeString('id-ID')}`,
-      '',
-      '--------------------------------',
-      ...items.map(item => {
-        const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
-        return `${item.product.name}\n  ${item.quantity} x ${formatRupiah(price)} = ${formatRupiah(price * item.quantity)}`;
-      }),
-      '--------------------------------',
-      `Subtotal: ${formatRupiah(transaction.subtotal)}`,
-      ...(transaction.discount > 0 ? [`Diskon: -${formatRupiah(transaction.discount)}`] : []),
-      `TOTAL: ${formatRupiah(transaction.total)}`,
-      '',
-      `Pembayaran: ${transaction.payment_method}`,
-      ...(transaction.cash_received ? [
-        `Tunai: ${formatRupiah(transaction.cash_received)}`,
-        `Kembalian: ${formatRupiah(transaction.change || 0)}`
-      ] : []),
-      '',
-      '================================',
-      '      Terima Kasih!',
-      '================================',
-    ];
+    const itemsList = items.map(item => {
+      const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
+      return `- ${item.product.name}: ${item.quantity} x ${formatRupiah(price)} = ${formatRupiah(price * item.quantity)}`;
+    }).join('\n');
 
-    const receiptText = receiptLines.join('\n');
+    const receiptPrompt = `Generate a clean, professional receipt image for a store called "TOKO 88". The receipt should look like a real printed thermal receipt with the following details:
+
+HEADER:
+- Store name: TOKO 88
+- Address: Jl. Raya No. 88, Jakarta
+- Phone: (021) 1234-5678
+
+TRANSACTION DETAILS:
+- Invoice No: ${transaction.id}
+- Date: ${timestamp.toLocaleDateString('id-ID')}
+- Time: ${timestamp.toLocaleTimeString('id-ID')}
+
+ITEMS:
+${itemsList}
+
+TOTALS:
+- Subtotal: ${formatRupiah(transaction.subtotal)}
+${transaction.discount > 0 ? `- Discount: -${formatRupiah(transaction.discount)}` : ''}
+- TOTAL: ${formatRupiah(transaction.total)}
+
+PAYMENT:
+- Method: ${transaction.payment_method.toUpperCase()}
+${transaction.cash_received ? `- Cash: ${formatRupiah(transaction.cash_received)}` : ''}
+${transaction.change ? `- Change: ${formatRupiah(transaction.change)}` : ''}
+
+FOOTER:
+- "Terima Kasih!" (Thank You!)
+
+Style: White background, black text, clean typography, thermal receipt paper style with dotted/dashed line separators. Make it look like a real store receipt photo.`;
+
+    console.log('[send-whatsapp-invoice] Generating receipt image...');
+
+    // Generate receipt image using Lovable AI
+    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-image-preview',
+        messages: [
+          {
+            role: 'user',
+            content: receiptPrompt
+          }
+        ],
+        modalities: ['image', 'text']
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error('[send-whatsapp-invoice] AI image generation failed:', errorText);
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate receipt image', details: errorText }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const aiData = await aiResponse.json();
+    console.log('[send-whatsapp-invoice] AI response received');
+
+    // Extract the image from the response
+    const imageData = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    
+    if (!imageData) {
+      console.error('[send-whatsapp-invoice] No image in AI response:', JSON.stringify(aiData));
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate receipt image - no image returned' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Format phone number for WhatsApp
     let formattedPhone = phone.replace(/\D/g, '');
@@ -105,12 +159,13 @@ serve(async (req) => {
       formattedPhone = '62' + formattedPhone.slice(1);
     }
 
-    console.log(`[send-whatsapp-invoice] Sending to formatted phone: ${formattedPhone}`);
+    console.log(`[send-whatsapp-invoice] Sending image to: ${formattedPhone}`);
 
-    // Send via Fonnte API
+    // Send image via Fonnte API
     const formData = new FormData();
     formData.append('target', formattedPhone);
-    formData.append('message', receiptText);
+    formData.append('message', `Struk pembelian Anda dari TOKO 88\nNo. Invoice: ${transaction.id}\nTerima kasih!`);
+    formData.append('file', imageData); // Fonnte accepts base64 image in 'file' parameter
 
     const fonntResponse = await fetch('https://api.fonnte.com/send', {
       method: 'POST',
@@ -131,7 +186,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Invoice sent via WhatsApp' }),
+      JSON.stringify({ success: true, message: 'Invoice image sent via WhatsApp' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
