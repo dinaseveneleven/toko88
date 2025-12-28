@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      transactions: {
+        Row: {
+          cash_received: number | null
+          cashier: string | null
+          change: number | null
+          created_at: string
+          customer_name: string | null
+          customer_phone: string | null
+          discount: number
+          id: string
+          items: Json
+          payment_method: string
+          subtotal: number
+          total: number
+        }
+        Insert: {
+          cash_received?: number | null
+          cashier?: string | null
+          change?: number | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount?: number
+          id: string
+          items: Json
+          payment_method: string
+          subtotal: number
+          total: number
+        }
+        Update: {
+          cash_received?: number | null
+          cashier?: string | null
+          change?: number | null
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          discount?: number
+          id?: string
+          items?: Json
+          payment_method?: string
+          subtotal?: number
+          total?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
