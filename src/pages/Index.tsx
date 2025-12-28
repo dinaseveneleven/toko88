@@ -52,7 +52,7 @@ const Index = () => {
     });
   }, [products, search, selectedCategory]);
 
-  const handleAddToCart = (product: Product, priceType: 'retail' | 'bulk') => {
+  const handleAddToCart = (product: Product, priceType: 'retail' | 'bulk', quantity: number = 1) => {
     setCart((prev) => {
       const existingIndex = prev.findIndex(
         (item) => item.product.id === product.id && item.priceType === priceType
@@ -60,21 +60,20 @@ const Index = () => {
 
       if (existingIndex >= 0) {
         const updated = [...prev];
-        if (updated[existingIndex].quantity < product.stock) {
-          updated[existingIndex] = {
-            ...updated[existingIndex],
-            quantity: updated[existingIndex].quantity + 1,
-          };
-        }
+        const newQuantity = Math.min(updated[existingIndex].quantity + quantity, product.stock);
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: newQuantity,
+        };
         return updated;
       }
 
-      return [...prev, { product, quantity: 1, priceType }];
+      return [...prev, { product, quantity: Math.min(quantity, product.stock), priceType }];
     });
 
     toast({
-      title: 'Ditambahkan',
-      description: `${product.name} (${priceType === 'retail' ? 'Eceran' : 'Grosir'})`,
+      title: 'Ditambahkan ke keranjang',
+      description: `${quantity}x ${product.name} (${priceType === 'retail' ? 'Eceran' : 'Grosir'})`,
     });
   };
 
