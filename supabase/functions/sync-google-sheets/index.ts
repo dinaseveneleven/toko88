@@ -136,19 +136,53 @@ async function updateSheetData(accessToken: string, sheetId: string, range: stri
 
 // Helper to parse Indonesian Rupiah format (e.g., "Rp18,000" or "Rp 18.000")
 function parseRupiah(value: string | number): number {
-  if (typeof value === 'number') return value;
-  if (!value) return 0;
+  if (typeof value === 'number') {
+    console.log(`parseRupiah: already a number: ${value}`);
+    return value;
+  }
+  if (!value) {
+    console.log(`parseRupiah: empty value, returning 0`);
+    return 0;
+  }
   
-  // Remove "Rp", "IDR", spaces, dots (thousand separator), and commas
-  const cleaned = String(value)
+  const original = String(value);
+  console.log(`parseRupiah: raw input = "${original}"`);
+  
+  // Remove "Rp", "IDR", and spaces
+  let cleaned = original
     .replace(/Rp\.?/gi, '')
     .replace(/IDR/gi, '')
     .replace(/\s/g, '')
-    .replace(/\./g, '') // Indonesian thousand separator
-    .replace(/,/g, '')  // Alternative thousand separator
     .trim();
   
-  return parseFloat(cleaned) || 0;
+  console.log(`parseRupiah: after removing Rp/IDR/spaces = "${cleaned}"`);
+  
+  // Determine format: Indonesian uses dot for thousands, comma for decimals
+  // If format is "18.000,50" -> 18000.50
+  // If format is "18,000.50" -> 18000.50 (US format)
+  // If format is "18,000" or "18.000" with no decimal -> 18000
+  
+  const hasDecimalComma = /\d,\d{1,2}$/.test(cleaned);
+  const hasDecimalDot = /\d\.\d{1,2}$/.test(cleaned);
+  
+  if (hasDecimalComma) {
+    // Indonesian format: 18.000,50 -> 18000.50
+    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    console.log(`parseRupiah: Indonesian decimal format detected, cleaned = "${cleaned}"`);
+  } else if (hasDecimalDot) {
+    // US format: 18,000.50 -> 18000.50
+    cleaned = cleaned.replace(/,/g, '');
+    console.log(`parseRupiah: US decimal format detected, cleaned = "${cleaned}"`);
+  } else {
+    // No decimal, just remove all separators
+    cleaned = cleaned.replace(/[.,]/g, '');
+    console.log(`parseRupiah: no decimal detected, cleaned = "${cleaned}"`);
+  }
+  
+  const result = parseFloat(cleaned) || 0;
+  console.log(`parseRupiah: FINAL "${original}" -> ${result}`);
+  
+  return result;
 }
 
 serve(async (req) => {
