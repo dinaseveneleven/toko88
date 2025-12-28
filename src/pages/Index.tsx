@@ -153,8 +153,8 @@ const Index = () => {
         <div className="container max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                <Store className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-semibold text-lg tracking-tighter">88</span>
               </div>
               <div>
                 <h1 className="font-bold text-xl tracking-tight">TOKO 88</h1>
