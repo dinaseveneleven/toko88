@@ -34,11 +34,21 @@ const Index = () => {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   // Pull-to-refresh state
   const [pullStartY, setPullStartY] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
+
+  // Scroll detection for sticky bar shadow
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const loadProducts = useCallback(async () => {
     const sheetProducts = await fetchProducts();
@@ -361,7 +371,7 @@ const Index = () => {
           {/* Products Section */}
           <div className="lg:col-span-2 space-y-3 sm:space-y-4">
             {/* Sticky Search and Filter Bar */}
-            <div className="sticky top-[72px] sm:top-[96px] z-30 bg-background pt-2 pb-3 -mx-2 px-2 sm:-mx-4 sm:px-4 border-b border-border/50">
+            <div className={`sticky top-[72px] sm:top-[96px] z-30 bg-background pt-2 pb-3 -mx-2 px-2 sm:-mx-4 sm:px-4 border-b border-border/50 transition-shadow duration-200 ${isScrolled ? 'shadow-md' : ''}`}>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <div className="flex-1">
                   <SearchBar value={search} onChange={setSearch} />
