@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Product, CartItem, ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
 import { ProductCard } from '@/components/pos/ProductCard';
 import { CartPanel } from '@/components/pos/CartPanel';
@@ -6,10 +6,12 @@ import { CheckoutModal } from '@/components/pos/CheckoutModal';
 import { ReceiptDisplay } from '@/components/pos/ReceiptDisplay';
 import { SearchBar } from '@/components/pos/SearchBar';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
+import { FloatingCartButton } from '@/components/pos/FloatingCartButton';
+import { MobileCartSheet } from '@/components/pos/MobileCartSheet';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
-import { Package, LogOut, Shield } from 'lucide-react';
+import { Package, LogOut, Shield, RefreshCw } from 'lucide-react';
 import logo88 from '@/assets/logo-88.png';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -29,18 +31,58 @@ const Index = () => {
   const [currentReceipt, setCurrentReceipt] = useState<ReceiptData | null>(null);
   const [deliveryMethod, setDeliveryMethod] = useState<ReceiptDeliveryMethod>('display');
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Pull-to-refresh state
+  const [pullStartY, setPullStartY] = useState(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+
+  const loadProducts = useCallback(async () => {
+    const sheetProducts = await fetchProducts();
+    if (sheetProducts.length > 0) {
+      setProducts(sheetProducts);
+    }
+    setInitialLoadDone(true);
+  }, [fetchProducts]);
 
   // Auto-load products from Google Sheets on mount
   useEffect(() => {
-    const loadProducts = async () => {
-      const sheetProducts = await fetchProducts();
-      if (sheetProducts.length > 0) {
-        setProducts(sheetProducts);
-      }
-      setInitialLoadDone(true);
-    };
     loadProducts();
-  }, [fetchProducts]);
+  }, [loadProducts]);
+
+  // Pull-to-refresh handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      setPullStartY(e.touches[0].clientY);
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling || window.scrollY > 0) {
+      setPullDistance(0);
+      return;
+    }
+    const currentY = e.touches[0].clientY;
+    const distance = Math.max(0, currentY - pullStartY);
+    setPullDistance(Math.min(distance, 150));
+  };
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > 80) {
+      setIsRefreshing(true);
+      await loadProducts();
+      toast({
+        title: 'Produk diperbarui',
+        description: 'Data produk telah dimuat ulang',
+      });
+      setIsRefreshing(false);
+    }
+    setPullDistance(0);
+    setIsPulling(false);
+  };
 
   const categories = useMemo(() => {
     return [...new Set(products.map(p => p.category))];
@@ -147,8 +189,33 @@ const Index = () => {
     setCurrentReceipt(null);
   };
 
+  // Calculate cart totals for floating button
+  const cartTotal = cart.reduce((sum, item) => {
+    const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
+    return sum + price * item.quantity;
+  }, 0);
+  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div 
+      className="min-h-screen bg-background"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      <div 
+        className="fixed top-0 left-0 right-0 flex items-center justify-center z-50 pointer-events-none transition-all duration-200"
+        style={{ 
+          height: pullDistance,
+          opacity: pullDistance > 30 ? 1 : 0 
+        }}
+      >
+        <div className={`bg-primary text-primary-foreground rounded-full p-2 shadow-lg ${isRefreshing ? 'animate-spin' : ''}`}>
+          <RefreshCw className="w-5 h-5" />
+        </div>
+      </div>
+
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="container max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
@@ -217,16 +284,20 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-6">
+      <main className="container max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-6 pb-24 lg:pb-6">
         <div className="grid lg:grid-cols-3 gap-3 sm:gap-6">
           {/* Products Section */}
           <div className="lg:col-span-2 space-y-3 sm:space-y-4">
-            <SearchBar value={search} onChange={setSearch} />
-            <CategoryFilter
-              categories={categories}
-              selected={selectedCategory}
-              onSelect={setSelectedCategory}
-            />
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <div className="flex-1">
+                <SearchBar value={search} onChange={setSearch} />
+              </div>
+              <CategoryFilter
+                categories={categories}
+                selected={selectedCategory}
+                onSelect={setSelectedCategory}
+              />
+            </div>
 
             {/* Responsive product grid: 2 cols mobile, 2-3 tablet, 3-4 desktop */}
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
@@ -247,8 +318,8 @@ const Index = () => {
             )}
           </div>
 
-          {/* Cart Section */}
-          <div className="lg:col-span-1">
+          {/* Cart Section - hidden on mobile/tablet, shown on desktop */}
+          <div className="lg:col-span-1 hidden lg:block">
             <div className="sticky top-16 sm:top-24">
               <CartPanel
                 items={cart}
@@ -262,6 +333,25 @@ const Index = () => {
           </div>
         </div>
       </main>
+
+      {/* Floating Cart Button - shown on mobile/tablet only */}
+      <FloatingCartButton
+        itemCount={cartItemCount}
+        total={cartTotal}
+        onClick={() => setMobileCartOpen(true)}
+      />
+
+      {/* Mobile Cart Sheet */}
+      <MobileCartSheet
+        open={mobileCartOpen}
+        onClose={() => setMobileCartOpen(false)}
+        items={cart}
+        onUpdateQuantity={handleUpdateQuantity}
+        onSetQuantity={handleSetQuantity}
+        onRemove={handleRemoveFromCart}
+        onClear={handleClearCart}
+        onCheckout={() => setCheckoutOpen(true)}
+      />
 
       {/* Modals */}
       <CheckoutModal
