@@ -151,46 +151,51 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-        <div className="container max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={logo88} alt="Toko 88" className="h-12 w-auto rounded-xl" />
-              <div>
+        <div className="container max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            {/* Logo - smaller on mobile */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <img src={logo88} alt="Toko 88" className="h-8 sm:h-12 w-auto rounded-lg sm:rounded-xl" />
+              <div className="hidden sm:block">
                 <h1 className="font-bold text-xl tracking-tight">TOKO 88</h1>
                 <p className="text-xs text-muted-foreground">Point of Sale System</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+
+            {/* Navigation - icon only on mobile */}
+            <div className="flex items-center gap-1 sm:gap-3">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/inventory')}
-                className="gap-2"
+                className="gap-2 px-2 sm:px-3 h-9 sm:h-9"
               >
                 <Package className="w-4 h-4" />
-                Inventory
+                <span className="hidden sm:inline">Inventory</span>
               </Button>
               {isAdmin && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate('/admin')}
-                  className="gap-2"
+                  className="gap-2 px-2 sm:px-3 h-9 sm:h-9"
                 >
                   <Shield className="w-4 h-4" />
-                  Admin
+                  <span className="hidden sm:inline">Admin</span>
                 </Button>
               )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={logout}
-                className="gap-2 text-muted-foreground hover:text-destructive"
+                className="gap-2 px-2 sm:px-3 h-9 sm:h-9 text-muted-foreground hover:text-destructive"
               >
                 <LogOut className="w-4 h-4" />
-                Keluar
+                <span className="hidden sm:inline">Keluar</span>
               </Button>
-              <div className="text-right">
+
+              {/* Date/Time - hidden on mobile, compact on tablet */}
+              <div className="hidden md:block text-right flex-shrink-0">
                 <p className="text-sm text-muted-foreground">
                   {new Date().toLocaleDateString('id-ID', { 
                     weekday: 'long', 
@@ -212,10 +217,10 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container max-w-7xl mx-auto px-4 py-6">
-        <div className="grid lg:grid-cols-3 gap-6">
+      <main className="container max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-6">
+        <div className="grid lg:grid-cols-3 gap-3 sm:gap-6">
           {/* Products Section */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3 sm:space-y-4">
             <SearchBar value={search} onChange={setSearch} />
             <CategoryFilter
               categories={categories}
@@ -223,7 +228,8 @@ const Index = () => {
               onSelect={setSelectedCategory}
             />
 
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {/* Responsive product grid: 2 cols mobile, 2-3 tablet, 3-4 desktop */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
               {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -234,16 +240,16 @@ const Index = () => {
             </div>
 
             {filteredProducts.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">
-                <p className="text-lg">Produk tidak ditemukan</p>
-                <p className="text-sm">Coba kata kunci lain</p>
+              <div className="text-center py-8 sm:py-12 text-muted-foreground">
+                <p className="text-base sm:text-lg">Produk tidak ditemukan</p>
+                <p className="text-xs sm:text-sm">Coba kata kunci lain</p>
               </div>
             )}
           </div>
 
           {/* Cart Section */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24">
+            <div className="sticky top-16 sm:top-24">
               <CartPanel
                 items={cart}
                 onUpdateQuantity={handleUpdateQuantity}
