@@ -8,13 +8,15 @@ import { SearchBar } from '@/components/pos/SearchBar';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
-import { Store, Package } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Store, Package, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isAuthenticated, logout } = useAuth();
   const { fetchProducts, saveTransaction } = useGoogleSheets();
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -153,6 +155,15 @@ const Index = () => {
               >
                 <Package className="w-4 h-4" />
                 Inventory
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="gap-2 text-muted-foreground hover:text-destructive"
+              >
+                <LogOut className="w-4 h-4" />
+                Keluar
               </Button>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">
