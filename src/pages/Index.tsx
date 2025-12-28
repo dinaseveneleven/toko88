@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, LogOut, Shield, RefreshCw } from 'lucide-react';
+import { Package, LogOut, Shield, RefreshCw, History } from 'lucide-react';
 import logo88 from '@/assets/logo-88.png';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -289,6 +289,15 @@ const Index = () => {
               >
                 <Package className="w-4 h-4" />
                 <span className="hidden sm:inline">Inventory</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/transactions')}
+                className="gap-2 px-2 sm:px-3 h-9 sm:h-9"
+              >
+                <History className="w-4 h-4" />
+                <span className="hidden sm:inline">Riwayat</span>
               </Button>
               {isAdmin && (
                 <Button
