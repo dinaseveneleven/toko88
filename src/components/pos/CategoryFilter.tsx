@@ -44,7 +44,7 @@ export function CategoryFilter({ categories, selected, onSelect }: CategoryFilte
       </PopoverTrigger>
       <PopoverContent className="w-full sm:w-[200px] p-0 bg-card border-border z-50">
         <Command className="bg-card">
-          <CommandInput placeholder="Cari kategori..." className="h-9" />
+          <CommandInput placeholder="Cari kategori..." className="h-9" autoFocus={false} />
           <CommandList>
             <CommandEmpty>Kategori tidak ditemukan</CommandEmpty>
             <CommandGroup>
