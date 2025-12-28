@@ -38,6 +38,12 @@ export function Receipt({ data }: ReceiptProps) {
           <span>Waktu:</span>
           <span>{format(data.timestamp, 'HH:mm:ss')}</span>
         </div>
+        {data.customerName && (
+          <div className="flex justify-between">
+            <span>Pelanggan:</span>
+            <span className="font-semibold">{data.customerName}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span>Kasir:</span>
           <span>Admin</span>
