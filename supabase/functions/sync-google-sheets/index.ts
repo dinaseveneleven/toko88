@@ -22,13 +22,28 @@ async function getAccessToken(email: string, privateKey: string): Promise<string
   const claimB64 = btoa(JSON.stringify(claim)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   const unsignedToken = `${headerB64}.${claimB64}`;
 
-  // Import private key and sign
-  const pemContents = privateKey
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\n/g, '');
+  // Import private key and sign - handle various formats
+  let pemContents = privateKey
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/\\n/g, '') // Handle escaped newlines
+    .replace(/\n/g, '')  // Handle actual newlines
+    .replace(/\r/g, '')  // Handle carriage returns
+    .replace(/\s/g, ''); // Remove any whitespace
   
-  const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+  console.log("PEM content length after cleanup:", pemContents.length);
+  
+  // Decode base64 to binary
+  let binaryString: string;
+  try {
+    binaryString = atob(pemContents);
+  } catch (e: unknown) {
+    console.error("Base64 decode failed. First 50 chars:", pemContents.substring(0, 50));
+    const message = e instanceof Error ? e.message : String(e);
+    throw new Error(`Invalid private key format: ${message}`);
+  }
+  
+  const binaryDer = Uint8Array.from(binaryString, c => c.charCodeAt(0));
   
   const cryptoKey = await crypto.subtle.importKey(
     "pkcs8",
