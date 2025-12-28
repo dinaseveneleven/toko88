@@ -26,10 +26,12 @@ async function getAccessToken(email: string, privateKey: string): Promise<string
   let pemContents = privateKey
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/\\n/g, '') // Handle escaped newlines
+    .replace(/\\n/g, '') // Handle escaped newlines (literal \n)
     .replace(/\n/g, '')  // Handle actual newlines
     .replace(/\r/g, '')  // Handle carriage returns
-    .replace(/\s/g, ''); // Remove any whitespace
+    .replace(/\\/g, '')  // Remove trailing backslashes
+    .replace(/\s/g, '') // Remove any whitespace
+    .trim();
   
   console.log("PEM content length after cleanup:", pemContents.length);
   
