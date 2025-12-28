@@ -361,7 +361,7 @@ const Index = () => {
           {/* Products Section */}
           <div className="lg:col-span-2 space-y-3 sm:space-y-4">
             {/* Sticky Search and Filter Bar */}
-            <div className="sticky top-[57px] sm:top-[73px] z-30 bg-background/95 backdrop-blur-sm py-2 -mx-2 px-2 sm:-mx-4 sm:px-4">
+            <div className="sticky top-[57px] sm:top-[73px] z-30 bg-background pt-2 pb-3 -mx-2 px-2 sm:-mx-4 sm:px-4 border-b border-border/50">
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <div className="flex-1">
                   <SearchBar value={search} onChange={setSearch} />
