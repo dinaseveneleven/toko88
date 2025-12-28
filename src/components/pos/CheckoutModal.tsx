@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { CartItem, ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
+import { useState, useEffect } from 'react';
+import { CartItem, ReceiptData, ReceiptDeliveryMethod, BankInfo, StoreInfo } from '@/types/pos';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CreditCard, Banknote, Wallet, ArrowLeft } from 'lucide-react';
+import { Banknote, Wallet, ArrowLeft, Building2, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CheckoutModalProps {
   open: boolean;
@@ -28,10 +29,10 @@ const generateReceiptId = () => {
   return `INV-${dateStr}-${timeStr}-${random}`;
 };
 
-type PaymentMethod = 'Tunai' | 'QRIS' | 'Debit/Kredit';
+type PaymentMethod = 'Tunai' | 'QRIS' | 'Transfer';
 
 export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModalProps) {
-  const [step, setStep] = useState<'payment' | 'cash' | 'receipt'>('payment');
+  const [step, setStep] = useState<'payment' | 'cash' | 'payment-details' | 'receipt'>('payment');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [cashReceived, setCashReceived] = useState('');
   const [receiptMethod, setReceiptMethod] = useState<ReceiptDeliveryMethod | null>(null);
@@ -39,6 +40,52 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
   const [customerName, setCustomerName] = useState('');
 
   const [discountPercent, setDiscountPercent] = useState('');
+
+  // Settings from database
+  const [bankInfo, setBankInfo] = useState<BankInfo | null>(null);
+  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
+  const [qrisImageUrl, setQrisImageUrl] = useState<string | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+
+  // Fetch settings when modal opens
+  useEffect(() => {
+    if (open) {
+      fetchSettings();
+    }
+  }, [open]);
+
+  const fetchSettings = async () => {
+    setIsLoadingSettings(true);
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('key, value');
+      
+      if (error) throw error;
+
+      const settings = data?.reduce((acc, item) => {
+        acc[item.key] = item.value || '';
+        return acc;
+      }, {} as Record<string, string>) || {};
+
+      setBankInfo({
+        bankName: settings['bank_name'] || '',
+        accountNumber: settings['bank_account_number'] || '',
+        accountHolder: settings['bank_account_holder'] || '',
+      });
+
+      setStoreInfo({
+        address: settings['store_address'] || '',
+        phone: settings['store_phone'] || '',
+      });
+
+      setQrisImageUrl(settings['qris_image_url'] || null);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
 
   // Subtotal now includes item-level discounts in Rupiah
   const subtotal = items.reduce((sum, item) => {
@@ -65,6 +112,8 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
     setPaymentMethod(method);
     if (method === 'Tunai') {
       setStep('cash');
+    } else if (method === 'QRIS' || method === 'Transfer') {
+      setStep('payment-details');
     } else {
       setStep('receipt');
     }
@@ -76,6 +125,10 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
     }
   };
 
+  const handlePaymentDetailsConfirm = () => {
+    setStep('receipt');
+  };
+
   const handleComplete = () => {
     if (!receiptMethod || !paymentMethod) return;
 
@@ -83,7 +136,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
     const paymentMethodMap: Record<PaymentMethod, string> = {
       'Tunai': 'cash',
       'QRIS': 'qris',
-      'Debit/Kredit': 'transfer',
+      'Transfer': 'transfer',
     };
 
     const receipt: ReceiptData = {
@@ -98,6 +151,8 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
       timestamp: new Date(),
       customerPhone: receiptMethod === 'whatsapp' ? whatsappNumber : undefined,
       customerName: customerName.trim() || undefined,
+      bankInfo: paymentMethod === 'Transfer' && bankInfo ? bankInfo : undefined,
+      storeInfo: storeInfo || undefined,
     };
 
     onComplete(receipt, receiptMethod, receiptMethod === 'whatsapp' ? whatsappNumber : undefined);
@@ -119,9 +174,14 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
     if (step === 'cash') {
       setStep('payment');
       setPaymentMethod(null);
+    } else if (step === 'payment-details') {
+      setStep('payment');
+      setPaymentMethod(null);
     } else if (step === 'receipt') {
       if (paymentMethod === 'Tunai') {
         setStep('cash');
+      } else if (paymentMethod === 'QRIS' || paymentMethod === 'Transfer') {
+        setStep('payment-details');
       } else {
         setStep('payment');
         setPaymentMethod(null);
@@ -142,6 +202,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
             <DialogTitle>
               {step === 'payment' && 'Pilih Pembayaran'}
               {step === 'cash' && 'Pembayaran Tunai'}
+              {step === 'payment-details' && (paymentMethod === 'QRIS' ? 'Pembayaran QRIS' : 'Pembayaran Transfer')}
               {step === 'receipt' && 'Kirim Struk'}
             </DialogTitle>
           </div>
@@ -214,15 +275,15 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
               </div>
             </button>
             <button
-              onClick={() => handlePaymentSelect('Debit/Kredit')}
+              onClick={() => handlePaymentSelect('Transfer')}
               className="flex items-center gap-4 p-4 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors text-left"
             >
               <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <CreditCard className="w-6 h-6 text-purple-400" />
+                <Building2 className="w-6 h-6 text-purple-400" />
               </div>
               <div>
-                <p className="font-semibold">Debit/Kredit</p>
-                <p className="text-sm text-muted-foreground">Kartu Debit atau Kredit</p>
+                <p className="font-semibold">Transfer</p>
+                <p className="text-sm text-muted-foreground">Transfer Bank</p>
               </div>
             </button>
           </div>
@@ -278,6 +339,82 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
             >
               Lanjutkan
             </Button>
+          </div>
+        )}
+
+        {/* QRIS / Transfer Payment Details */}
+        {step === 'payment-details' && (
+          <div className="space-y-4">
+            {isLoadingSettings ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {paymentMethod === 'QRIS' && (
+                  <div className="text-center space-y-4">
+                    <p className="text-sm text-muted-foreground">Scan QRIS berikut untuk pembayaran:</p>
+                    {qrisImageUrl ? (
+                      <div className="w-64 h-64 mx-auto border border-border rounded-lg overflow-hidden bg-white flex items-center justify-center">
+                        <img 
+                          src={qrisImageUrl} 
+                          alt="QRIS" 
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-64 h-64 mx-auto border border-dashed border-border rounded-lg flex items-center justify-center bg-secondary/50">
+                        <p className="text-sm text-muted-foreground text-center px-4">
+                          Gambar QRIS belum diatur.<br />
+                          Silakan upload di halaman Admin.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {paymentMethod === 'Transfer' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">Transfer ke rekening berikut:</p>
+                    {bankInfo && (bankInfo.bankName || bankInfo.accountNumber) ? (
+                      <div className="bg-secondary/50 rounded-xl p-4 space-y-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Bank</p>
+                          <p className="font-semibold text-lg">{bankInfo.bankName || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Nomor Rekening</p>
+                          <p className="font-mono text-xl font-bold">{bankInfo.accountNumber || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Atas Nama</p>
+                          <p className="font-semibold">{bankInfo.accountHolder || '-'}</p>
+                        </div>
+                        <div className="pt-2 border-t border-border">
+                          <p className="text-xs text-muted-foreground">Jumlah Transfer</p>
+                          <p className="font-mono text-2xl font-bold text-primary">{formatRupiah(total)}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-secondary/50 rounded-xl p-4 text-center">
+                        <p className="text-sm text-muted-foreground">
+                          Informasi bank belum diatur.<br />
+                          Silakan atur di halaman Admin.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Button
+                  onClick={handlePaymentDetailsConfirm}
+                  className="w-full h-12"
+                  size="lg"
+                >
+                  Sudah Dibayar
+                </Button>
+              </>
+            )}
           </div>
         )}
 

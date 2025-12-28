@@ -15,6 +15,17 @@ export interface CartItem {
   discount?: number; // Item-level discount percentage (0-100)
 }
 
+export interface BankInfo {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+}
+
+export interface StoreInfo {
+  address: string;
+  phone: string;
+}
+
 export interface ReceiptData {
   id: string;
   items: CartItem[];
@@ -27,6 +38,8 @@ export interface ReceiptData {
   timestamp: Date;
   customerPhone?: string;
   customerName?: string;
+  bankInfo?: BankInfo;
+  storeInfo?: StoreInfo;
 }
 
 export type ReceiptDeliveryMethod = 'display' | 'barcode' | 'whatsapp';
