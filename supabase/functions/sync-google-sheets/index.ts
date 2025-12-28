@@ -6,6 +6,39 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 30; // max requests per window per user
+const rateLimitStore = new Map<string, { count: number; windowStart: number }>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const userLimit = rateLimitStore.get(userId);
+  
+  if (!userLimit || now - userLimit.windowStart > RATE_LIMIT_WINDOW_MS) {
+    // New window
+    rateLimitStore.set(userId, { count: 1, windowStart: now });
+    return true;
+  }
+  
+  if (userLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+  
+  userLimit.count++;
+  return true;
+}
+
+// Clean up old rate limit entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, limit] of rateLimitStore.entries()) {
+    if (now - limit.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+      rateLimitStore.delete(userId);
+    }
+  }
+}, RATE_LIMIT_WINDOW_MS);
+
 // Input validation schemas
 const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory'] as const;
 type ValidAction = typeof VALID_ACTIONS[number];
@@ -257,6 +290,20 @@ serve(async (req) => {
       );
     }
 
+    // Generate request ID for audit trail
+    const requestId = crypto.randomUUID();
+
+    // Apply rate limiting
+    if (!checkRateLimit(user.id)) {
+      console.log(`[${requestId}] Rate limit exceeded for user ${user.id}`);
+      return new Response(
+        JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[${requestId}] Request from user ${user.id}`);
+
     const email = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL");
     const privateKey = Deno.env.get("GOOGLE_PRIVATE_KEY");
     let sheetId = Deno.env.get("GOOGLE_SHEET_ID");
@@ -282,11 +329,14 @@ serve(async (req) => {
     
     // Validate action
     if (!action || !isValidAction(action)) {
+      console.log(`[${requestId}] Invalid action attempted: ${action}`);
       return new Response(
         JSON.stringify({ error: 'Invalid action' }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    console.log(`[${requestId}] Processing action: ${action}`);
 
     const accessToken = await getAccessToken(email, formattedKey);
 
@@ -374,6 +424,8 @@ serve(async (req) => {
 
       await appendSheetData(accessToken, sheetId, "Transactions!A:J", [row]);
 
+      console.log(`[${requestId}] Transaction ${receipt.id} added successfully`);
+
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -407,6 +459,8 @@ serve(async (req) => {
       });
 
       await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
+
+      console.log(`[${requestId}] Stock updated for ${stockUpdates.length} products`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -461,11 +515,14 @@ serve(async (req) => {
 
       await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
 
+      console.log(`[${requestId}] Inventory updated for ${inventoryUpdates.length} products`);
+
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    console.log(`[${requestId}] Invalid action: ${action}`);
     return new Response(
       JSON.stringify({ error: 'Invalid action' }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
