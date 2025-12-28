@@ -19,6 +19,7 @@ const formatRupiah = (num: number) => {
 
 export function ProductCard({ product, onAdd }: ProductCardProps) {
   const [quantity, setQuantity] = useState(1);
+  const [inputValue, setInputValue] = useState('1');
   const isOutOfStock = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock <= 10;
 
@@ -27,20 +28,35 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
       const newQty = prev + delta;
       if (newQty < 1) return 1;
       if (newQty > product.stock) return product.stock;
+      setInputValue(String(newQty));
       return newQty;
     });
   };
 
   const handleInputChange = (value: string) => {
-    const num = parseInt(value) || 1;
-    if (num < 1) setQuantity(1);
-    else if (num > product.stock) setQuantity(product.stock);
-    else setQuantity(num);
+    setInputValue(value);
+    const num = parseInt(value);
+    if (!isNaN(num) && num >= 1 && num <= product.stock) {
+      setQuantity(num);
+    }
+  };
+
+  const handleInputBlur = () => {
+    if (inputValue === '' || parseInt(inputValue) < 1) {
+      setQuantity(1);
+      setInputValue('1');
+    } else if (parseInt(inputValue) > product.stock) {
+      setQuantity(product.stock);
+      setInputValue(String(product.stock));
+    } else {
+      setInputValue(String(quantity));
+    }
   };
 
   const handleAdd = (priceType: 'retail' | 'bulk') => {
     onAdd(product, priceType, quantity);
-    setQuantity(1); // Reset after adding
+    setQuantity(1);
+    setInputValue('1');
   };
 
   return (
@@ -94,8 +110,9 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
           </Button>
           <Input
             type="number"
-            value={quantity}
+            value={inputValue}
             onChange={(e) => handleInputChange(e.target.value)}
+            onBlur={handleInputBlur}
             className="w-14 h-8 text-center text-sm font-mono bg-transparent border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={1}
             max={product.stock}
