@@ -21,7 +21,7 @@ const formatRupiah = (amount: number): string => {
 export default function Inventory() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchProducts, loading: isLoading } = useGoogleSheets();
+  const { fetchProducts, updateStock, loading: isLoading } = useGoogleSheets();
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passcodeInput, setPasscodeInput] = useState('');
@@ -75,14 +75,36 @@ export default function Inventory() {
     handleStockChange(productId, current - 1);
   };
 
-  const handleSaveChanges = () => {
-    // Note: This would need a backend endpoint to update Google Sheets
-    // For now, we'll just show a message about the feature
-    toast({
-      title: "Fitur Segera Hadir",
-      description: "Penyimpanan perubahan stok ke Google Sheets akan segera tersedia",
-    });
-    setHasChanges(false);
+  const handleSaveChanges = async () => {
+    // Build the list of changed stocks
+    const stockUpdates = products
+      .filter(p => editedStocks[p.id] !== p.stock)
+      .map(p => ({
+        id: p.id,
+        stock: editedStocks[p.id],
+      }));
+
+    if (stockUpdates.length === 0) {
+      setHasChanges(false);
+      return;
+    }
+
+    const success = await updateStock(stockUpdates);
+    
+    if (success) {
+      toast({
+        title: "Berhasil",
+        description: `${stockUpdates.length} stok produk berhasil diperbarui`,
+      });
+      // Reload products to get the updated state
+      await loadProducts();
+    } else {
+      toast({
+        title: "Gagal",
+        description: "Gagal menyimpan perubahan stok",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

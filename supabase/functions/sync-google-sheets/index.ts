@@ -116,6 +116,24 @@ async function appendSheetData(accessToken: string, sheetId: string, range: stri
   }
 }
 
+async function updateSheetData(accessToken: string, sheetId: string, range: string, values: any[][]): Promise<void> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ values }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("Failed to update sheet data:", error);
+    throw new Error(`Failed to update data: ${error}`);
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -194,6 +212,34 @@ serve(async (req) => {
 
       await appendSheetData(accessToken, sheetId, "Transactions!A:J", [row]);
       console.log(`Transaction ${receipt.id} added to sheet`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "updateStock") {
+      // Update stock values in the Products sheet
+      const { stockUpdates } = data;
+      
+      // stockUpdates is an array of { id: string, stock: number }
+      // We need to get the current data first to find row numbers
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:F");
+      
+      // Build updated rows maintaining all original data but with new stock values
+      const updatedRows = rows.map((row) => {
+        const productId = row[0];
+        const update = stockUpdates.find((u: { id: string; stock: number }) => u.id === productId);
+        if (update) {
+          // Update column E (index 4) with new stock value
+          return [row[0], row[1], row[2], row[3], update.stock, row[5]];
+        }
+        return row;
+      });
+
+      // Write back the entire data range
+      await updateSheetData(accessToken, sheetId, "Products!A2:F", updatedRows);
+      console.log(`Updated stock for ${stockUpdates.length} products`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
