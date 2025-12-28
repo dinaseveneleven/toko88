@@ -199,6 +199,34 @@ const Index = () => {
       });
     }
 
+    // Auto-send WhatsApp invoice if delivery method is whatsapp
+    if (method === 'whatsapp' && receipt.customerPhone) {
+      try {
+        const { data, error } = await supabase.functions.invoke('send-whatsapp-invoice', {
+          body: { 
+            invoiceId: receipt.id, 
+            phone: receipt.customerPhone 
+          }
+        });
+
+        if (error) {
+          console.error('Error sending WhatsApp:', error);
+          toast({
+            title: 'Gagal kirim WhatsApp',
+            description: 'Struk gagal dikirim otomatis. Gunakan tombol manual.',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'WhatsApp terkirim!',
+            description: `Struk dikirim ke ${receipt.customerPhone}`,
+          });
+        }
+      } catch (err) {
+        console.error('WhatsApp send error:', err);
+      }
+    }
+
     setCurrentReceipt(receipt);
     setDeliveryMethod(method);
     setCheckoutOpen(false);
