@@ -40,7 +40,7 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS);
 
 // Input validation schemas
-const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory'] as const;
+const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct'] as const;
 type ValidAction = typeof VALID_ACTIONS[number];
 
 function isValidAction(action: string): action is ValidAction {
@@ -283,7 +283,7 @@ serve(async (req) => {
     }
 
     // Actions that require authentication
-    const authRequiredActions = ['addTransaction', 'updateStock', 'updateInventory'];
+    const authRequiredActions = ['addTransaction', 'updateStock', 'updateInventory', 'addProduct'];
     
     let user = null;
     
@@ -527,6 +527,59 @@ serve(async (req) => {
       console.log(`[${requestId}] Inventory updated for ${inventoryUpdates.length} products`);
 
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "addProduct") {
+      const { product } = data || {};
+      
+      if (!product) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid product data' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate product fields
+      const name = validateString(product.name, 'Product name', 200);
+      const category = validateString(product.category, 'Category', 100);
+      const purchasePrice = validatePositiveNumber(product.purchasePrice, 'Purchase price');
+      const retailPrice = validatePositiveNumber(product.retailPrice, 'Retail price');
+      const bulkPrice = validatePositiveNumber(product.bulkPrice, 'Bulk price');
+      const stock = validateStock(product.stock);
+
+      // Get existing products to generate a unique ID
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
+      
+      // Generate unique ID (format: P001, P002, etc.)
+      let maxId = 0;
+      for (const row of rows) {
+        const idStr = String(row[0] || '');
+        const match = idStr.match(/^P?(\d+)$/i);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxId) maxId = num;
+        }
+      }
+      const newId = `P${String(maxId + 1).padStart(3, '0')}`;
+
+      // Append new product row: [id, name, retailPrice, bulkPrice, purchasePrice, stock, category]
+      const newRow = [
+        newId,
+        sanitizeForSheets(name),
+        retailPrice,
+        bulkPrice,
+        purchasePrice,
+        stock,
+        sanitizeForSheets(category),
+      ];
+
+      await appendSheetData(accessToken, sheetId, "Products!A:G", [newRow]);
+
+      console.log(`[${requestId}] Product ${newId} added successfully`);
+
+      return new Response(JSON.stringify({ success: true, productId: newId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

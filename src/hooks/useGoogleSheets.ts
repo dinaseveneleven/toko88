@@ -113,6 +113,39 @@ export function useGoogleSheets() {
     }
   }, []);
 
+  const addProduct = useCallback(async (product: {
+    name: string;
+    category: string;
+    purchasePrice: number;
+    retailPrice: number;
+    bulkPrice: number;
+    stock: number;
+  }): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+        body: { 
+          action: 'addProduct',
+          data: { product }
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message);
+      if (data.error) throw new Error(data.error);
+
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to add product';
+      setError(message);
+      console.error('Error adding product:', err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -120,5 +153,6 @@ export function useGoogleSheets() {
     saveTransaction,
     updateStock,
     updateInventory,
+    addProduct,
   };
 }

@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
+import { AddProductModal } from '@/components/inventory/AddProductModal';
 import type { Product } from '@/types/pos';
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -30,7 +31,7 @@ interface EditedProduct {
 export default function Inventory() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchProducts, updateInventory, loading: isLoading } = useGoogleSheets();
+  const { fetchProducts, updateInventory, addProduct, loading: isLoading } = useGoogleSheets();
   const { isAuthenticated } = useAuth();
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -39,6 +40,7 @@ export default function Inventory() {
   const [hasChanges, setHasChanges] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Get unique categories from products
   const categories = useMemo(() => {
@@ -193,6 +195,16 @@ export default function Inventory() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddModalOpen(true)}
+              disabled={isLoading}
+            >
+              <PlusCircle className="w-4 h-4 mr-2" />
+              Tambah Produk
+            </Button>
+            
             <Button
               variant="outline"
               size="sm"
@@ -551,6 +563,15 @@ export default function Inventory() {
           </div>
         )}
       </main>
+
+      {/* Add Product Modal */}
+      <AddProductModal
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
+        categories={categories}
+        onSuccess={loadProducts}
+        addProduct={addProduct}
+      />
     </div>
   );
 }
