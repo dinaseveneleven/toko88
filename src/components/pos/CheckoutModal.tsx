@@ -76,13 +76,20 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
   const handleComplete = () => {
     if (!receiptMethod || !paymentMethod) return;
 
+    // Map UI payment method to API payment method
+    const paymentMethodMap: Record<PaymentMethod, string> = {
+      'Tunai': 'cash',
+      'QRIS': 'qris',
+      'Debit/Kredit': 'transfer',
+    };
+
     const receipt: ReceiptData = {
       id: generateReceiptId(),
       items,
       subtotal,
       discount: discountAmount,
       total,
-      paymentMethod,
+      paymentMethod: paymentMethodMap[paymentMethod],
       cashReceived: paymentMethod === 'Tunai' ? cashValue : undefined,
       change: paymentMethod === 'Tunai' ? change : undefined,
       timestamp: new Date(),
