@@ -154,9 +154,7 @@ const Index = () => {
         <div className="container max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center p-1.5">
-                <img src={logo88} alt="Toko 88" className="w-full h-full object-contain" />
-              </div>
+              <img src={logo88} alt="Toko 88" className="h-12 w-auto rounded-xl" />
               <div>
                 <h1 className="font-bold text-xl tracking-tight">TOKO 88</h1>
                 <p className="text-xs text-muted-foreground">Point of Sale System</p>
