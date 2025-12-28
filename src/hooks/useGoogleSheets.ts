@@ -81,11 +81,44 @@ export function useGoogleSheets() {
     }
   }, []);
 
+  const updateInventory = useCallback(async (inventoryUpdates: { 
+    id: string; 
+    retailPrice?: number;
+    bulkPrice?: number;
+    purchasePrice?: number;
+    stock?: number;
+  }[]): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+        body: { 
+          action: 'updateInventory',
+          data: { inventoryUpdates }
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message);
+      if (data.error) throw new Error(data.error);
+
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update inventory';
+      setError(message);
+      console.error('Error updating inventory:', err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
     fetchProducts,
     saveTransaction,
     updateStock,
+    updateInventory,
   };
 }

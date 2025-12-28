@@ -169,16 +169,17 @@ serve(async (req) => {
     const accessToken = await getAccessToken(email, formattedKey);
 
     if (action === "getProducts") {
-      // Get products from Products sheet
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:F");
+      // Get products from Products sheet (columns: ID, Name, RetailPrice, BulkPrice, PurchasePrice, Stock, Category)
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
       const products = rows.map((row, index) => ({
         id: row[0] || String(index + 1),
         name: row[1] || "",
         retailPrice: parseFloat(row[2]) || 0,
         bulkPrice: parseFloat(row[3]) || 0,
-        stock: parseInt(row[4]) || 0,
-        category: row[5] || "Lainnya",
+        purchasePrice: parseFloat(row[4]) || 0, // Harga Beli / Modal
+        stock: parseInt(row[5]) || 0,
+        category: row[6] || "Lainnya",
       }));
 
       console.log(`Fetched ${products.length} products from sheet`);
@@ -224,22 +225,56 @@ serve(async (req) => {
       
       // stockUpdates is an array of { id: string, stock: number }
       // We need to get the current data first to find row numbers
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:F");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
       // Build updated rows maintaining all original data but with new stock values
       const updatedRows = rows.map((row) => {
         const productId = row[0];
         const update = stockUpdates.find((u: { id: string; stock: number }) => u.id === productId);
         if (update) {
-          // Update column E (index 4) with new stock value
-          return [row[0], row[1], row[2], row[3], update.stock, row[5]];
+          // Update column F (index 5) with new stock value
+          return [row[0], row[1], row[2], row[3], row[4], update.stock, row[6]];
         }
         return row;
       });
 
       // Write back the entire data range
-      await updateSheetData(accessToken, sheetId, "Products!A2:F", updatedRows);
+      await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
       console.log(`Updated stock for ${stockUpdates.length} products`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "updateInventory") {
+      // Update inventory data (prices, stock) in the Products sheet
+      const { inventoryUpdates } = data;
+      
+      // inventoryUpdates is an array of { id: string, retailPrice?: number, bulkPrice?: number, purchasePrice?: number, stock?: number }
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
+      
+      // Build updated rows maintaining all original data but with new values
+      const updatedRows = rows.map((row) => {
+        const productId = row[0];
+        const update = inventoryUpdates.find((u: any) => u.id === productId);
+        if (update) {
+          return [
+            row[0], // ID
+            row[1], // Name
+            update.retailPrice !== undefined ? update.retailPrice : row[2],
+            update.bulkPrice !== undefined ? update.bulkPrice : row[3],
+            update.purchasePrice !== undefined ? update.purchasePrice : row[4],
+            update.stock !== undefined ? update.stock : row[5],
+            row[6], // Category
+          ];
+        }
+        return row;
+      });
+
+      // Write back the entire data range
+      await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
+      console.log(`Updated inventory for ${inventoryUpdates.length} products`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

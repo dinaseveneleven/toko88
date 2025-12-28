@@ -3,6 +3,7 @@ export interface Product {
   name: string;
   retailPrice: number;
   bulkPrice: number;
+  purchasePrice: number; // Harga Beli / Modal
   stock: number;
   category: string;
 }

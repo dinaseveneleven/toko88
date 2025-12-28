@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Save, Lock, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Save, Lock, RefreshCw, Edit2, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -18,15 +18,23 @@ const formatRupiah = (amount: number): string => {
   }).format(amount);
 };
 
+interface EditedProduct {
+  retailPrice: number;
+  bulkPrice: number;
+  purchasePrice: number;
+  stock: number;
+}
+
 export default function Inventory() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchProducts, updateStock, loading: isLoading } = useGoogleSheets();
+  const { fetchProducts, updateInventory, loading: isLoading } = useGoogleSheets();
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passcodeInput, setPasscodeInput] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
-  const [editedStocks, setEditedStocks] = useState<Record<string, number>>({});
+  const [editedProducts, setEditedProducts] = useState<Record<string, EditedProduct>>({});
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
   const handlePasscodeSubmit = () => {
@@ -47,61 +55,108 @@ export default function Inventory() {
     const fetchedProducts = await fetchProducts();
     if (fetchedProducts) {
       setProducts(fetchedProducts);
-      const stocks: Record<string, number> = {};
+      const edited: Record<string, EditedProduct> = {};
       fetchedProducts.forEach(p => {
-        stocks[p.id] = p.stock;
+        edited[p.id] = {
+          retailPrice: p.retailPrice,
+          bulkPrice: p.bulkPrice,
+          purchasePrice: p.purchasePrice,
+          stock: p.stock,
+        };
       });
-      setEditedStocks(stocks);
+      setEditedProducts(edited);
       setHasChanges(false);
+      setEditingProductId(null);
     }
   };
 
-  const handleStockChange = (productId: string, newStock: number) => {
-    const validStock = Math.max(0, newStock);
-    setEditedStocks(prev => ({
+  const handleFieldChange = (productId: string, field: keyof EditedProduct, value: number) => {
+    const validValue = Math.max(0, value);
+    setEditedProducts(prev => ({
       ...prev,
-      [productId]: validStock,
+      [productId]: {
+        ...prev[productId],
+        [field]: validValue,
+      },
     }));
     setHasChanges(true);
   };
 
   const handleIncrement = (productId: string) => {
-    const current = editedStocks[productId] ?? 0;
-    handleStockChange(productId, current + 1);
+    const current = editedProducts[productId]?.stock ?? 0;
+    handleFieldChange(productId, 'stock', current + 1);
   };
 
   const handleDecrement = (productId: string) => {
-    const current = editedStocks[productId] ?? 0;
-    handleStockChange(productId, current - 1);
+    const current = editedProducts[productId]?.stock ?? 0;
+    handleFieldChange(productId, 'stock', current - 1);
+  };
+
+  const startEditing = (productId: string) => {
+    setEditingProductId(productId);
+  };
+
+  const cancelEditing = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      setEditedProducts(prev => ({
+        ...prev,
+        [productId]: {
+          retailPrice: product.retailPrice,
+          bulkPrice: product.bulkPrice,
+          purchasePrice: product.purchasePrice,
+          stock: product.stock,
+        },
+      }));
+    }
+    setEditingProductId(null);
+  };
+
+  const confirmEditing = () => {
+    setEditingProductId(null);
+  };
+
+  const hasProductChanges = (product: Product): boolean => {
+    const edited = editedProducts[product.id];
+    if (!edited) return false;
+    return (
+      edited.retailPrice !== product.retailPrice ||
+      edited.bulkPrice !== product.bulkPrice ||
+      edited.purchasePrice !== product.purchasePrice ||
+      edited.stock !== product.stock
+    );
   };
 
   const handleSaveChanges = async () => {
-    // Build the list of changed stocks
-    const stockUpdates = products
-      .filter(p => editedStocks[p.id] !== p.stock)
+    // Build the list of changed products
+    const inventoryUpdates = products
+      .filter(p => hasProductChanges(p))
       .map(p => ({
         id: p.id,
-        stock: editedStocks[p.id],
+        retailPrice: editedProducts[p.id].retailPrice,
+        bulkPrice: editedProducts[p.id].bulkPrice,
+        purchasePrice: editedProducts[p.id].purchasePrice,
+        stock: editedProducts[p.id].stock,
       }));
 
-    if (stockUpdates.length === 0) {
+    if (inventoryUpdates.length === 0) {
       setHasChanges(false);
       return;
     }
 
-    const success = await updateStock(stockUpdates);
+    const success = await updateInventory(inventoryUpdates);
     
     if (success) {
       toast({
         title: "Berhasil",
-        description: `${stockUpdates.length} stok produk berhasil diperbarui`,
+        description: `${inventoryUpdates.length} produk berhasil diperbarui`,
       });
       // Reload products to get the updated state
       await loadProducts();
     } else {
       toast({
         title: "Gagal",
-        description: "Gagal menyimpan perubahan stok",
+        description: "Gagal menyimpan perubahan",
         variant: "destructive",
       });
     }
@@ -165,7 +220,7 @@ export default function Inventory() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-card border-b border-border px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
               <ArrowLeft className="w-5 h-5" />
@@ -185,7 +240,7 @@ export default function Inventory() {
             </Button>
             
             {hasChanges && (
-              <Button size="sm" onClick={handleSaveChanges}>
+              <Button size="sm" onClick={handleSaveChanges} disabled={isLoading}>
                 <Save className="w-4 h-4 mr-2" />
                 Simpan
               </Button>
@@ -195,7 +250,7 @@ export default function Inventory() {
       </header>
 
       {/* Content */}
-      <main className="max-w-4xl mx-auto p-4">
+      <main className="max-w-6xl mx-auto p-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -210,19 +265,21 @@ export default function Inventory() {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Header Row */}
-            <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
-              <div className="col-span-4">Produk</div>
+            {/* Header Row - Desktop */}
+            <div className="hidden lg:grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
+              <div className="col-span-3">Produk</div>
+              <div className="col-span-2 text-right">Modal</div>
               <div className="col-span-2 text-right">Harga Eceran</div>
               <div className="col-span-2 text-right">Harga Grosir</div>
-              <div className="col-span-2">Kategori</div>
+              <div className="col-span-1">Kategori</div>
               <div className="col-span-2 text-center">Stok</div>
             </div>
 
             {/* Product Rows */}
             {products.map((product) => {
-              const currentStock = editedStocks[product.id] ?? product.stock;
-              const isChanged = currentStock !== product.stock;
+              const edited = editedProducts[product.id];
+              const isEditing = editingProductId === product.id;
+              const isChanged = hasProductChanges(product);
               
               return (
                 <div 
@@ -231,38 +288,218 @@ export default function Inventory() {
                     isChanged ? 'border-primary bg-primary/5' : 'border-border'
                   }`}
                 >
-                  <div className="md:grid md:grid-cols-12 md:gap-4 md:items-center space-y-3 md:space-y-0">
+                  {/* Desktop Layout */}
+                  <div className="hidden lg:grid lg:grid-cols-12 lg:gap-4 lg:items-center">
                     {/* Product Name */}
-                    <div className="col-span-4">
+                    <div className="col-span-3">
                       <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-muted-foreground md:hidden">
-                        {product.category}
-                      </p>
                     </div>
                     
-                    {/* Prices - Mobile */}
-                    <div className="flex justify-between md:hidden text-sm">
-                      <span className="text-muted-foreground">Eceran: {formatRupiah(product.retailPrice)}</span>
-                      <span className="text-muted-foreground">Grosir: {formatRupiah(product.bulkPrice)}</span>
+                    {/* Modal / Purchase Price */}
+                    <div className="col-span-2 text-right">
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={edited?.purchasePrice ?? 0}
+                          onChange={(e) => handleFieldChange(product.id, 'purchasePrice', parseInt(e.target.value) || 0)}
+                          className="w-full text-right font-mono text-sm"
+                          min={0}
+                        />
+                      ) : (
+                        <span className="font-mono text-sm text-orange-600 dark:text-orange-400">
+                          {formatRupiah(edited?.purchasePrice ?? product.purchasePrice)}
+                        </span>
+                      )}
                     </div>
                     
-                    {/* Prices - Desktop */}
-                    <div className="col-span-2 text-right hidden md:block">
-                      <span className="font-mono text-sm">{formatRupiah(product.retailPrice)}</span>
-                    </div>
-                    <div className="col-span-2 text-right hidden md:block">
-                      <span className="font-mono text-sm">{formatRupiah(product.bulkPrice)}</span>
+                    {/* Retail Price */}
+                    <div className="col-span-2 text-right">
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={edited?.retailPrice ?? 0}
+                          onChange={(e) => handleFieldChange(product.id, 'retailPrice', parseInt(e.target.value) || 0)}
+                          className="w-full text-right font-mono text-sm"
+                          min={0}
+                        />
+                      ) : (
+                        <span className="font-mono text-sm">{formatRupiah(edited?.retailPrice ?? product.retailPrice)}</span>
+                      )}
                     </div>
                     
-                    {/* Category - Desktop */}
-                    <div className="col-span-2 hidden md:block">
-                      <span className="text-sm px-2 py-1 bg-secondary rounded-full">
+                    {/* Bulk Price */}
+                    <div className="col-span-2 text-right">
+                      {isEditing ? (
+                        <Input
+                          type="number"
+                          value={edited?.bulkPrice ?? 0}
+                          onChange={(e) => handleFieldChange(product.id, 'bulkPrice', parseInt(e.target.value) || 0)}
+                          className="w-full text-right font-mono text-sm"
+                          min={0}
+                        />
+                      ) : (
+                        <span className="font-mono text-sm">{formatRupiah(edited?.bulkPrice ?? product.bulkPrice)}</span>
+                      )}
+                    </div>
+                    
+                    {/* Category */}
+                    <div className="col-span-1">
+                      <span className="text-xs px-2 py-1 bg-secondary rounded-full truncate">
                         {product.category}
                       </span>
                     </div>
                     
                     {/* Stock Controls */}
-                    <div className="col-span-2 flex items-center justify-center gap-2">
+                    <div className="col-span-2 flex items-center justify-end gap-2">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => cancelEditing(product.id)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-green-600"
+                            onClick={confirmEditing}
+                          >
+                            <Check className="w-4 h-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => startEditing(product.id)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                      
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDecrement(product.id)}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      
+                      <Input
+                        type="number"
+                        value={edited?.stock ?? product.stock}
+                        onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
+                        className="w-16 text-center font-mono text-sm"
+                        min={0}
+                      />
+                      
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleIncrement(product.id)}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Mobile Layout */}
+                  <div className="lg:hidden space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
+                          {product.category}
+                        </span>
+                      </div>
+                      {isEditing ? (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => cancelEditing(product.id)}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-green-600"
+                            onClick={confirmEditing}
+                          >
+                            <Check className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => startEditing(product.id)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {/* Prices */}
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      <div>
+                        <p className="text-muted-foreground text-xs">Modal</p>
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={edited?.purchasePrice ?? 0}
+                            onChange={(e) => handleFieldChange(product.id, 'purchasePrice', parseInt(e.target.value) || 0)}
+                            className="h-8 text-right font-mono text-xs mt-1"
+                            min={0}
+                          />
+                        ) : (
+                          <p className="font-mono text-orange-600 dark:text-orange-400">
+                            {formatRupiah(edited?.purchasePrice ?? product.purchasePrice)}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">Eceran</p>
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={edited?.retailPrice ?? 0}
+                            onChange={(e) => handleFieldChange(product.id, 'retailPrice', parseInt(e.target.value) || 0)}
+                            className="h-8 text-right font-mono text-xs mt-1"
+                            min={0}
+                          />
+                        ) : (
+                          <p className="font-mono">{formatRupiah(edited?.retailPrice ?? product.retailPrice)}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">Grosir</p>
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            value={edited?.bulkPrice ?? 0}
+                            onChange={(e) => handleFieldChange(product.id, 'bulkPrice', parseInt(e.target.value) || 0)}
+                            className="h-8 text-right font-mono text-xs mt-1"
+                            min={0}
+                          />
+                        ) : (
+                          <p className="font-mono">{formatRupiah(edited?.bulkPrice ?? product.bulkPrice)}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Stock Controls */}
+                    <div className="flex items-center justify-center gap-2 pt-2 border-t border-border">
+                      <span className="text-sm text-muted-foreground mr-2">Stok:</span>
                       <Button
                         variant="outline"
                         size="icon"
@@ -274,8 +511,8 @@ export default function Inventory() {
                       
                       <Input
                         type="number"
-                        value={currentStock}
-                        onChange={(e) => handleStockChange(product.id, parseInt(e.target.value) || 0)}
+                        value={edited?.stock ?? product.stock}
+                        onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
                         className="w-20 text-center font-mono"
                         min={0}
                       />
@@ -293,7 +530,7 @@ export default function Inventory() {
                   
                   {isChanged && (
                     <div className="mt-2 text-xs text-primary">
-                      Diubah: {product.stock} → {currentStock}
+                      ● Ada perubahan yang belum disimpan
                     </div>
                   )}
                 </div>
