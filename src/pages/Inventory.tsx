@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Save, Lock, RefreshCw, Edit2, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Save, Lock, RefreshCw, Edit2, Check, X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +36,23 @@ export default function Inventory() {
   const [editedProducts, setEditedProducts] = useState<Record<string, EditedProduct>>({});
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Get unique categories from products
+  const categories = useMemo(() => {
+    const cats = [...new Set(products.map(p => p.category))];
+    return cats.sort();
+  }, [products]);
+
+  // Filter products based on search and category
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchQuery, selectedCategory]);
 
   const handlePasscodeSubmit = () => {
     if (passcodeInput === PASSCODE) {
@@ -264,7 +281,44 @@ export default function Inventory() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Search and Filter Bar */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cari produk..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              {/* Category Filter */}
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                <Button
+                  variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedCategory('all')}
+                  className="whitespace-nowrap"
+                >
+                  Semua
+                </Button>
+                {categories.map(category => (
+                  <Button
+                    key={category}
+                    variant={selectedCategory === category ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category)}
+                    className="whitespace-nowrap"
+                  >
+                    {category}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             {/* Header Row - Desktop */}
             <div className="hidden lg:grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
               <div className="col-span-3">Produk</div>
@@ -276,7 +330,11 @@ export default function Inventory() {
             </div>
 
             {/* Product Rows */}
-            {products.map((product) => {
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground">
+                Tidak ada produk yang cocok
+              </div>
+            ) : filteredProducts.map((product) => {
               const edited = editedProducts[product.id];
               const isEditing = editingProductId === product.id;
               const isChanged = hasProductChanges(product);
