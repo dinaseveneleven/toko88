@@ -125,10 +125,21 @@ serve(async (req) => {
   try {
     const email = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL");
     const privateKey = Deno.env.get("GOOGLE_PRIVATE_KEY");
-    const sheetId = Deno.env.get("GOOGLE_SHEET_ID");
+    let sheetId = Deno.env.get("GOOGLE_SHEET_ID");
 
     if (!email || !privateKey || !sheetId) {
       throw new Error("Missing Google Sheets configuration");
+    }
+
+    // Extract sheet ID if full URL was provided
+    if (sheetId.includes("docs.google.com")) {
+      const match = sheetId.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (match) {
+        sheetId = match[1];
+        console.log("Extracted sheet ID from URL:", sheetId);
+      } else {
+        throw new Error("Could not extract sheet ID from URL");
+      }
     }
 
     // Parse the private key (handle escaped newlines)
