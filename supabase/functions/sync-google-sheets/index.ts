@@ -377,7 +377,8 @@ serve(async (req) => {
       }
       
       const validPaymentMethods = ['cash', 'transfer', 'qris'];
-      if (!validPaymentMethods.includes(receipt.paymentMethod)) {
+      const paymentMethod = String(receipt.paymentMethod || '').toLowerCase();
+      if (!validPaymentMethods.includes(paymentMethod)) {
         return new Response(
           JSON.stringify({ error: 'Invalid payment method' }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
