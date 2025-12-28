@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Product, CartItem, ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
-import { sampleProducts, categories } from '@/data/sampleProducts';
+import { sampleProducts } from '@/data/sampleProducts';
 import { ProductCard } from '@/components/pos/ProductCard';
 import { CartPanel } from '@/components/pos/CartPanel';
 import { CheckoutModal } from '@/components/pos/CheckoutModal';
@@ -8,10 +8,15 @@ import { ReceiptDisplay } from '@/components/pos/ReceiptDisplay';
 import { SearchBar } from '@/components/pos/SearchBar';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import { useToast } from '@/hooks/use-toast';
-import { Store } from 'lucide-react';
+import { useGoogleSheets } from '@/hooks/useGoogleSheets';
+import { Store, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
   const { toast } = useToast();
+  const { loading: sheetsLoading, fetchProducts, saveTransaction } = useGoogleSheets();
+  
+  const [products, setProducts] = useState<Product[]>(sampleProducts);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -20,13 +25,34 @@ const Index = () => {
   const [currentReceipt, setCurrentReceipt] = useState<ReceiptData | null>(null);
   const [deliveryMethod, setDeliveryMethod] = useState<ReceiptDeliveryMethod>('display');
 
+  const categories = useMemo(() => {
+    return [...new Set(products.map(p => p.category))];
+  }, [products]);
+
+  const loadProductsFromSheets = async () => {
+    const sheetProducts = await fetchProducts();
+    if (sheetProducts.length > 0) {
+      setProducts(sheetProducts);
+      toast({
+        title: 'Produk dimuat',
+        description: `${sheetProducts.length} produk dari Google Sheets`,
+      });
+    } else {
+      toast({
+        title: 'Gagal memuat',
+        description: 'Menggunakan data lokal',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const filteredProducts = useMemo(() => {
-    return sampleProducts.filter((product) => {
+    return products.filter((product) => {
       const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
       const matchesCategory = !selectedCategory || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [search, selectedCategory]);
+  }, [products, search, selectedCategory]);
 
   const handleAddToCart = (product: Product, priceType: 'retail' | 'bulk') => {
     setCart((prev) => {
@@ -80,11 +106,20 @@ const Index = () => {
     setCart([]);
   };
 
-  const handleCheckoutComplete = (
+  const handleCheckoutComplete = async (
     receipt: ReceiptData,
     method: ReceiptDeliveryMethod,
     phone?: string
   ) => {
+    // Save transaction to Google Sheets
+    const saved = await saveTransaction(receipt);
+    if (saved) {
+      toast({
+        title: 'Transaksi tersimpan',
+        description: 'Data tersimpan ke Google Sheets',
+      });
+    }
+
     setCurrentReceipt(receipt);
     setDeliveryMethod(method);
     setCheckoutOpen(false);
@@ -112,21 +147,33 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground">Point of Sale System</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">
-                {new Date().toLocaleDateString('id-ID', { 
-                  weekday: 'long', 
-                  day: 'numeric', 
-                  month: 'long', 
-                  year: 'numeric' 
-                })}
-              </p>
-              <p className="font-mono text-lg font-semibold text-primary">
-                {new Date().toLocaleTimeString('id-ID', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
-              </p>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={loadProductsFromSheets}
+                disabled={sheetsLoading}
+                className="gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${sheetsLoading ? 'animate-spin' : ''}`} />
+                Sync Sheets
+              </Button>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">
+                  {new Date().toLocaleDateString('id-ID', { 
+                    weekday: 'long', 
+                    day: 'numeric', 
+                    month: 'long', 
+                    year: 'numeric' 
+                  })}
+                </p>
+                <p className="font-mono text-lg font-semibold text-primary">
+                  {new Date().toLocaleTimeString('id-ID', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </p>
+              </div>
             </div>
           </div>
         </div>
