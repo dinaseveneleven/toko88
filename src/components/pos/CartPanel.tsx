@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { CartItem } from '@/types/pos';
 import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface CartPanelProps {
   items: CartItem[];
   onUpdateQuantity: (productId: string, priceType: 'retail' | 'bulk', delta: number) => void;
+  onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number) => void;
   onRemove: (productId: string, priceType: 'retail' | 'bulk') => void;
   onClear: () => void;
   onCheckout: () => void;
@@ -18,7 +21,7 @@ const formatRupiah = (num: number) => {
   }).format(num);
 };
 
-export function CartPanel({ items, onUpdateQuantity, onRemove, onClear, onCheckout }: CartPanelProps) {
+export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onRemove, onClear, onCheckout }: CartPanelProps) {
   const subtotal = items.reduce((sum, item) => {
     const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
     return sum + price * item.quantity;
@@ -94,7 +97,17 @@ export function CartPanel({ items, onUpdateQuantity, onRemove, onClear, onChecko
                     >
                       <Minus className="w-3 h-3" />
                     </button>
-                    <span className="font-mono text-sm w-8 text-center">{item.quantity}</span>
+                    <Input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        onSetQuantity(item.product.id, item.priceType, val);
+                      }}
+                      className="w-12 h-7 text-center font-mono text-sm px-1"
+                      min={1}
+                      max={item.product.stock}
+                    />
                     <button
                       onClick={() => onUpdateQuantity(item.product.id, item.priceType, 1)}
                       disabled={item.quantity >= item.product.stock}
