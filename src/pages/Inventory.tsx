@@ -302,7 +302,7 @@ export default function Inventory() {
                           type="number"
                           value={edited?.purchasePrice ?? 0}
                           onChange={(e) => handleFieldChange(product.id, 'purchasePrice', parseInt(e.target.value) || 0)}
-                          className="w-full text-right font-mono text-sm"
+                          className="w-full text-right font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                           min={0}
                         />
                       ) : (
@@ -319,7 +319,7 @@ export default function Inventory() {
                           type="number"
                           value={edited?.retailPrice ?? 0}
                           onChange={(e) => handleFieldChange(product.id, 'retailPrice', parseInt(e.target.value) || 0)}
-                          className="w-full text-right font-mono text-sm"
+                          className="w-full text-right font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                           min={0}
                         />
                       ) : (
@@ -334,7 +334,7 @@ export default function Inventory() {
                           type="number"
                           value={edited?.bulkPrice ?? 0}
                           onChange={(e) => handleFieldChange(product.id, 'bulkPrice', parseInt(e.target.value) || 0)}
-                          className="w-full text-right font-mono text-sm"
+                          className="w-full text-right font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                           min={0}
                         />
                       ) : (
@@ -394,7 +394,7 @@ export default function Inventory() {
                         type="number"
                         value={edited?.stock ?? product.stock}
                         onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
-                        className="w-16 text-center font-mono text-sm"
+                        className="w-16 text-center font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                         min={0}
                       />
                       
@@ -458,7 +458,7 @@ export default function Inventory() {
                             type="number"
                             value={edited?.purchasePrice ?? 0}
                             onChange={(e) => handleFieldChange(product.id, 'purchasePrice', parseInt(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs mt-1"
+                            className="h-8 text-right font-mono text-xs mt-1 focus-visible:ring-0 focus-visible:ring-offset-0"
                             min={0}
                           />
                         ) : (
@@ -474,7 +474,7 @@ export default function Inventory() {
                             type="number"
                             value={edited?.retailPrice ?? 0}
                             onChange={(e) => handleFieldChange(product.id, 'retailPrice', parseInt(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs mt-1"
+                            className="h-8 text-right font-mono text-xs mt-1 focus-visible:ring-0 focus-visible:ring-offset-0"
                             min={0}
                           />
                         ) : (
@@ -488,7 +488,7 @@ export default function Inventory() {
                             type="number"
                             value={edited?.bulkPrice ?? 0}
                             onChange={(e) => handleFieldChange(product.id, 'bulkPrice', parseInt(e.target.value) || 0)}
-                            className="h-8 text-right font-mono text-xs mt-1"
+                            className="h-8 text-right font-mono text-xs mt-1 focus-visible:ring-0 focus-visible:ring-offset-0"
                             min={0}
                           />
                         ) : (
@@ -513,7 +513,7 @@ export default function Inventory() {
                         type="number"
                         value={edited?.stock ?? product.stock}
                         onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
-                        className="w-20 text-center font-mono"
+                        className="w-20 text-center font-mono focus-visible:ring-0 focus-visible:ring-offset-0"
                         min={0}
                       />
                       
