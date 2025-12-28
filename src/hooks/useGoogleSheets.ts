@@ -51,6 +51,32 @@ export function useGoogleSheets() {
       console.error('Error saving transaction:', err);
       return false;
     } finally {
+    setLoading(false);
+    }
+  }, []);
+
+  const updateStock = useCallback(async (stockUpdates: { id: string; stock: number }[]): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+        body: { 
+          action: 'updateStock',
+          data: { stockUpdates }
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message);
+      if (data.error) throw new Error(data.error);
+
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update stock';
+      setError(message);
+      console.error('Error updating stock:', err);
+      return false;
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -60,5 +86,6 @@ export function useGoogleSheets() {
     error,
     fetchProducts,
     saveTransaction,
+    updateStock,
   };
 }
