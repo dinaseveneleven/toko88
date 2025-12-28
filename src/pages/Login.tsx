@@ -10,7 +10,6 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -18,30 +17,16 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        
-        if (error) {
-          toast.error(error.message);
-        } else {
-          toast.success('Akun berhasil dibuat! Silakan login.');
-          setIsSignUp(false);
-        }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (error) {
-          toast.error(error.message);
-        } else {
-          toast.success('Login berhasil!');
-          navigate('/');
-        }
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success('Login berhasil!');
+        navigate('/');
       }
     } catch (error) {
       toast.error('Terjadi kesalahan. Silakan coba lagi.');
@@ -83,7 +68,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Masukkan password"
                 className="h-11"
-                autoComplete={isSignUp ? "new-password" : "current-password"}
+                autoComplete="current-password"
               />
             </div>
 
@@ -93,19 +78,13 @@ export default function Login() {
               disabled={isLoading || !email || !password}
             >
               <Lock className="w-4 h-4 mr-2" />
-              {isLoading ? 'Memproses...' : (isSignUp ? 'Daftar' : 'Masuk')}
+              {isLoading ? 'Memproses...' : 'Masuk'}
             </Button>
           </form>
 
-          <div className="mt-4 text-center">
-            <button
-              type="button"
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
-              onClick={() => setIsSignUp(!isSignUp)}
-            >
-              {isSignUp ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'}
-            </button>
-          </div>
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Hubungi admin jika belum memiliki akun
+          </p>
         </div>
       </div>
     </div>

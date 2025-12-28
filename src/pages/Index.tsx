@@ -9,7 +9,7 @@ import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
-import { Package, LogOut } from 'lucide-react';
+import { Package, LogOut, Shield } from 'lucide-react';
 import logo88 from '@/assets/logo-88.png';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +17,7 @@ import { useNavigate } from 'react-router-dom';
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, isAdmin, logout } = useAuth();
   const { fetchProducts, saveTransaction } = useGoogleSheets();
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -170,6 +170,17 @@ const Index = () => {
                 <Package className="w-4 h-4" />
                 Inventory
               </Button>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/admin')}
+                  className="gap-2"
+                >
+                  <Shield className="w-4 h-4" />
+                  Admin
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
