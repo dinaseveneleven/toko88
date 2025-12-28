@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Product, CartItem, ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
-import { sampleProducts } from '@/data/sampleProducts';
 import { ProductCard } from '@/components/pos/ProductCard';
 import { CartPanel } from '@/components/pos/CartPanel';
 import { CheckoutModal } from '@/components/pos/CheckoutModal';
@@ -18,7 +17,7 @@ const Index = () => {
   const { toast } = useToast();
   const { loading: sheetsLoading, fetchProducts, saveTransaction } = useGoogleSheets();
   
-  const [products, setProducts] = useState<Product[]>(sampleProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -26,6 +25,19 @@ const Index = () => {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<ReceiptData | null>(null);
   const [deliveryMethod, setDeliveryMethod] = useState<ReceiptDeliveryMethod>('display');
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
+  // Auto-load products from Google Sheets on mount
+  useEffect(() => {
+    const loadProducts = async () => {
+      const sheetProducts = await fetchProducts();
+      if (sheetProducts.length > 0) {
+        setProducts(sheetProducts);
+      }
+      setInitialLoadDone(true);
+    };
+    loadProducts();
+  }, [fetchProducts]);
 
   const categories = useMemo(() => {
     return [...new Set(products.map(p => p.category))];
