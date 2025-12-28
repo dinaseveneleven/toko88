@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { Product } from '@/types/pos';
-import { Plus, Package } from 'lucide-react';
+import { Plus, Package, Minus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface ProductCardProps {
   product: Product;
-  onAdd: (product: Product, priceType: 'retail' | 'bulk') => void;
+  onAdd: (product: Product, priceType: 'retail' | 'bulk', quantity: number) => void;
 }
 
 const formatRupiah = (num: number) => {
@@ -15,8 +18,30 @@ const formatRupiah = (num: number) => {
 };
 
 export function ProductCard({ product, onAdd }: ProductCardProps) {
+  const [quantity, setQuantity] = useState(1);
   const isOutOfStock = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock <= 10;
+
+  const handleQuantityChange = (delta: number) => {
+    setQuantity((prev) => {
+      const newQty = prev + delta;
+      if (newQty < 1) return 1;
+      if (newQty > product.stock) return product.stock;
+      return newQty;
+    });
+  };
+
+  const handleInputChange = (value: string) => {
+    const num = parseInt(value) || 1;
+    if (num < 1) setQuantity(1);
+    else if (num > product.stock) setQuantity(product.stock);
+    else setQuantity(num);
+  };
+
+  const handleAdd = (priceType: 'retail' | 'bulk') => {
+    onAdd(product, priceType, quantity);
+    setQuantity(1); // Reset after adding
+  };
 
   return (
     <div 
@@ -55,9 +80,41 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
         </div>
       </div>
 
+      {/* Quantity selector */}
+      {!isOutOfStock && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => handleQuantityChange(-1)}
+            disabled={quantity <= 1}
+          >
+            <Minus className="w-3 h-3" />
+          </Button>
+          <Input
+            type="number"
+            value={quantity}
+            onChange={(e) => handleInputChange(e.target.value)}
+            className="w-14 h-8 text-center text-sm font-mono"
+            min={1}
+            max={product.stock}
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => handleQuantityChange(1)}
+            disabled={quantity >= product.stock}
+          >
+            <Plus className="w-3 h-3" />
+          </Button>
+        </div>
+      )}
+
       <div className="flex gap-2 mt-auto">
         <button
-          onClick={() => onAdd(product, 'retail')}
+          onClick={() => handleAdd('retail')}
           disabled={isOutOfStock}
           className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-pos-retail/10 hover:bg-pos-retail/20 text-pos-retail text-xs font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
         >
@@ -65,7 +122,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
           Eceran
         </button>
         <button
-          onClick={() => onAdd(product, 'bulk')}
+          onClick={() => handleAdd('bulk')}
           disabled={isOutOfStock}
           className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-pos-bulk/10 hover:bg-pos-bulk/20 text-pos-bulk text-xs font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
         >
