@@ -1,0 +1,210 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+
+interface AddProductModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  categories: string[];
+  onSuccess: () => void;
+  addProduct: (product: {
+    name: string;
+    category: string;
+    purchasePrice: number;
+    retailPrice: number;
+    bulkPrice: number;
+    stock: number;
+  }) => Promise<boolean>;
+}
+
+export function AddProductModal({ 
+  open, 
+  onOpenChange, 
+  categories, 
+  onSuccess,
+  addProduct 
+}: AddProductModalProps) {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    purchasePrice: '',
+    retailPrice: '',
+    bulkPrice: '',
+    stock: '0',
+  });
+
+  const handleChange = (field: keyof typeof formData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      category: '',
+      purchasePrice: '',
+      retailPrice: '',
+      bulkPrice: '',
+      stock: '0',
+    });
+  };
+
+  const handleSubmit = async () => {
+    // Validation
+    if (!formData.name.trim()) {
+      toast({ title: "Error", description: "Nama produk harus diisi", variant: "destructive" });
+      return;
+    }
+    if (!formData.category.trim()) {
+      toast({ title: "Error", description: "Kategori harus diisi", variant: "destructive" });
+      return;
+    }
+    if (!formData.purchasePrice || parseInt(formData.purchasePrice) <= 0) {
+      toast({ title: "Error", description: "Harga modal harus lebih dari 0", variant: "destructive" });
+      return;
+    }
+    if (!formData.retailPrice || parseInt(formData.retailPrice) <= 0) {
+      toast({ title: "Error", description: "Harga eceran harus lebih dari 0", variant: "destructive" });
+      return;
+    }
+    if (!formData.bulkPrice || parseInt(formData.bulkPrice) <= 0) {
+      toast({ title: "Error", description: "Harga grosir harus lebih dari 0", variant: "destructive" });
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    const success = await addProduct({
+      name: formData.name.trim(),
+      category: formData.category.trim(),
+      purchasePrice: parseInt(formData.purchasePrice) || 0,
+      retailPrice: parseInt(formData.retailPrice) || 0,
+      bulkPrice: parseInt(formData.bulkPrice) || 0,
+      stock: parseInt(formData.stock) || 0,
+    });
+
+    setIsSubmitting(false);
+
+    if (success) {
+      toast({ title: "Berhasil", description: "Produk baru berhasil ditambahkan" });
+      resetForm();
+      onOpenChange(false);
+      onSuccess();
+    } else {
+      toast({ title: "Gagal", description: "Gagal menambahkan produk", variant: "destructive" });
+    }
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Tambah Produk Baru</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          {/* Product Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Nama Produk *</Label>
+            <Input
+              id="name"
+              placeholder="Masukkan nama produk"
+              value={formData.name}
+              onChange={(e) => handleChange('name', e.target.value)}
+            />
+          </div>
+
+          {/* Category */}
+          <div className="space-y-2">
+            <Label htmlFor="category">Kategori *</Label>
+            <Input
+              id="category"
+              placeholder="Pilih atau ketik kategori baru"
+              value={formData.category}
+              onChange={(e) => handleChange('category', e.target.value)}
+              list="category-list"
+            />
+            <datalist id="category-list">
+              {categories.map(cat => (
+                <option key={cat} value={cat} />
+              ))}
+            </datalist>
+          </div>
+
+          {/* Purchase Price */}
+          <div className="space-y-2">
+            <Label htmlFor="purchasePrice">Harga Modal (Rp) *</Label>
+            <Input
+              id="purchasePrice"
+              type="number"
+              placeholder="0"
+              min={0}
+              value={formData.purchasePrice}
+              onChange={(e) => handleChange('purchasePrice', e.target.value)}
+            />
+          </div>
+
+          {/* Retail Price */}
+          <div className="space-y-2">
+            <Label htmlFor="retailPrice">Harga Eceran (Rp) *</Label>
+            <Input
+              id="retailPrice"
+              type="number"
+              placeholder="0"
+              min={0}
+              value={formData.retailPrice}
+              onChange={(e) => handleChange('retailPrice', e.target.value)}
+            />
+          </div>
+
+          {/* Bulk Price */}
+          <div className="space-y-2">
+            <Label htmlFor="bulkPrice">Harga Grosir (Rp) *</Label>
+            <Input
+              id="bulkPrice"
+              type="number"
+              placeholder="0"
+              min={0}
+              value={formData.bulkPrice}
+              onChange={(e) => handleChange('bulkPrice', e.target.value)}
+            />
+          </div>
+
+          {/* Initial Stock */}
+          <div className="space-y-2">
+            <Label htmlFor="stock">Stok Awal</Label>
+            <Input
+              id="stock"
+              type="number"
+              placeholder="0"
+              min={0}
+              value={formData.stock}
+              onChange={(e) => handleChange('stock', e.target.value)}
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
+            Batal
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            Tambah Produk
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
