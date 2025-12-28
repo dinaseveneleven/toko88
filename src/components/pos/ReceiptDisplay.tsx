@@ -1,10 +1,11 @@
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
 import { Receipt } from './Receipt';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, Printer, Check, MessageCircle } from 'lucide-react';
+import { Download, Printer, Check, MessageCircle, AlertTriangle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ReceiptDisplayProps {
   open: boolean;
@@ -23,8 +24,30 @@ const formatRupiah = (num: number) => {
 
 export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: ReceiptDisplayProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPublicUrl = async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'public_invoice_base_url')
+        .single();
+      
+      setPublicBaseUrl(data?.value || null);
+    };
+    
+    if (open) {
+      fetchPublicUrl();
+    }
+  }, [open]);
 
   if (!receipt) return null;
+
+  // Use public URL if set, otherwise fallback to current origin
+  const isPreviewUrl = window.location.origin.includes('lovable.dev');
+  const baseUrl = publicBaseUrl || window.location.origin;
+  const showWarning = !publicBaseUrl && isPreviewUrl;
 
   const generateReceiptText = () => {
     const lines = [
@@ -88,7 +111,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   };
 
   // Generate QR URL that links to the invoice page
-  const qrData = `${window.location.origin}/invoice/${receipt.id}`;
+  const qrData = `${baseUrl}/invoice/${receipt.id}`;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -131,6 +154,16 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                 />
               </div>
               <p className="text-xs text-muted-foreground font-mono">{receipt.id}</p>
+              
+              {showWarning && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 flex items-start gap-2 text-left">
+                  <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-yellow-500">
+                    QR menggunakan URL preview. Atur URL Struk Publik di Admin agar pelanggan bisa akses tanpa login.
+                  </p>
+                </div>
+              )}
+              
               <Button onClick={handleDownload} className="w-full">
                 <Download className="w-4 h-4 mr-2" />
                 Download Langsung

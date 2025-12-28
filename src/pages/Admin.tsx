@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2 } from 'lucide-react';
+import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2, Link, Save } from 'lucide-react';
 
 type AppRole = 'admin' | 'cashier';
 
@@ -43,6 +43,10 @@ export default function Admin() {
   const [newRole, setNewRole] = useState<AppRole>('cashier');
   const [isCreating, setIsCreating] = useState(false);
 
+  // Public invoice URL setting
+  const [publicInvoiceUrl, setPublicInvoiceUrl] = useState('');
+  const [isSavingUrl, setIsSavingUrl] = useState(false);
+
   useEffect(() => {
     if (!isLoadingRole && !isAdmin) {
       toast.error('Akses ditolak. Hanya admin yang dapat mengakses halaman ini.');
@@ -53,8 +57,47 @@ export default function Admin() {
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
+      fetchPublicInvoiceUrl();
     }
   }, [isAdmin]);
+
+  const fetchPublicInvoiceUrl = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'public_invoice_base_url')
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      setPublicInvoiceUrl(data?.value || '');
+    } catch (error) {
+      console.error('Error fetching public invoice URL:', error);
+    }
+  };
+
+  const handleSavePublicUrl = async () => {
+    setIsSavingUrl(true);
+    try {
+      // Normalize URL: remove trailing slash
+      const normalizedUrl = publicInvoiceUrl.trim().replace(/\/$/, '');
+      
+      const { error } = await supabase
+        .from('app_settings')
+        .update({ value: normalizedUrl || null, updated_at: new Date().toISOString() })
+        .eq('key', 'public_invoice_base_url');
+      
+      if (error) throw error;
+      
+      setPublicInvoiceUrl(normalizedUrl);
+      toast.success('URL struk publik berhasil disimpan');
+    } catch (error) {
+      console.error('Error saving public URL:', error);
+      toast.error('Gagal menyimpan URL');
+    } finally {
+      setIsSavingUrl(false);
+    }
+  };
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -211,6 +254,38 @@ export default function Admin() {
       </header>
 
       <main className="container max-w-4xl mx-auto px-4 py-6 space-y-8">
+        {/* Public Invoice URL Setting */}
+        <section className="pos-card p-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            <Link className="w-5 h-5" />
+            URL Struk Publik
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Masukkan URL domain publik agar QR code struk bisa diakses pelanggan tanpa login. 
+            Contoh: https://toko88.lovable.app
+          </p>
+          
+          <div className="flex gap-2">
+            <Input
+              type="url"
+              placeholder="https://your-domain.com"
+              value={publicInvoiceUrl}
+              onChange={(e) => setPublicInvoiceUrl(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleSavePublicUrl} disabled={isSavingUrl}>
+              {isSavingUrl ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Simpan
+                </>
+              )}
+            </Button>
+          </div>
+        </section>
+
         {/* Create New User */}
         <section className="pos-card p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
