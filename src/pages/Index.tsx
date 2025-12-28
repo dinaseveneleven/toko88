@@ -157,7 +157,7 @@ const Index = () => {
                 className="gap-2"
               >
                 <Package className="w-4 h-4" />
-                Inventaris
+                Inventory
               </Button>
               <Button 
                 variant="outline" 
