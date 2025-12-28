@@ -8,14 +8,14 @@ import { SearchBar } from '@/components/pos/SearchBar';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
-import { Store, RefreshCw, Package } from 'lucide-react';
+import { Store, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { loading: sheetsLoading, fetchProducts, saveTransaction } = useGoogleSheets();
+  const { fetchProducts, saveTransaction } = useGoogleSheets();
   
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -43,22 +43,6 @@ const Index = () => {
     return [...new Set(products.map(p => p.category))];
   }, [products]);
 
-  const loadProductsFromSheets = async () => {
-    const sheetProducts = await fetchProducts();
-    if (sheetProducts.length > 0) {
-      setProducts(sheetProducts);
-      toast({
-        title: 'Produk dimuat',
-        description: `${sheetProducts.length} produk dari Google Sheets`,
-      });
-    } else {
-      toast({
-        title: 'Gagal memuat',
-        description: 'Menggunakan data lokal',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -170,16 +154,6 @@ const Index = () => {
               >
                 <Package className="w-4 h-4" />
                 Inventory
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={loadProductsFromSheets}
-                disabled={sheetsLoading}
-                className="gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${sheetsLoading ? 'animate-spin' : ''}`} />
-                Sync Sheets
               </Button>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">
