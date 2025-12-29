@@ -114,10 +114,13 @@ export default function Admin() {
   };
 
   const updateSetting = async (key: string, value: string | null) => {
+    // Use upsert to handle cases where the setting might not exist yet
     const { error } = await supabase
       .from('app_settings')
-      .update({ value, updated_at: new Date().toISOString() })
-      .eq('key', key);
+      .upsert(
+        { key, value, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
     
     if (error) throw error;
   };
