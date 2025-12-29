@@ -431,9 +431,10 @@ export default function Inventory() {
                       {isEditing ? (
                         <Input
                           type="number"
-                          value={edited?.purchasePrice ?? 0}
+                          value={(edited?.purchasePrice ?? 0) === 0 ? '' : (edited?.purchasePrice ?? 0)}
+                          placeholder="0"
                           onChange={(e) => handleFieldChange(product.id, 'purchasePrice', parseInt(e.target.value) || 0)}
-                          className="w-full text-right font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                          className="w-full text-right font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/40"
                           min={0}
                         />
                       ) : (
@@ -448,9 +449,10 @@ export default function Inventory() {
                       {isEditing ? (
                         <Input
                           type="number"
-                          value={edited?.retailPrice ?? 0}
+                          value={(edited?.retailPrice ?? 0) === 0 ? '' : (edited?.retailPrice ?? 0)}
+                          placeholder="0"
                           onChange={(e) => handleFieldChange(product.id, 'retailPrice', parseInt(e.target.value) || 0)}
-                          className="w-full text-right font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                          className="w-full text-right font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/40"
                           min={0}
                         />
                       ) : (
@@ -463,9 +465,10 @@ export default function Inventory() {
                       {isEditing ? (
                         <Input
                           type="number"
-                          value={edited?.bulkPrice ?? 0}
+                          value={(edited?.bulkPrice ?? 0) === 0 ? '' : (edited?.bulkPrice ?? 0)}
+                          placeholder="0"
                           onChange={(e) => handleFieldChange(product.id, 'bulkPrice', parseInt(e.target.value) || 0)}
-                          className="w-full text-right font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                          className="w-full text-right font-mono text-sm focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/40"
                           min={0}
                         />
                       ) : (
@@ -524,10 +527,11 @@ export default function Inventory() {
                       <div className="relative">
                         <Input
                           type="number"
-                          value={edited?.stock ?? product.stock}
+                          value={(edited?.stock ?? product.stock) === 0 ? '' : (edited?.stock ?? product.stock)}
+                          placeholder="0"
                           onChange={(e) => handleStockInputChange(product.id, e.target.value)}
                           onBlur={() => handleStockInputBlur(product.id)}
-                          className={`w-16 text-center font-mono text-sm h-8 pr-5 ${
+                          className={`w-16 text-center font-mono text-sm h-8 pr-5 placeholder:text-muted-foreground/40 ${
                             isOutOfStock ? 'text-destructive' : 
                             isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
                           }`}
@@ -585,10 +589,11 @@ export default function Inventory() {
                         <div className="relative">
                           <Input
                             type="number"
-                            value={edited?.stock ?? product.stock}
+                            value={(edited?.stock ?? product.stock) === 0 ? '' : (edited?.stock ?? product.stock)}
+                            placeholder="0"
                             onChange={(e) => handleStockInputChange(product.id, e.target.value)}
                             onBlur={() => handleStockInputBlur(product.id)}
-                            className={`w-12 text-center font-mono text-sm h-7 px-1 pr-4 ${
+                            className={`w-12 text-center font-mono text-sm h-7 px-1 pr-4 placeholder:text-muted-foreground/40 ${
                               isOutOfStock ? 'text-destructive' : 
                               isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
                             }`}
@@ -616,9 +621,10 @@ export default function Inventory() {
                         {isEditing ? (
                           <Input
                             type="number"
-                            value={edited?.purchasePrice ?? 0}
+                            value={(edited?.purchasePrice ?? 0) === 0 ? '' : (edited?.purchasePrice ?? 0)}
+                            placeholder="0"
                             onChange={(e) => handleFieldChange(product.id, 'purchasePrice', parseInt(e.target.value) || 0)}
-                            className="h-6 w-20 text-xs px-1"
+                            className="h-6 w-20 text-xs px-1 placeholder:text-muted-foreground/40"
                             min={0}
                           />
                         ) : (
@@ -632,9 +638,10 @@ export default function Inventory() {
                         {isEditing ? (
                           <Input
                             type="number"
-                            value={edited?.retailPrice ?? 0}
+                            value={(edited?.retailPrice ?? 0) === 0 ? '' : (edited?.retailPrice ?? 0)}
+                            placeholder="0"
                             onChange={(e) => handleFieldChange(product.id, 'retailPrice', parseInt(e.target.value) || 0)}
-                            className="h-6 w-20 text-xs px-1"
+                            className="h-6 w-20 text-xs px-1 placeholder:text-muted-foreground/40"
                             min={0}
                           />
                         ) : (
@@ -660,9 +667,10 @@ export default function Inventory() {
                           <span className="text-muted-foreground">Grosir:</span>
                           <Input
                             type="number"
-                            value={edited?.bulkPrice ?? 0}
+                            value={(edited?.bulkPrice ?? 0) === 0 ? '' : (edited?.bulkPrice ?? 0)}
+                            placeholder="0"
                             onChange={(e) => handleFieldChange(product.id, 'bulkPrice', parseInt(e.target.value) || 0)}
-                            className="h-6 w-20 text-xs px-1"
+                            className="h-6 w-20 text-xs px-1 placeholder:text-muted-foreground/40"
                             min={0}
                           />
                         </div>
