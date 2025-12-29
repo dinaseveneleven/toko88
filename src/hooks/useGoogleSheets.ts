@@ -173,6 +173,29 @@ export function useGoogleSheets() {
     }
   }, []);
 
+  const repairPriceFormat = useCallback(async (): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+        body: { action: 'repairPriceFormat' }
+      });
+
+      if (fnError) throw new Error(fnError.message);
+      if (data.error) throw new Error(data.error);
+
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to repair price format';
+      setError(message);
+      console.error('Error repairing price format:', err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -182,5 +205,6 @@ export function useGoogleSheets() {
     updateInventory,
     addProduct,
     deleteProduct,
+    repairPriceFormat,
   };
 }

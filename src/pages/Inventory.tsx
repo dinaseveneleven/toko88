@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle, Loader2, Trash2, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -42,7 +42,7 @@ interface EditedProduct {
 export default function Inventory() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchProducts, updateInventory, updateStock, addProduct, deleteProduct, loading: isLoading } = useGoogleSheets();
+  const { fetchProducts, updateInventory, updateStock, addProduct, deleteProduct, repairPriceFormat, loading: isLoading } = useGoogleSheets();
   const { isAuthenticated } = useAuth();
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -56,6 +56,7 @@ export default function Inventory() {
   const [savingStockIds, setSavingStockIds] = useState<Set<string>>(new Set());
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isRepairingFormat, setIsRepairingFormat] = useState(false);
   // Debounce timeouts for stock input typing
   const stockDebounceRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -327,6 +328,27 @@ export default function Inventory() {
     setProductToDelete(null);
   };
 
+  const handleRepairPriceFormat = async () => {
+    setIsRepairingFormat(true);
+    try {
+      const success = await repairPriceFormat();
+      if (success) {
+        toast({
+          title: "Berhasil",
+          description: "Format harga di Google Sheets berhasil diperbaiki",
+        });
+      } else {
+        toast({
+          title: "Gagal",
+          description: "Gagal memperbaiki format harga",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsRepairingFormat(false);
+    }
+  };
+
   // Show loading while checking auth
   if (isAuthenticated === null) {
     return (
@@ -369,6 +391,22 @@ export default function Inventory() {
             >
               <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2 ${isFetching ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRepairPriceFormat}
+              disabled={isRepairingFormat || isFetching}
+              className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
+              title="Perbaiki format harga di Google Sheets ke format mata uang"
+            >
+              {isRepairingFormat ? (
+                <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2 animate-spin" />
+              ) : (
+                <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
+              )}
+              <span className="hidden sm:inline">Repair Format</span>
             </Button>
             
             {hasChanges && (
