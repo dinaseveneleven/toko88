@@ -351,15 +351,47 @@ serve(async (req) => {
     if (action === "getProducts") {
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
-      const products = rows.map((row, index) => ({
-        id: sanitizeForSheets(row[0]) || String(index + 1),
-        name: sanitizeForSheets(row[1]) || "",
-        retailPrice: parseRupiah(row[2]),
-        bulkPrice: parseRupiah(row[3]),
-        purchasePrice: parseRupiah(row[4]),
-        stock: parseInt(String(row[5]).replace(/[^\d]/g, '')) || 0,
-        category: sanitizeForSheets(row[6]) || "Lainnya",
-      }));
+      // Track products that need bulk price update
+      const productsToUpdate: { index: number; bulkPrice: number }[] = [];
+      
+      const products = rows.map((row, index) => {
+        const retailPrice = parseRupiah(row[2]);
+        let bulkPrice = parseRupiah(row[3]);
+        
+        // Apply default bulk price formula (98% of retail) if bulk price is 0
+        if (bulkPrice === 0 && retailPrice > 0) {
+          bulkPrice = Math.floor(retailPrice * 0.98);
+          productsToUpdate.push({ index, bulkPrice });
+        }
+        
+        return {
+          id: sanitizeForSheets(row[0]) || String(index + 1),
+          name: sanitizeForSheets(row[1]) || "",
+          retailPrice,
+          bulkPrice,
+          purchasePrice: parseRupiah(row[4]),
+          stock: parseInt(String(row[5]).replace(/[^\d]/g, '')) || 0,
+          category: sanitizeForSheets(row[6]) || "Lainnya",
+        };
+      });
+
+      // Update Google Sheet with calculated bulk prices (don't await - fire and forget)
+      if (productsToUpdate.length > 0) {
+        const updatedRows = rows.map((row, index) => {
+          const update = productsToUpdate.find(u => u.index === index);
+          if (update) {
+            // Return row with calculated bulk price as number
+            return [row[0], row[1], parseRupiah(row[2]), update.bulkPrice, parseRupiah(row[4]), row[5], row[6]];
+          }
+          // Ensure all price columns are numbers, not text
+          return [row[0], row[1], parseRupiah(row[2]), parseRupiah(row[3]), parseRupiah(row[4]), row[5], row[6]];
+        });
+        
+        // Fire and forget - update in background
+        updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows)
+          .then(() => console.log(`Updated ${productsToUpdate.length} products with default bulk prices`))
+          .catch(err => console.error('Failed to update bulk prices:', err));
+      }
 
       return new Response(JSON.stringify({ products }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
