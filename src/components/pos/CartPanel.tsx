@@ -127,7 +127,7 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
                         const val = parseInt(e.target.value) || 0;
                         onSetQuantity(item.product.id, item.priceType, val);
                       }}
-                      className="w-12 h-7 text-center font-mono text-sm px-1"
+                      className="w-12 h-7 text-left font-mono text-sm px-2"
                       min={1}
                       max={item.product.stock}
                     />
