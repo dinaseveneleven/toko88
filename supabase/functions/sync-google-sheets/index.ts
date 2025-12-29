@@ -425,6 +425,23 @@ serve(async (req) => {
     const accessToken = await getAccessToken(email, formattedKey);
 
     if (action === "getProducts") {
+      // Fetch bulk price percentage from app_settings
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      
+      const { data: settingsData } = await supabaseClient
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'bulk_price_percentage')
+        .maybeSingle();
+      
+      const bulkPricePercentage = settingsData?.value ? parseInt(settingsData.value, 10) : 98;
+      const bulkPriceMultiplier = bulkPricePercentage / 100;
+      
+      console.log(`[${requestId}] Using bulk price percentage: ${bulkPricePercentage}%`);
+      
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
       // Track products that need bulk price update
@@ -434,9 +451,9 @@ serve(async (req) => {
         const retailPrice = parseRupiah(row[2]);
         let bulkPrice = parseRupiah(row[3]);
         
-        // Apply default bulk price formula (98% of retail) if bulk price is 0
+        // Apply default bulk price formula if bulk price is 0
         if (bulkPrice === 0 && retailPrice > 0) {
-          bulkPrice = Math.floor(retailPrice * 0.98);
+          bulkPrice = Math.floor(retailPrice * bulkPriceMultiplier);
           productsToUpdate.push({ index, bulkPrice });
         }
         
