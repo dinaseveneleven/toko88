@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -8,6 +8,16 @@ import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
 import { AddProductModal } from '@/components/inventory/AddProductModal';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { Product } from '@/types/pos';
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -32,7 +42,7 @@ interface EditedProduct {
 export default function Inventory() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchProducts, updateInventory, updateStock, addProduct, loading: isLoading } = useGoogleSheets();
+  const { fetchProducts, updateInventory, updateStock, addProduct, deleteProduct, loading: isLoading } = useGoogleSheets();
   const { isAuthenticated } = useAuth();
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -44,7 +54,8 @@ export default function Inventory() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [savingStockIds, setSavingStockIds] = useState<Set<string>>(new Set());
-  
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   // Debounce timeouts for stock input typing
   const stockDebounceRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -284,6 +295,38 @@ export default function Inventory() {
     }
   };
 
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
+    
+    setDeletingProductId(productToDelete.id);
+    
+    const success = await deleteProduct(productToDelete.id);
+    
+    if (success) {
+      // Remove from local state
+      setProducts(prev => prev.filter(p => p.id !== productToDelete.id));
+      setEditedProducts(prev => {
+        const next = { ...prev };
+        delete next[productToDelete.id];
+        return next;
+      });
+      
+      toast({
+        title: "Berhasil",
+        description: `${productToDelete.name} berhasil dihapus`,
+      });
+    } else {
+      toast({
+        title: "Gagal",
+        description: "Gagal menghapus produk",
+        variant: "destructive",
+      });
+    }
+    
+    setDeletingProductId(null);
+    setProductToDelete(null);
+  };
+
   // Show loading while checking auth
   if (isAuthenticated === null) {
     return (
@@ -491,6 +534,19 @@ export default function Inventory() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive"
+                            onClick={() => setProductToDelete(product)}
+                            disabled={deletingProductId === product.id}
+                          >
+                            {deletingProductId === product.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={() => cancelEditing(product.id)}
                           >
                             <X className="w-4 h-4" />
@@ -660,7 +716,7 @@ export default function Inventory() {
                       </Button>
                     </div>
 
-                    {/* Bulk price only shown when editing */}
+                    {/* Bulk price and delete only shown when editing */}
                     {isEditing && (
                       <div className="flex items-center justify-between text-xs pt-1 border-t border-border/50">
                         <div className="flex items-center gap-3">
@@ -674,15 +730,31 @@ export default function Inventory() {
                             min={0}
                           />
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 text-xs text-destructive"
-                          onClick={() => cancelEditing(product.id)}
-                        >
-                          <X className="w-3 h-3 mr-1" />
-                          Batal
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs text-destructive"
+                            onClick={() => setProductToDelete(product)}
+                            disabled={deletingProductId === product.id}
+                          >
+                            {deletingProductId === product.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3 h-3 mr-1" />
+                            )}
+                            Hapus
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs"
+                            onClick={() => cancelEditing(product.id)}
+                          >
+                            <X className="w-3 h-3 mr-1" />
+                            Batal
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -701,6 +773,36 @@ export default function Inventory() {
         onSuccess={loadProducts}
         addProduct={addProduct}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!productToDelete} onOpenChange={(open) => !open && setProductToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Produk?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin menghapus <strong>{productToDelete?.name}</strong>? 
+              Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingProductId}>Batal</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteProduct}
+              disabled={!!deletingProductId}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingProductId ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Menghapus...
+                </>
+              ) : (
+                'Hapus'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

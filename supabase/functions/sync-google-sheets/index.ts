@@ -40,7 +40,7 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS);
 
 // Input validation schemas
-const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct'] as const;
+const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'deleteProduct'] as const;
 type ValidAction = typeof VALID_ACTIONS[number];
 
 function isValidAction(action: string): action is ValidAction {
@@ -586,6 +586,97 @@ serve(async (req) => {
       console.log(`[${requestId}] Product ${newId} added successfully`);
 
       return new Response(JSON.stringify({ success: true, productId: newId }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "deleteProduct") {
+      const { productId } = data || {};
+      
+      if (!productId || typeof productId !== 'string') {
+        return new Response(
+          JSON.stringify({ error: 'Invalid product ID' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get existing products
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
+      
+      // Find the row index of the product to delete
+      let rowIndexToDelete = -1;
+      const trimmedProductId = String(productId).trim();
+      
+      for (let i = 0; i < rows.length; i++) {
+        const rowId = String(rows[i][0] ?? '').trim();
+        if (rowId === trimmedProductId) {
+          rowIndexToDelete = i;
+          break;
+        }
+      }
+
+      if (rowIndexToDelete === -1) {
+        return new Response(
+          JSON.stringify({ error: 'Product not found' }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Delete the row using batchUpdate (row index + 2 because of header row and 0-based index)
+      const sheetRowIndex = rowIndexToDelete + 1; // +1 for header row (0-based for API)
+      
+      // First, get the sheet ID (numeric) from the spreadsheet
+      const spreadsheetUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
+      const spreadsheetResponse = await fetch(spreadsheetUrl, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      
+      if (!spreadsheetResponse.ok) {
+        throw new Error("Failed to get spreadsheet info");
+      }
+      
+      const spreadsheetData = await spreadsheetResponse.json();
+      const productsSheet = spreadsheetData.sheets?.find((s: any) => 
+        s.properties?.title === 'Products'
+      );
+      
+      if (!productsSheet) {
+        throw new Error("Products sheet not found");
+      }
+      
+      const numericSheetId = productsSheet.properties.sheetId;
+      
+      // Delete the row using batchUpdate
+      const deleteUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`;
+      const deleteResponse = await fetch(deleteUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requests: [{
+            deleteDimension: {
+              range: {
+                sheetId: numericSheetId,
+                dimension: "ROWS",
+                startIndex: sheetRowIndex, // 0-based, after header
+                endIndex: sheetRowIndex + 1
+              }
+            }
+          }]
+        }),
+      });
+
+      if (!deleteResponse.ok) {
+        const errorData = await deleteResponse.text();
+        console.error(`[${requestId}] Failed to delete row:`, errorData);
+        throw new Error("Failed to delete product");
+      }
+
+      console.log(`[${requestId}] Product ${productId} deleted successfully`);
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

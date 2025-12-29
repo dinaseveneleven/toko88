@@ -146,6 +146,32 @@ export function useGoogleSheets() {
     }
   }, []);
 
+  const deleteProduct = useCallback(async (productId: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+        body: { 
+          action: 'deleteProduct',
+          data: { productId }
+        }
+      });
+
+      if (fnError) throw new Error(fnError.message);
+      if (data.error) throw new Error(data.error);
+
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete product';
+      setError(message);
+      console.error('Error deleting product:', err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -154,5 +180,6 @@ export function useGoogleSheets() {
     updateStock,
     updateInventory,
     addProduct,
+    deleteProduct,
   };
 }
