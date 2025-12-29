@@ -18,13 +18,8 @@ export function useGoogleSheets() {
       if (fnError) throw new Error(fnError.message);
       if (data.error) throw new Error(data.error);
 
-      // Apply default bulk price if not set (98% of retail price)
-      const products = (data.products || []).map((product: Product) => ({
-        ...product,
-        bulkPrice: product.bulkPrice > 0 ? product.bulkPrice : Math.floor(product.retailPrice * 0.98),
-      }));
-
-      return products;
+      // Bulk price default is now calculated in the edge function
+      return data.products || [];
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch products';
       setError(message);
