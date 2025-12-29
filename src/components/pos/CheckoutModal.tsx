@@ -3,8 +3,9 @@ import { CartItem, ReceiptData, ReceiptDeliveryMethod, BankInfo, StoreInfo } fro
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Banknote, Wallet, ArrowLeft, Building2, Loader2 } from 'lucide-react';
+import { Banknote, Wallet, ArrowLeft, Building2, Loader2, Bluetooth } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { isBluetoothSupported } from '@/utils/escpos';
 
 interface CheckoutModalProps {
   open: boolean;
@@ -424,6 +425,26 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
             <p className="text-sm text-muted-foreground">Pilih cara pengiriman struk:</p>
 
             <div className="grid gap-3">
+              {/* Bluetooth Print Option - Only show if supported */}
+              {isBluetoothSupported() && (
+                <button
+                  onClick={() => setReceiptMethod('bluetooth')}
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
+                    receiptMethod === 'bluetooth'
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <Bluetooth className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Print Bluetooth</p>
+                    <p className="text-sm text-muted-foreground">Cetak ke thermal printer</p>
+                  </div>
+                </button>
+              )}
+
               <button
                 onClick={() => setReceiptMethod('display')}
                 className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${

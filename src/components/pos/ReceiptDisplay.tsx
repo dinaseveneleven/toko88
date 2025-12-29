@@ -3,9 +3,10 @@ import { ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
 import { Receipt } from './Receipt';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, Printer, Check, MessageCircle, AlertTriangle } from 'lucide-react';
+import { Download, Printer, Check, MessageCircle, AlertTriangle, Bluetooth, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '@/integrations/supabase/client';
+import { useBluetoothPrinter } from '@/hooks/useBluetoothPrinter';
 
 interface ReceiptDisplayProps {
   open: boolean;
@@ -32,6 +33,9 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const receiptRef = useRef<HTMLDivElement>(null);
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null);
   const [storeInfo, setStoreInfo] = useState<{ address: string; phone: string } | null>(null);
+  const [printTriggered, setPrintTriggered] = useState(false);
+  
+  const { printReceipt, isPrinting, isConnected, connectPrinter, isConnecting } = useBluetoothPrinter();
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -53,6 +57,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
     
     if (open) {
       fetchSettings();
+      setPrintTriggered(false);
     }
   }, [open]);
 
@@ -220,6 +225,88 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Kirim Ulang via WhatsApp
               </Button>
+            </div>
+          )}
+
+          {deliveryMethod === 'bluetooth' && (
+            <div className="animate-slide-up space-y-4">
+              {isPrinting ? (
+                <div className="text-center py-8">
+                  <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+                  <p className="text-muted-foreground">Mencetak struk...</p>
+                </div>
+              ) : printTriggered ? (
+                <div className="bg-primary/10 rounded-xl p-4 border border-primary/20 text-center">
+                  <Bluetooth className="w-8 h-8 text-primary mx-auto mb-2" />
+                  <p className="font-semibold">Struk Berhasil Dicetak!</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Struk telah dikirim ke thermal printer
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-blue-500/10 rounded-xl p-4 border border-blue-500/20 text-center">
+                  <Bluetooth className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                  <p className="font-semibold">Print via Bluetooth</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {isConnected ? 'Printer terhubung' : 'Pilih printer untuk mencetak'}
+                  </p>
+                </div>
+              )}
+              
+              <Receipt data={receipt} />
+
+              <div className="flex gap-2">
+                {!isConnected ? (
+                  <Button 
+                    onClick={connectPrinter}
+                    disabled={isConnecting}
+                    className="flex-1"
+                  >
+                    {isConnecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Menghubungkan...
+                      </>
+                    ) : (
+                      <>
+                        <Bluetooth className="w-4 h-4 mr-2" />
+                        Hubungkan Printer
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={async () => {
+                      const success = await printReceipt(receipt, storeInfo || undefined);
+                      if (success) {
+                        setPrintTriggered(true);
+                      }
+                    }}
+                    disabled={isPrinting}
+                    className="flex-1"
+                  >
+                    {isPrinting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Mencetak...
+                      </>
+                    ) : printTriggered ? (
+                      <>
+                        <Printer className="w-4 h-4 mr-2" />
+                        Cetak Ulang
+                      </>
+                    ) : (
+                      <>
+                        <Printer className="w-4 h-4 mr-2" />
+                        Cetak Struk
+                      </>
+                    )}
+                  </Button>
+                )}
+                <Button onClick={handleDownload} variant="outline">
+                  <Download className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           )}
 
