@@ -42,4 +42,4 @@ export interface ReceiptData {
   storeInfo?: StoreInfo;
 }
 
-export type ReceiptDeliveryMethod = 'display' | 'barcode' | 'whatsapp';
+export type ReceiptDeliveryMethod = 'display' | 'barcode' | 'whatsapp' | 'bluetooth';

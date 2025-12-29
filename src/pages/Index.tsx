@@ -8,6 +8,7 @@ import { SearchBar } from '@/components/pos/SearchBar';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import { FloatingCartButton } from '@/components/pos/FloatingCartButton';
 import { MobileCartSheet } from '@/components/pos/MobileCartSheet';
+import { BluetoothPrinterButton } from '@/components/pos/BluetoothPrinterButton';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
@@ -411,6 +412,9 @@ const Index = () => {
           </div>
         </div>
       </main>
+
+      {/* Bluetooth Printer Connection Button */}
+      <BluetoothPrinterButton />
 
       {/* Floating Cart Button - shown on mobile/tablet only */}
       <FloatingCartButton
