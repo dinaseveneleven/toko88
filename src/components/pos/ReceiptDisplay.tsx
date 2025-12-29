@@ -158,7 +158,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
           {deliveryMethod === 'display' && (
             <div className="animate-slide-up">
               <div ref={receiptRef}>
-                <Receipt data={receipt} />
+                <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
               </div>
               <div className="flex gap-2 mt-4">
                 <Button onClick={handleDownload} variant="outline" className="flex-1">
@@ -215,7 +215,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                 </p>
               </div>
               
-              <Receipt data={receipt} />
+              <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
 
               <Button 
                 onClick={handleWhatsAppSend} 
@@ -253,7 +253,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                 </div>
               )}
               
-              <Receipt data={receipt} />
+              <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
 
               <div className="flex gap-2">
                 {!isConnected ? (
