@@ -38,6 +38,36 @@ export type Database = {
         }
         Relationships: []
       }
+      printer_configs: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean | null
+          printer_device_id: string | null
+          printer_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean | null
+          printer_device_id?: string | null
+          printer_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean | null
+          printer_device_id?: string | null
+          printer_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           cash_received: number | null
