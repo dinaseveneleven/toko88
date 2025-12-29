@@ -42,6 +42,7 @@ export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [savingStockIds, setSavingStockIds] = useState<Set<string>>(new Set());
   
   // Debounce timeouts for stock input typing
@@ -77,21 +78,26 @@ export default function Inventory() {
   }, []);
 
   const loadProducts = async () => {
-    const fetchedProducts = await fetchProducts();
-    if (fetchedProducts) {
-      setProducts(fetchedProducts);
-      const edited: Record<string, EditedProduct> = {};
-      fetchedProducts.forEach(p => {
-        edited[p.id] = {
-          retailPrice: p.retailPrice,
-          bulkPrice: p.bulkPrice,
-          purchasePrice: p.purchasePrice,
-          stock: p.stock,
-        };
-      });
-      setEditedProducts(edited);
-      setHasChanges(false);
-      setEditingProductId(null);
+    setIsFetching(true);
+    try {
+      const fetchedProducts = await fetchProducts();
+      if (fetchedProducts) {
+        setProducts(fetchedProducts);
+        const edited: Record<string, EditedProduct> = {};
+        fetchedProducts.forEach(p => {
+          edited[p.id] = {
+            retailPrice: p.retailPrice,
+            bulkPrice: p.bulkPrice,
+            purchasePrice: p.purchasePrice,
+            stock: p.stock,
+          };
+        });
+        setEditedProducts(edited);
+        setHasChanges(false);
+        setEditingProductId(null);
+      }
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -304,7 +310,7 @@ export default function Inventory() {
               variant="outline"
               size="sm"
               onClick={() => setIsAddModalOpen(true)}
-              disabled={isLoading}
+              disabled={isLoading || isFetching}
               className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
             >
               <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
@@ -315,15 +321,15 @@ export default function Inventory() {
               variant="outline"
               size="sm"
               onClick={loadProducts}
-              disabled={isLoading}
+              disabled={isFetching}
               className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
             >
-              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2 ${isFetching ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
             
             {hasChanges && (
-              <Button size="sm" onClick={handleSaveChanges} disabled={isLoading} className="h-8 px-2 sm:px-3 text-xs sm:text-sm">
+              <Button size="sm" onClick={handleSaveChanges} disabled={isLoading || isFetching} className="h-8 px-2 sm:px-3 text-xs sm:text-sm">
                 <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
                 <span className="hidden sm:inline">Simpan</span>
               </Button>
@@ -334,7 +340,7 @@ export default function Inventory() {
 
       {/* Content */}
       <main className="max-w-6xl mx-auto p-4">
-        {isLoading ? (
+        {isFetching ? (
           <div className="flex items-center justify-center py-20">
             <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
@@ -511,7 +517,6 @@ export default function Inventory() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => handleDecrement(product.id)}
-                        disabled={savingStockIds.has(product.id)}
                       >
                         <Minus className="w-4 h-4" />
                       </Button>
@@ -522,12 +527,11 @@ export default function Inventory() {
                           value={edited?.stock ?? product.stock}
                           onChange={(e) => handleStockInputChange(product.id, e.target.value)}
                           onBlur={() => handleStockInputBlur(product.id)}
-                          className={`w-16 text-center font-mono text-sm h-8 ${
+                          className={`w-16 text-center font-mono text-sm h-8 pr-5 ${
                             isOutOfStock ? 'text-destructive' : 
                             isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
                           }`}
                           min={0}
-                          disabled={savingStockIds.has(product.id)}
                         />
                         {savingStockIds.has(product.id) && (
                           <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 animate-spin text-muted-foreground" />
@@ -539,7 +543,6 @@ export default function Inventory() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => handleIncrement(product.id)}
-                        disabled={savingStockIds.has(product.id)}
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
@@ -576,7 +579,6 @@ export default function Inventory() {
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => handleDecrement(product.id)}
-                          disabled={savingStockIds.has(product.id)}
                         >
                           <Minus className="w-3 h-3" />
                         </Button>
@@ -586,12 +588,11 @@ export default function Inventory() {
                             value={edited?.stock ?? product.stock}
                             onChange={(e) => handleStockInputChange(product.id, e.target.value)}
                             onBlur={() => handleStockInputBlur(product.id)}
-                            className={`w-12 text-center font-mono text-sm h-7 px-1 ${
+                            className={`w-12 text-center font-mono text-sm h-7 px-1 pr-4 ${
                               isOutOfStock ? 'text-destructive' : 
                               isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
                             }`}
                             min={0}
-                            disabled={savingStockIds.has(product.id)}
                           />
                           {savingStockIds.has(product.id) && (
                             <Loader2 className="absolute right-0.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 animate-spin text-muted-foreground" />
@@ -602,7 +603,6 @@ export default function Inventory() {
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => handleIncrement(product.id)}
-                          disabled={savingStockIds.has(product.id)}
                         >
                           <Plus className="w-3 h-3" />
                         </Button>
