@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +11,7 @@ import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import type { Product } from '@/types/pos';
 
 const LOW_STOCK_THRESHOLD = 5;
+const STOCK_SAVE_DEBOUNCE_MS = 600;
 
 const formatRupiah = (amount: number): string => {
   return new Intl.NumberFormat('id-ID', {
@@ -31,7 +32,7 @@ interface EditedProduct {
 export default function Inventory() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchProducts, updateInventory, addProduct, loading: isLoading } = useGoogleSheets();
+  const { fetchProducts, updateInventory, updateStock, addProduct, loading: isLoading } = useGoogleSheets();
   const { isAuthenticated } = useAuth();
   
   const [products, setProducts] = useState<Product[]>([]);
@@ -41,6 +42,10 @@ export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [savingStockIds, setSavingStockIds] = useState<Set<string>>(new Set());
+  
+  // Debounce timeouts for stock input typing
+  const stockDebounceRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
   // Get unique categories from products
   const categories = useMemo(() => {
@@ -64,6 +69,13 @@ export default function Inventory() {
     }
   }, [isAuthenticated]);
 
+  // Cleanup debounce timeouts on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(stockDebounceRefs.current).forEach(clearTimeout);
+    };
+  }, []);
+
   const loadProducts = async () => {
     const fetchedProducts = await fetchProducts();
     if (fetchedProducts) {
@@ -83,8 +95,55 @@ export default function Inventory() {
     }
   };
 
+  // Auto-save stock to backend
+  const saveStockNow = useCallback(async (productId: string, newStock: number) => {
+    const safeStock = Math.max(0, Number.isFinite(newStock) ? newStock : 0);
+    
+    // Get previous values for rollback
+    const prevProduct = products.find(p => p.id === productId);
+    const prevStock = prevProduct?.stock ?? 0;
+    
+    // Optimistically update both products and editedProducts
+    setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: safeStock } : p));
+    setEditedProducts(prev => ({
+      ...prev,
+      [productId]: { ...prev[productId], stock: safeStock }
+    }));
+    
+    // Mark as saving
+    setSavingStockIds(prev => new Set(prev).add(productId));
+    
+    try {
+      const success = await updateStock([{ id: productId, stock: safeStock }]);
+      
+      if (!success) {
+        throw new Error('Failed to update stock');
+      }
+    } catch (err) {
+      // Rollback on failure
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: prevStock } : p));
+      setEditedProducts(prev => ({
+        ...prev,
+        [productId]: { ...prev[productId], stock: prevStock }
+      }));
+      
+      toast({
+        title: "Gagal",
+        description: "Gagal update stok",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingStockIds(prev => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+    }
+  }, [products, updateStock, toast]);
+
   const handleFieldChange = (productId: string, field: keyof EditedProduct, value: number) => {
-    const validValue = Math.max(0, value);
+    const safeValue = Number.isFinite(value) ? value : 0;
+    const validValue = Math.max(0, safeValue);
     setEditedProducts(prev => ({
       ...prev,
       [productId]: {
@@ -92,18 +151,70 @@ export default function Inventory() {
         [field]: validValue,
       },
     }));
-    setHasChanges(true);
+    // Only set hasChanges for price fields, not stock (stock auto-saves)
+    if (field !== 'stock') {
+      setHasChanges(true);
+    }
   };
 
-  const handleIncrement = (productId: string) => {
-    const current = editedProducts[productId]?.stock ?? 0;
-    handleFieldChange(productId, 'stock', current + 1);
-  };
+  // Handle stock input change with debounce
+  const handleStockInputChange = useCallback((productId: string, value: string) => {
+    const parsed = parseInt(value, 10);
+    const safeValue = isNaN(parsed) ? 0 : Math.max(0, parsed);
+    
+    // Update UI immediately
+    setEditedProducts(prev => ({
+      ...prev,
+      [productId]: { ...prev[productId], stock: safeValue }
+    }));
+    
+    // Clear previous debounce for this product
+    if (stockDebounceRefs.current[productId]) {
+      clearTimeout(stockDebounceRefs.current[productId]);
+    }
+    
+    // Set new debounce to auto-save
+    stockDebounceRefs.current[productId] = setTimeout(() => {
+      saveStockNow(productId, safeValue);
+    }, STOCK_SAVE_DEBOUNCE_MS);
+  }, [saveStockNow]);
 
-  const handleDecrement = (productId: string) => {
+  // Handle stock input blur - immediately save
+  const handleStockInputBlur = useCallback((productId: string) => {
+    // Clear any pending debounce
+    if (stockDebounceRefs.current[productId]) {
+      clearTimeout(stockDebounceRefs.current[productId]);
+      delete stockDebounceRefs.current[productId];
+    }
+    
+    const currentStock = editedProducts[productId]?.stock ?? 0;
+    const product = products.find(p => p.id === productId);
+    
+    // Only save if different from backend value
+    if (product && currentStock !== product.stock) {
+      saveStockNow(productId, currentStock);
+    }
+  }, [editedProducts, products, saveStockNow]);
+
+  const handleIncrement = useCallback((productId: string) => {
     const current = editedProducts[productId]?.stock ?? 0;
-    handleFieldChange(productId, 'stock', current - 1);
-  };
+    const newStock = current + 1;
+    setEditedProducts(prev => ({
+      ...prev,
+      [productId]: { ...prev[productId], stock: newStock }
+    }));
+    saveStockNow(productId, newStock);
+  }, [editedProducts, saveStockNow]);
+
+  const handleDecrement = useCallback((productId: string) => {
+    const current = editedProducts[productId]?.stock ?? 0;
+    const newStock = Math.max(0, current - 1);
+    setEditedProducts(prev => ({
+      ...prev,
+      [productId]: { ...prev[productId], stock: newStock }
+    }));
+    saveStockNow(productId, newStock);
+  }, [editedProducts, saveStockNow]);
 
   const startEditing = (productId: string) => {
     setEditingProductId(productId);
@@ -406,26 +517,35 @@ export default function Inventory() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => handleDecrement(product.id)}
+                        disabled={savingStockIds.has(product.id)}
                       >
                         <Minus className="w-4 h-4" />
                       </Button>
                       
-                      <Input
-                        type="number"
-                        value={edited?.stock ?? product.stock}
-                        onChange={(e) => handleFieldChange(product.id, 'stock', e.target.value === '' ? 0 : parseInt(e.target.value))}
-                        className={`w-16 text-center font-mono text-sm h-8 ${
-                          isOutOfStock ? 'text-destructive' : 
-                          isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
-                        }`}
-                        min={0}
-                      />
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={edited?.stock ?? product.stock}
+                          onChange={(e) => handleStockInputChange(product.id, e.target.value)}
+                          onBlur={() => handleStockInputBlur(product.id)}
+                          className={`w-16 text-center font-mono text-sm h-8 ${
+                            isOutOfStock ? 'text-destructive' : 
+                            isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
+                          }`}
+                          min={0}
+                          disabled={savingStockIds.has(product.id)}
+                        />
+                        {savingStockIds.has(product.id) && (
+                          <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
                       
                       <Button
                         variant="outline"
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => handleIncrement(product.id)}
+                        disabled={savingStockIds.has(product.id)}
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
@@ -462,24 +582,33 @@ export default function Inventory() {
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => handleDecrement(product.id)}
+                          disabled={savingStockIds.has(product.id)}
                         >
                           <Minus className="w-3 h-3" />
                         </Button>
-                        <Input
-                          type="number"
-                          value={edited?.stock ?? product.stock}
-                          onChange={(e) => handleFieldChange(product.id, 'stock', e.target.value === '' ? 0 : parseInt(e.target.value))}
-                          className={`w-12 text-center font-mono text-sm h-7 px-1 ${
-                            isOutOfStock ? 'text-destructive' : 
-                            isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
-                          }`}
-                          min={0}
-                        />
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            value={edited?.stock ?? product.stock}
+                            onChange={(e) => handleStockInputChange(product.id, e.target.value)}
+                            onBlur={() => handleStockInputBlur(product.id)}
+                            className={`w-12 text-center font-mono text-sm h-7 px-1 ${
+                              isOutOfStock ? 'text-destructive' : 
+                              isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
+                            }`}
+                            min={0}
+                            disabled={savingStockIds.has(product.id)}
+                          />
+                          {savingStockIds.has(product.id) && (
+                            <Loader2 className="absolute right-0.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
                         <Button
                           variant="outline"
                           size="icon"
                           className="h-7 w-7"
                           onClick={() => handleIncrement(product.id)}
+                          disabled={savingStockIds.has(product.id)}
                         >
                           <Plus className="w-3 h-3" />
                         </Button>
