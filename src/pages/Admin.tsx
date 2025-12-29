@@ -20,7 +20,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2, Link, Save, MapPin, Phone, Building2, CreditCard, Upload, Image, Printer, Bluetooth, Unlink } from 'lucide-react';
+import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2, Link, Save, MapPin, Phone, Building2, CreditCard, Upload, Image, Printer, Bluetooth, Unlink, Percent } from 'lucide-react';
 import { isBluetoothSupported, PRINTER_SERVICE_UUIDS, PRINTER_CHARACTERISTIC_UUIDS } from '@/utils/escpos';
 
 type AppRole = 'admin' | 'cashier';
@@ -65,6 +65,10 @@ export default function Admin() {
   const [qrisImageUrl, setQrisImageUrl] = useState('');
   const [isUploadingQris, setIsUploadingQris] = useState(false);
 
+  // Bulk price percentage setting
+  const [bulkPricePercentage, setBulkPricePercentage] = useState('98');
+  const [isSavingBulkPrice, setIsSavingBulkPrice] = useState(false);
+
   // Printer config state
   const [connectingPrinterForUser, setConnectingPrinterForUser] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,6 +107,7 @@ export default function Admin() {
       setBankAccountNumber(settings['bank_account_number'] || '');
       setBankAccountHolder(settings['bank_account_holder'] || '');
       setQrisImageUrl(settings['qris_image_url'] || '');
+      setBulkPricePercentage(settings['bulk_price_percentage'] || '98');
     } catch (error) {
       console.error('Error fetching settings:', error);
     }
@@ -162,6 +167,25 @@ export default function Admin() {
       toast.error('Gagal menyimpan informasi bank');
     } finally {
       setIsSavingBank(false);
+    }
+  };
+
+  const handleSaveBulkPricePercentage = async () => {
+    const percentage = parseInt(bulkPricePercentage, 10);
+    if (isNaN(percentage) || percentage < 1 || percentage > 100) {
+      toast.error('Persentase harus antara 1-100');
+      return;
+    }
+
+    setIsSavingBulkPrice(true);
+    try {
+      await updateSetting('bulk_price_percentage', String(percentage));
+      toast.success(`Formula harga grosir berhasil disimpan (${percentage}% dari harga eceran)`);
+    } catch (error) {
+      console.error('Error saving bulk price percentage:', error);
+      toast.error('Gagal menyimpan formula harga grosir');
+    } finally {
+      setIsSavingBulkPrice(false);
     }
   };
 
@@ -547,6 +571,44 @@ export default function Admin() {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Bulk Price Formula Setting */}
+        <section className="pos-card p-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            <Percent className="w-5 h-5" />
+            Formula Harga Grosir
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Persentase dari harga eceran untuk menghitung harga grosir default. 
+            Contoh: 98% berarti harga grosir = harga eceran × 0.98
+          </p>
+          
+          <div className="flex gap-2 items-center">
+            <Input
+              type="number"
+              min="1"
+              max="100"
+              placeholder="98"
+              value={bulkPricePercentage}
+              onChange={(e) => setBulkPricePercentage(e.target.value)}
+              className="w-24"
+            />
+            <span className="text-muted-foreground">%</span>
+            <Button onClick={handleSaveBulkPricePercentage} disabled={isSavingBulkPrice} className="ml-auto">
+              {isSavingBulkPrice ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Simpan
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Formula ini digunakan saat produk tidak memiliki harga grosir yang ditetapkan secara manual.
+          </p>
         </section>
 
         {/* QRIS Image Upload */}
