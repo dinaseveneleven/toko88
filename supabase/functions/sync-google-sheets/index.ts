@@ -40,7 +40,7 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS);
 
 // Input validation schemas
-const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'deleteProduct'] as const;
+const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'deleteProduct', 'repairPriceFormat'] as const;
 type ValidAction = typeof VALID_ACTIONS[number];
 
 function isValidAction(action: string): action is ValidAction {
@@ -793,6 +793,32 @@ serve(async (req) => {
       console.log(`[${requestId}] Product ${productId} deleted successfully`);
 
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "repairPriceFormat") {
+      // Get all products and normalize price values to numbers, then apply currency format
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
+      
+      if (rows.length === 0) {
+        return new Response(JSON.stringify({ success: true, message: 'No products to repair' }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Normalize all rows - convert text prices to numbers
+      const normalizedRows = rows.map((row) => normalizeProductsRow(row));
+
+      // Write back normalized data
+      await updateSheetData(accessToken, sheetId, "Products!A2:G", normalizedRows);
+
+      // Apply currency format
+      await ensureProductsCurrencyFormat(accessToken, sheetId);
+
+      console.log(`[${requestId}] Repaired price format for ${rows.length} products`);
+
+      return new Response(JSON.stringify({ success: true, repaired: rows.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
