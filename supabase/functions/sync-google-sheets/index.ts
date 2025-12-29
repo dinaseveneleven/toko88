@@ -509,13 +509,19 @@ serve(async (req) => {
         const productId = row[0];
         const update = inventoryUpdates.find((u: any) => u.id === productId);
         if (update) {
+          // Use explicit checks for 0 values - they should be saved, not treated as falsy
+          const newRetailPrice = typeof update.retailPrice === 'number' ? update.retailPrice : row[2];
+          const newBulkPrice = typeof update.bulkPrice === 'number' ? update.bulkPrice : row[3];
+          const newPurchasePrice = typeof update.purchasePrice === 'number' ? update.purchasePrice : row[4];
+          const newStock = typeof update.stock === 'number' ? update.stock : row[5];
+          
           return [
             row[0],
             row[1],
-            update.retailPrice !== undefined ? update.retailPrice : row[2],
-            update.bulkPrice !== undefined ? update.bulkPrice : row[3],
-            update.purchasePrice !== undefined ? update.purchasePrice : row[4],
-            update.stock !== undefined ? update.stock : row[5],
+            newRetailPrice,
+            newBulkPrice,
+            newPurchasePrice,
+            newStock,
             row[6],
           ];
         }
