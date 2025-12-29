@@ -99,16 +99,8 @@ export default function Inventory() {
   const saveStockNow = useCallback(async (productId: string, newStock: number) => {
     const safeStock = Math.max(0, Number.isFinite(newStock) ? newStock : 0);
     
-    // Get previous values for rollback
-    const prevProduct = products.find(p => p.id === productId);
-    const prevStock = prevProduct?.stock ?? 0;
-    
-    // Optimistically update both products and editedProducts
-    setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: safeStock } : p));
-    setEditedProducts(prev => ({
-      ...prev,
-      [productId]: { ...prev[productId], stock: safeStock }
-    }));
+    // Get previous value for rollback (from editedProducts, not products array)
+    const prevStock = editedProducts[productId]?.stock ?? 0;
     
     // Mark as saving
     setSavingStockIds(prev => new Set(prev).add(productId));
@@ -119,9 +111,11 @@ export default function Inventory() {
       if (!success) {
         throw new Error('Failed to update stock');
       }
+      
+      // On success, sync the products array (base value) to match
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: safeStock } : p));
     } catch (err) {
-      // Rollback on failure
-      setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: prevStock } : p));
+      // Rollback editedProducts on failure
       setEditedProducts(prev => ({
         ...prev,
         [productId]: { ...prev[productId], stock: prevStock }
@@ -139,7 +133,7 @@ export default function Inventory() {
         return next;
       });
     }
-  }, [products, updateStock, toast]);
+  }, [editedProducts, updateStock, toast]);
 
   const handleFieldChange = (productId: string, field: keyof EditedProduct, value: number) => {
     const safeValue = Number.isFinite(value) ? value : 0;
