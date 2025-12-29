@@ -20,7 +20,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2, Link, Save, MapPin, Phone, Building2, CreditCard, Upload, Image } from 'lucide-react';
+import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2, Link, Save, MapPin, Phone, Building2, CreditCard, Upload, Image, Printer, Bluetooth, Unlink } from 'lucide-react';
+import { isBluetoothSupported, PRINTER_SERVICE_UUIDS, PRINTER_CHARACTERISTIC_UUIDS } from '@/utils/escpos';
 
 type AppRole = 'admin' | 'cashier';
 
@@ -29,6 +30,8 @@ interface UserWithRole {
   email: string;
   role: AppRole | null;
   created_at: string;
+  printerName?: string | null;
+  printerDeviceId?: string | null;
 }
 
 export default function Admin() {
@@ -61,6 +64,9 @@ export default function Admin() {
   // QRIS image
   const [qrisImageUrl, setQrisImageUrl] = useState('');
   const [isUploadingQris, setIsUploadingQris] = useState(false);
+
+  // Printer config state
+  const [connectingPrinterForUser, setConnectingPrinterForUser] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -215,17 +221,32 @@ export default function Admin() {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const { data: rolesData, error } = await supabase
+      // Fetch user roles
+      const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role, created_at');
       
-      if (error) throw error;
+      if (rolesError) throw rolesError;
+
+      // Fetch printer configs
+      const { data: printerConfigs, error: printerError } = await supabase
+        .from('printer_configs')
+        .select('user_id, printer_name, printer_device_id');
+      
+      if (printerError) console.error('Error fetching printer configs:', printerError);
+
+      // Map printer configs by user_id
+      const printerMap = new Map(
+        (printerConfigs || []).map(p => [p.user_id, { name: p.printer_name, deviceId: p.printer_device_id }])
+      );
 
       const usersWithRoles: UserWithRole[] = rolesData.map(r => ({
         id: r.user_id,
         email: '',
         role: r.role as AppRole,
-        created_at: r.created_at
+        created_at: r.created_at,
+        printerName: printerMap.get(r.user_id)?.name || null,
+        printerDeviceId: printerMap.get(r.user_id)?.deviceId || null,
       }));
 
       setUsers(usersWithRoles);
@@ -330,6 +351,125 @@ export default function Admin() {
     } catch (error) {
       console.error('Error updating role:', error);
       toast.error('Gagal mengubah role');
+    }
+  };
+
+  const handleConnectPrinterForUser = async (userId: string) => {
+    if (!isBluetoothSupported()) {
+      toast.error('Browser tidak mendukung Bluetooth. Gunakan Chrome di Android.');
+      return;
+    }
+
+    setConnectingPrinterForUser(userId);
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nav = navigator as any;
+      const bluetoothDevice = await nav.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: PRINTER_SERVICE_UUIDS,
+      });
+
+      if (!bluetoothDevice.gatt) {
+        throw new Error('GATT tidak tersedia');
+      }
+
+      // Connect to verify it works
+      const server = await bluetoothDevice.gatt.connect();
+
+      // Find writable characteristic to verify printer
+      let writeCharacteristic = null;
+
+      for (const serviceUuid of PRINTER_SERVICE_UUIDS) {
+        try {
+          const service = await server.getPrimaryService(serviceUuid);
+          
+          for (const charUuid of PRINTER_CHARACTERISTIC_UUIDS) {
+            try {
+              const char = await service.getCharacteristic(charUuid);
+              if (char.properties.write || char.properties.writeWithoutResponse) {
+                writeCharacteristic = char;
+                break;
+              }
+            } catch {
+              // Try next characteristic
+            }
+          }
+          
+          if (writeCharacteristic) break;
+
+          // Try to get all characteristics
+          const characteristics = await service.getCharacteristics();
+          for (const char of characteristics) {
+            if (char.properties.write || char.properties.writeWithoutResponse) {
+              writeCharacteristic = char;
+              break;
+            }
+          }
+          
+          if (writeCharacteristic) break;
+        } catch {
+          // Service not found, try next
+        }
+      }
+
+      if (!writeCharacteristic) {
+        throw new Error('Tidak dapat menemukan karakteristik tulis pada printer');
+      }
+
+      // Disconnect after verification
+      bluetoothDevice.gatt.disconnect();
+
+      const printerName = bluetoothDevice.name || 'Unknown Printer';
+      const printerDeviceId = bluetoothDevice.id;
+
+      // Save to database - upsert
+      const { error } = await supabase
+        .from('printer_configs')
+        .upsert({
+          user_id: userId,
+          printer_name: printerName,
+          printer_device_id: printerDeviceId,
+          is_enabled: true,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      toast.success(`Printer "${printerName}" berhasil dikonfigurasi`);
+      fetchUsers();
+    } catch (error) {
+      console.error('Bluetooth connection error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Gagal menghubungkan printer';
+      
+      if (!errorMessage.includes('cancelled') && !errorMessage.includes('canceled')) {
+        toast.error(errorMessage);
+      }
+    } finally {
+      setConnectingPrinterForUser(null);
+    }
+  };
+
+  const handleRemovePrinterConfig = async (userId: string) => {
+    if (!confirm('Yakin ingin menghapus konfigurasi printer untuk pengguna ini?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('printer_configs')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast.success('Konfigurasi printer berhasil dihapus');
+      fetchUsers();
+    } catch (error) {
+      console.error('Error removing printer config:', error);
+      toast.error('Gagal menghapus konfigurasi printer');
     }
   };
 
@@ -611,6 +751,7 @@ export default function Admin() {
                 <TableRow>
                   <TableHead>User ID</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Printer</TableHead>
                   <TableHead>Tanggal Dibuat</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
@@ -634,6 +775,40 @@ export default function Admin() {
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
+                    </TableCell>
+                    <TableCell>
+                      {user.printerName ? (
+                        <div className="flex items-center gap-2">
+                          <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                            <Bluetooth className="w-3 h-3" />
+                            {user.printerName}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleRemovePrinterConfig(user.id)}
+                            title="Hapus printer"
+                          >
+                            <Unlink className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => handleConnectPrinterForUser(user.id)}
+                          disabled={connectingPrinterForUser === user.id || !isBluetoothSupported()}
+                        >
+                          {connectingPrinterForUser === user.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                          ) : (
+                            <Printer className="w-3 h-3 mr-1" />
+                          )}
+                          Set Printer
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(user.created_at).toLocaleDateString('id-ID')}

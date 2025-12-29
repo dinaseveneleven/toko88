@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { ReceiptData } from '@/types/pos';
 import { buildReceiptBytes, isBluetoothSupported, PRINTER_SERVICE_UUIDS, PRINTER_CHARACTERISTIC_UUIDS } from '@/utils/escpos';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 // Web Bluetooth API types (not yet in TS lib by default)
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -9,7 +10,6 @@ type BluetoothDevice = any;
 type BluetoothRemoteGATTCharacteristic = any;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-const STORAGE_KEY = 'bluetooth_printer_device_id';
 const CHUNK_SIZE = 512; // Max bytes per write
 
 interface BluetoothPrinterState {
@@ -17,6 +17,7 @@ interface BluetoothPrinterState {
   isConnecting: boolean;
   isPrinting: boolean;
   printerName: string | null;
+  savedPrinterName: string | null;
   error: string | null;
 }
 
@@ -26,18 +27,45 @@ export function useBluetoothPrinter() {
     isConnecting: false,
     isPrinting: false,
     printerName: null,
+    savedPrinterName: null,
     error: null,
   });
   
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
   const [characteristic, setCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);
 
-  // Check for saved device on mount
+  // Load saved printer config from database on mount
   useEffect(() => {
-    const savedDeviceId = localStorage.getItem(STORAGE_KEY);
-    if (savedDeviceId && isBluetoothSupported()) {
-      // We can't auto-reconnect without user gesture, but we can show that a device was previously connected
-      setState(prev => ({ ...prev, printerName: `Tersimpan: ${savedDeviceId.slice(0, 8)}...` }));
+    const loadPrinterConfig = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: config, error } = await supabase
+          .from('printer_configs')
+          .select('printer_name, printer_device_id, is_enabled')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error loading printer config:', error);
+          return;
+        }
+
+        if (config?.printer_name && config.is_enabled) {
+          setState(prev => ({ 
+            ...prev, 
+            savedPrinterName: config.printer_name,
+            printerName: `Tersimpan: ${config.printer_name}`
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading printer config:', error);
+      }
+    };
+
+    if (isBluetoothSupported()) {
+      loadPrinterConfig();
     }
   }, []);
 
@@ -137,8 +165,25 @@ export function useBluetoothPrinter() {
         throw new Error('Tidak dapat menemukan karakteristik tulis pada printer');
       }
 
-      // Save device ID for future reference
-      localStorage.setItem(STORAGE_KEY, bluetoothDevice.id);
+      // Save printer config to database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: upsertError } = await supabase
+          .from('printer_configs')
+          .upsert({
+            user_id: user.id,
+            printer_name: bluetoothDevice.name || 'Thermal Printer',
+            printer_device_id: bluetoothDevice.id,
+            is_enabled: true,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id'
+          });
+
+        if (upsertError) {
+          console.error('Error saving printer config:', upsertError);
+        }
+      }
       
       setDevice(bluetoothDevice);
       setCharacteristic(writeCharacteristic);
@@ -148,6 +193,7 @@ export function useBluetoothPrinter() {
         isConnected: true,
         isConnecting: false,
         printerName: bluetoothDevice.name || 'Thermal Printer',
+        savedPrinterName: bluetoothDevice.name || 'Thermal Printer',
       }));
 
       toast({
@@ -188,19 +234,20 @@ export function useBluetoothPrinter() {
     
     setDevice(null);
     setCharacteristic(null);
-    localStorage.removeItem(STORAGE_KEY);
     
-    setState({
+    // Keep savedPrinterName so user knows their config is saved
+    setState(prev => ({
       isConnected: false,
       isConnecting: false,
       isPrinting: false,
-      printerName: null,
+      printerName: prev.savedPrinterName ? `Tersimpan: ${prev.savedPrinterName}` : null,
+      savedPrinterName: prev.savedPrinterName,
       error: null,
-    });
+    }));
 
     toast({
       title: 'Printer Diputus',
-      description: 'Koneksi dengan printer telah diputus.',
+      description: 'Koneksi dengan printer telah diputus. Konfigurasi tetap tersimpan.',
     });
   }, [device]);
 
@@ -276,6 +323,7 @@ export function useBluetoothPrinter() {
   return {
     ...state,
     isSupported: isBluetoothSupported(),
+    hasSavedPrinter: !!state.savedPrinterName,
     connectPrinter,
     disconnectPrinter,
     printReceipt,
