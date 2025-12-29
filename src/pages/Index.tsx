@@ -158,7 +158,9 @@ const Index = () => {
     setCart((prev) => {
       return prev.map((item) => {
         if (item.product.id === productId && item.priceType === priceType) {
-          return { ...item, discount: Math.min(100, Math.max(0, discount)) };
+          const price = priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
+          const maxDiscount = price * item.quantity;
+          return { ...item, discount: Math.min(maxDiscount, Math.max(0, discount)) };
         }
         return item;
       });
