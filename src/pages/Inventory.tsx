@@ -413,7 +413,7 @@ export default function Inventory() {
                       <Input
                         type="number"
                         value={edited?.stock ?? product.stock}
-                        onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
+                        onChange={(e) => handleFieldChange(product.id, 'stock', e.target.value === '' ? 0 : parseInt(e.target.value))}
                         className={`w-16 text-center font-mono text-sm h-8 ${
                           isOutOfStock ? 'text-destructive' : 
                           isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
@@ -468,7 +468,7 @@ export default function Inventory() {
                         <Input
                           type="number"
                           value={edited?.stock ?? product.stock}
-                          onChange={(e) => handleFieldChange(product.id, 'stock', parseInt(e.target.value) || 0)}
+                          onChange={(e) => handleFieldChange(product.id, 'stock', e.target.value === '' ? 0 : parseInt(e.target.value))}
                           className={`w-12 text-center font-mono text-sm h-7 px-1 ${
                             isOutOfStock ? 'text-destructive' : 
                             isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
