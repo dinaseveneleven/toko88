@@ -229,6 +229,82 @@ async function updateSheetData(accessToken: string, sheetId: string, range: stri
   }
 }
 
+async function getSheetNumericId(accessToken: string, sheetId: string, title: string): Promise<number> {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets(properties(sheetId,title))`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    console.error("Failed to read spreadsheet metadata");
+    throw new Error("Failed to read spreadsheet metadata");
+  }
+
+  const data = await response.json();
+  const match = (data.sheets || []).find((s: any) => s?.properties?.title === title);
+  const numericId = match?.properties?.sheetId;
+  if (typeof numericId !== 'number') {
+    throw new Error(`Sheet not found: ${title}`);
+  }
+  return numericId;
+}
+
+async function ensureProductsCurrencyFormat(accessToken: string, sheetId: string): Promise<void> {
+  const numericSheetId = await getSheetNumericId(accessToken, sheetId, 'Products');
+
+  // Columns: C (2) to E (4) => endColumnIndex is exclusive => 5
+  const body = {
+    requests: [
+      {
+        repeatCell: {
+          range: {
+            sheetId: numericSheetId,
+            startRowIndex: 1, // from row 2 (0-based)
+            startColumnIndex: 2,
+            endColumnIndex: 5,
+          },
+          cell: {
+            userEnteredFormat: {
+              numberFormat: {
+                type: 'CURRENCY',
+                pattern: '"Rp" #,##0',
+              },
+            },
+          },
+          fields: 'userEnteredFormat.numberFormat',
+        },
+      },
+    ],
+  };
+
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    // Formatting is best-effort; don't break core flows.
+    console.warn('Failed to apply Products currency format');
+  }
+}
+
+function normalizeProductsRow(row: any[]): any[] {
+  return [
+    row[0],
+    row[1],
+    parseRupiah(row[2]),
+    parseRupiah(row[3]),
+    parseRupiah(row[4]),
+    row[5],
+    row[6],
+  ];
+}
+
 // Helper to parse Indonesian Rupiah format
 function parseRupiah(value: string | number): number {
   if (typeof value === 'number') {
@@ -377,20 +453,26 @@ serve(async (req) => {
 
       // Update Google Sheet with calculated bulk prices (don't await - fire and forget)
       if (productsToUpdate.length > 0) {
+        const updatesByIndex = new Map(productsToUpdate.map((u) => [u.index, u.bulkPrice] as const));
+
         const updatedRows = rows.map((row, index) => {
-          const update = productsToUpdate.find(u => u.index === index);
-          if (update) {
-            // Return row with calculated bulk price as number
-            return [row[0], row[1], parseRupiah(row[2]), update.bulkPrice, parseRupiah(row[4]), row[5], row[6]];
+          const normalized = normalizeProductsRow(row);
+          const maybeBulk = updatesByIndex.get(index);
+          if (typeof maybeBulk === 'number') {
+            // Replace bulk price (col D)
+            normalized[3] = maybeBulk;
           }
-          // Ensure all price columns are numbers, not text
-          return [row[0], row[1], parseRupiah(row[2]), parseRupiah(row[3]), parseRupiah(row[4]), row[5], row[6]];
+          return normalized;
         });
-        
-        // Fire and forget - update in background
+
+        // Fire and forget - update in background, and re-apply currency format (best effort)
         updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows)
+          .then(() => ensureProductsCurrencyFormat(accessToken, sheetId))
           .then(() => console.log(`Updated ${productsToUpdate.length} products with default bulk prices`))
-          .catch(err => console.error('Failed to update bulk prices:', err));
+          .catch((err) => console.error('Failed to update bulk prices:', err));
+      } else {
+        // Best-effort: keep column format consistent even when no values changed
+        ensureProductsCurrencyFormat(accessToken, sheetId).catch(() => {});
       }
 
       return new Response(JSON.stringify({ products }), {
@@ -493,13 +575,15 @@ serve(async (req) => {
       const updatedRows = rows.map((row) => {
         const productId = String(row[0] ?? '').trim();
         const update = stockUpdates.find((u: { id: string; stock: number }) => String(u.id).trim() === productId);
+        const normalized = normalizeProductsRow(row);
         if (update) {
-          return [row[0], row[1], row[2], row[3], row[4], update.stock, row[6]];
+          normalized[5] = update.stock;
         }
-        return row;
+        return normalized;
       });
 
       await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
+      await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Stock updated for ${stockUpdates.length} products`);
 
@@ -540,27 +624,26 @@ serve(async (req) => {
       const updatedRows = rows.map((row) => {
         const productId = String(row[0] ?? '').trim();
         const update = inventoryUpdates.find((u: any) => String(u.id ?? '').trim() === productId);
+        const normalized = normalizeProductsRow(row);
+
         if (update) {
           // Use explicit checks for 0 values - they should be saved, not treated as falsy
-          const newRetailPrice = typeof update.retailPrice === 'number' ? update.retailPrice : row[2];
-          const newBulkPrice = typeof update.bulkPrice === 'number' ? update.bulkPrice : row[3];
-          const newPurchasePrice = typeof update.purchasePrice === 'number' ? update.purchasePrice : row[4];
-          const newStock = typeof update.stock === 'number' ? update.stock : row[5];
+          const newRetailPrice = typeof update.retailPrice === 'number' ? update.retailPrice : normalized[2];
+          const newBulkPrice = typeof update.bulkPrice === 'number' ? update.bulkPrice : normalized[3];
+          const newPurchasePrice = typeof update.purchasePrice === 'number' ? update.purchasePrice : normalized[4];
+          const newStock = typeof update.stock === 'number' ? update.stock : normalized[5];
 
-          return [
-            row[0],
-            row[1],
-            newRetailPrice,
-            newBulkPrice,
-            newPurchasePrice,
-            newStock,
-            row[6],
-          ];
+          normalized[2] = newRetailPrice;
+          normalized[3] = newBulkPrice;
+          normalized[4] = newPurchasePrice;
+          normalized[5] = newStock;
         }
-        return row;
+
+        return normalized;
       });
 
       await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
+      await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Inventory updated for ${inventoryUpdates.length} products`);
 
@@ -614,6 +697,7 @@ serve(async (req) => {
       ];
 
       await appendSheetData(accessToken, sheetId, "Products!A:G", [newRow]);
+      await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Product ${newId} added successfully`);
 
