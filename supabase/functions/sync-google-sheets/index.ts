@@ -459,8 +459,8 @@ serve(async (req) => {
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
       const updatedRows = rows.map((row) => {
-        const productId = row[0];
-        const update = stockUpdates.find((u: { id: string; stock: number }) => u.id === productId);
+        const productId = String(row[0] ?? '').trim();
+        const update = stockUpdates.find((u: { id: string; stock: number }) => String(u.id).trim() === productId);
         if (update) {
           return [row[0], row[1], row[2], row[3], row[4], update.stock, row[6]];
         }
@@ -506,15 +506,15 @@ serve(async (req) => {
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
       const updatedRows = rows.map((row) => {
-        const productId = row[0];
-        const update = inventoryUpdates.find((u: any) => u.id === productId);
+        const productId = String(row[0] ?? '').trim();
+        const update = inventoryUpdates.find((u: any) => String(u.id ?? '').trim() === productId);
         if (update) {
           // Use explicit checks for 0 values - they should be saved, not treated as falsy
           const newRetailPrice = typeof update.retailPrice === 'number' ? update.retailPrice : row[2];
           const newBulkPrice = typeof update.bulkPrice === 'number' ? update.bulkPrice : row[3];
           const newPurchasePrice = typeof update.purchasePrice === 'number' ? update.purchasePrice : row[4];
           const newStock = typeof update.stock === 'number' ? update.stock : row[5];
-          
+
           return [
             row[0],
             row[1],
