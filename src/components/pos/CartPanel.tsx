@@ -127,6 +127,13 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
                         const val = parseInt(e.target.value) || 0;
                         onSetQuantity(item.product.id, item.priceType, val);
                       }}
+                      onFocus={(e) => {
+                        const input = e.target;
+                        const length = input.value.length;
+                        setTimeout(() => {
+                          input.setSelectionRange(length, length);
+                        }, 0);
+                      }}
                       className="w-12 h-7 text-left font-mono text-sm px-2"
                       min={1}
                       max={item.product.stock}
