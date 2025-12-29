@@ -53,6 +53,15 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
     }
   };
 
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Move cursor to end of input for better mobile/tablet UX
+    const input = e.target;
+    const length = input.value.length;
+    setTimeout(() => {
+      input.setSelectionRange(length, length);
+    }, 0);
+  };
+
   const handleAdd = (priceType: 'retail' | 'bulk') => {
     onAdd(product, priceType, quantity);
     setQuantity(1);
@@ -113,6 +122,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
             value={inputValue}
             onChange={(e) => handleInputChange(e.target.value)}
             onBlur={handleInputBlur}
+            onFocus={handleInputFocus}
             className="w-10 sm:w-14 h-8 text-center text-xs sm:text-sm font-mono bg-transparent border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={1}
             max={product.stock}
