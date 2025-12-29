@@ -102,12 +102,13 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
                     type="number"
                     value={discount || ''}
                     onChange={(e) => {
-                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      const val = Math.min(Math.max(0, parseInt(e.target.value) || 0), originalTotal);
                       onSetDiscount(item.product.id, item.priceType, val);
                     }}
                     placeholder="0"
-                    className="w-20 h-6 text-right font-mono text-xs px-1"
+                    className="w-24 h-6 text-right font-mono text-xs px-1"
                     min={0}
+                    max={originalTotal}
                   />
                 </div>
 
