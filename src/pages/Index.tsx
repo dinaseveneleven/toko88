@@ -22,7 +22,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAuthenticated, isAdmin, logout } = useAuth();
-  const { fetchProducts, saveTransaction } = useGoogleSheets();
+  const { fetchProducts, saveTransaction, updateStock } = useGoogleSheets();
   
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -210,6 +210,34 @@ const Index = () => {
       toast({
         title: 'Transaksi tersimpan',
         description: 'Data tersimpan ke Google Sheets',
+      });
+    }
+
+    // Update stock after sale - decrement stock for each item sold
+    const stockUpdates = receipt.items.map(item => {
+      const currentProduct = products.find(p => p.id === item.product.id);
+      const currentStock = currentProduct?.stock ?? item.product.stock;
+      const newStock = Math.max(0, currentStock - item.quantity);
+      return {
+        id: item.product.id,
+        stock: newStock,
+      };
+    });
+
+    const stockUpdated = await updateStock(stockUpdates);
+    if (stockUpdated) {
+      // Update local products state to reflect new stock
+      setProducts(prev => prev.map(p => {
+        const update = stockUpdates.find(u => u.id === p.id);
+        return update ? { ...p, stock: update.stock } : p;
+      }));
+      console.log('Stock updated successfully');
+    } else {
+      console.error('Failed to update stock');
+      toast({
+        title: 'Peringatan',
+        description: 'Stok gagal diperbarui di Google Sheets',
+        variant: 'destructive',
       });
     }
 
