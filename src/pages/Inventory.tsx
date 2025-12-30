@@ -825,7 +825,10 @@ export default function Inventory() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={!!deletingProductId}>Batal</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleDeleteProduct}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteProduct();
+              }}
               disabled={!!deletingProductId}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
