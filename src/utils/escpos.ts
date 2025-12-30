@@ -210,91 +210,84 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   return new Uint8Array(bytes);
 };
 
-// Build WORKER COPY receipt - BIG TEXT for easy reading
-// Works on both 50mm and 80mm paper
+// Build WORKER COPY receipt - BIG TEXT, only item names and quantities
+// Works on both 50mm and 80mm paper - BLACK AND WHITE ONLY
 export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
   const bytes: number[] = [];
   
   // Initialize printer
   bytes.push(...INIT);
   
-  // ===== HEADER - DOUBLE SIZE =====
+  // ===== HEADER =====
   bytes.push(...ALIGN_CENTER);
   bytes.push(...DOUBLE_SIZE);
   bytes.push(...BOLD_ON);
-  bytes.push(...textToBytes('PESANAN'), LF);
-  bytes.push(...textToBytes('DAPUR'), LF);
+  bytes.push(...textToBytes('SALINAN PEKERJA'), LF);
   bytes.push(...NORMAL_SIZE);
   bytes.push(...BOLD_OFF);
   
   bytes.push(...createDoubleSeparator(LINE_WIDTH_50MM_DOUBLE * 2));
-  bytes.push(LF);
   
-  // ===== ORDER INFO - DOUBLE WIDTH for visibility =====
-  bytes.push(...ALIGN_LEFT);
-  bytes.push(...DOUBLE_WIDTH);
+  // ===== CUSTOMER NAME - BIGGEST =====
+  bytes.push(...ALIGN_CENTER);
+  bytes.push(...DOUBLE_SIZE);
   bytes.push(...BOLD_ON);
   
-  // Order number (short format)
-  const shortId = receipt.id.slice(-6).toUpperCase();
-  bytes.push(...textToBytes(`#${shortId}`), LF);
-  
-  // Time only (more important than date for workers)
-  bytes.push(...textToBytes(receipt.timestamp.toLocaleTimeString('id-ID', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })), LF);
-  
-  // Customer name if exists
-  if (receipt.customerName) {
-    bytes.push(...textToBytes(receipt.customerName.slice(0, 14)), LF);
+  const customerName = receipt.customerName || 'PELANGGAN';
+  // Wrap name if too long
+  const maxChars = 12;
+  for (let i = 0; i < customerName.length; i += maxChars) {
+    const chunk = customerName.slice(i, i + maxChars);
+    bytes.push(...textToBytes(chunk), LF);
   }
   
   bytes.push(...NORMAL_SIZE);
   bytes.push(...BOLD_OFF);
   bytes.push(LF);
   
-  bytes.push(...createDoubleSeparator(LINE_WIDTH_50MM_DOUBLE * 2));
+  // ===== DATE & TIME =====
+  bytes.push(...ALIGN_CENTER);
+  bytes.push(...DOUBLE_WIDTH);
+  const dateStr = receipt.timestamp.toLocaleDateString('id-ID', { 
+    day: '2-digit', 
+    month: 'short', 
+    year: 'numeric' 
+  });
+  const timeStr = receipt.timestamp.toLocaleTimeString('id-ID', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
+  bytes.push(...textToBytes(`${dateStr}  ${timeStr}`), LF);
+  bytes.push(...NORMAL_SIZE);
   
-  // ===== ITEMS - THE MOST IMPORTANT PART - DOUBLE SIZE =====
-  bytes.push(...DOUBLE_SIZE);
-  bytes.push(...BOLD_ON);
+  bytes.push(...createDoubleSeparator(LINE_WIDTH_50MM_DOUBLE * 2));
+  bytes.push(LF);
+  
+  // ===== ITEMS - ONLY NAME AND QUANTITY =====
   bytes.push(...ALIGN_LEFT);
   
   for (const item of receipt.items) {
-    // Quantity first (most important for workers)
-    const qty = `${item.quantity}x`;
-    bytes.push(...textToBytes(qty), LF);
+    // Product name - DOUBLE SIZE
+    bytes.push(...DOUBLE_SIZE);
+    bytes.push(...BOLD_ON);
     
-    // Product name (wrap to fit double-size on 50mm = ~12 chars visible)
     const productName = item.product.name;
-    // Split long names into chunks
-    const maxChars = 12;
+    // Wrap long names
     for (let i = 0; i < productName.length; i += maxChars) {
       const chunk = productName.slice(i, i + maxChars);
-      bytes.push(...textToBytes(` ${chunk}`), LF);
+      bytes.push(...textToBytes(chunk), LF);
     }
     
-    // Price type indicator
-    const priceLabel = item.priceType === 'retail' ? 'ECER' : 'GROSIR';
-    bytes.push(...textToBytes(` (${priceLabel})`), LF);
+    // Quantity - EXTRA BIG, right aligned
+    bytes.push(...ALIGN_RIGHT);
+    bytes.push(...textToBytes(`${item.quantity}x`), LF);
+    bytes.push(...ALIGN_LEFT);
     
-    bytes.push(LF); // Space between items
+    bytes.push(...NORMAL_SIZE);
+    bytes.push(...BOLD_OFF);
+    
+    bytes.push(...createSeparator('-', LINE_WIDTH_50MM_DOUBLE * 2));
   }
-  
-  bytes.push(...NORMAL_SIZE);
-  bytes.push(...BOLD_OFF);
-  
-  bytes.push(...createDoubleSeparator(LINE_WIDTH_50MM_DOUBLE * 2));
-  
-  // ===== TOTAL - DOUBLE SIZE =====
-  bytes.push(...ALIGN_CENTER);
-  bytes.push(...DOUBLE_SIZE);
-  bytes.push(...BOLD_ON);
-  bytes.push(...textToBytes('TOTAL:'), LF);
-  bytes.push(...textToBytes(`Rp${formatRupiah(receipt.total)}`), LF);
-  bytes.push(...NORMAL_SIZE);
-  bytes.push(...BOLD_OFF);
   
   bytes.push(LF);
   bytes.push(...createDoubleSeparator(LINE_WIDTH_50MM_DOUBLE * 2));
@@ -303,7 +296,7 @@ export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
   bytes.push(...ALIGN_CENTER);
   bytes.push(...DOUBLE_HEIGHT);
   bytes.push(...BOLD_ON);
-  bytes.push(...textToBytes('COPY DAPUR'), LF);
+  bytes.push(...textToBytes('COPY UNTUK PERSIAPAN'), LF);
   bytes.push(...NORMAL_SIZE);
   bytes.push(...BOLD_OFF);
   

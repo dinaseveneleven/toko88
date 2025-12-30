@@ -11,7 +11,7 @@ export function WorkerCopyPreview({ receipt }: WorkerCopyPreviewProps) {
     <div className="receipt-paper text-gray-900 p-6 rounded-lg max-w-xs mx-auto">
       {/* Header - Worker Copy Badge */}
       <div className="text-center border-b-2 border-dashed border-gray-400 pb-4 mb-4">
-        <div className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
+        <div className="bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
           SALINAN PEKERJA
         </div>
         <h1 className="text-2xl font-black tracking-wide">
