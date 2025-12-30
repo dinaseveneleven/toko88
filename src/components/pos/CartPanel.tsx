@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { CartItem } from '@/types/pos';
 import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CartPanelProps {
   items: CartItem[];
@@ -56,12 +56,13 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
       </div>
 
       {/* Cart Items */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <ShoppingCart className="w-12 h-12 mb-3 opacity-30" />
-            <p className="text-sm">Keranjang kosong</p>
-            <p className="text-xs">Tambahkan produk untuk mulai</p>
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-4 space-y-3">
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+              <ShoppingCart className="w-12 h-12 mb-3 opacity-30" />
+              <p className="text-sm">Keranjang kosong</p>
+              <p className="text-xs">Tambahkan produk untuk mulai</p>
           </div>
         ) : (
           items.map((item) => {
@@ -159,9 +160,10 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
                 </div>
               </div>
             );
-          })
-        )}
-      </div>
+            })
+          )}
+        </div>
+      </ScrollArea>
 
       {/* Footer */}
       <div className="p-4 border-t border-border space-y-4">
