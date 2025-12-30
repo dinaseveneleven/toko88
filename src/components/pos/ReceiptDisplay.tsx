@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
 import { Receipt } from './Receipt';
+import { WorkerCopyPreview } from './WorkerCopyPreview';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Download, Printer, Check, MessageCircle, AlertTriangle, Bluetooth, Loader2 } from 'lucide-react';
@@ -34,6 +35,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null);
   const [storeInfo, setStoreInfo] = useState<{ address: string; phone: string } | null>(null);
   const [printTriggered, setPrintTriggered] = useState(false);
+  const [showWorkerCopy, setShowWorkerCopy] = useState(false);
   
   const { printReceipt, isPrinting, isConnected, connectPrinter, isConnecting } = useBluetoothPrinter();
 
@@ -58,6 +60,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
     if (open) {
       fetchSettings();
       setPrintTriggered(false);
+      setShowWorkerCopy(false);
     }
   }, [open]);
 
@@ -157,8 +160,36 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
         <div className="space-y-4">
           {deliveryMethod === 'display' && (
             <div className="animate-slide-up">
+              {/* Toggle between customer receipt and worker copy */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setShowWorkerCopy(false)}
+                  className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                    !showWorkerCopy 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Struk Pelanggan
+                </button>
+                <button
+                  onClick={() => setShowWorkerCopy(true)}
+                  className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                    showWorkerCopy 
+                      ? 'bg-orange-500 text-white' 
+                      : 'bg-secondary text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  📋 Carbon Copy
+                </button>
+              </div>
+
               <div ref={receiptRef}>
-                <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
+                {showWorkerCopy ? (
+                  <WorkerCopyPreview receipt={receipt} />
+                ) : (
+                  <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
+                )}
               </div>
               <div className="flex gap-2 mt-4">
                 <Button onClick={handleDownload} variant="outline" className="flex-1">
