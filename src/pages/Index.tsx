@@ -426,7 +426,7 @@ const Index = () => {
 
           {/* Cart Section - hidden on mobile/tablet, shown on desktop */}
           <div className="lg:col-span-1 hidden lg:block">
-            <div className="sticky top-16 sm:top-24">
+            <div className="sticky top-16 sm:top-24 h-[calc(100vh-6rem)] sm:h-[calc(100vh-8rem)]">
               <CartPanel
                 items={cart}
                 onUpdateQuantity={handleUpdateQuantity}
