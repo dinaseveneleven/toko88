@@ -55,25 +55,23 @@ export function MobileCartSheet({
         <div className="flex flex-col h-full">
           {/* Header */}
           <SheetHeader className="p-4 border-b border-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-primary" />
-                <SheetTitle className="font-semibold text-lg">Keranjang</SheetTitle>
-              </div>
-              <div className="flex items-center gap-3">
-                {items.length > 0 && (
-                  <button
-                    onClick={onClear}
-                    className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                  >
-                    Hapus Semua
-                  </button>
-                )}
-              </div>
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-primary" />
+              <SheetTitle className="font-semibold text-lg">Keranjang</SheetTitle>
             </div>
-            <p className="text-sm text-muted-foreground text-left">
-              {totalItems} item{totalItems !== 1 ? 's' : ''}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {totalItems} item{totalItems !== 1 ? 's' : ''}
+              </p>
+              {items.length > 0 && (
+                <button
+                  onClick={onClear}
+                  className="text-xs text-destructive hover:text-destructive/80 transition-colors px-2 py-1 rounded-md hover:bg-destructive/10"
+                >
+                  Hapus Semua
+                </button>
+              )}
+            </div>
           </SheetHeader>
 
           {/* Cart Items */}
