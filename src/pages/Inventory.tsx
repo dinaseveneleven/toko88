@@ -459,13 +459,14 @@ export default function Inventory() {
             </div>
 
             {/* Header Row - Desktop */}
-            <div className="hidden lg:grid grid-cols-12 gap-4 px-4 py-2 text-sm font-medium text-muted-foreground">
-              <div className="col-span-3">Produk</div>
-              <div className="col-span-2 text-right">Modal</div>
-              <div className="col-span-2 text-right">Harga Eceran</div>
-              <div className="col-span-2 text-right">Harga Grosir</div>
-              <div className="col-span-1">Kategori</div>
-              <div className="col-span-2 text-center">Stok</div>
+            <div className="hidden lg:grid grid-cols-[2fr_1fr_1fr_1fr_auto_auto_auto] gap-3 px-4 py-2 text-sm font-medium text-muted-foreground">
+              <div>Produk</div>
+              <div className="text-right">Modal</div>
+              <div className="text-right">Harga Eceran</div>
+              <div className="text-right">Harga Grosir</div>
+              <div className="w-24">Kategori</div>
+              <div className="w-32 text-center">Stok</div>
+              <div className="w-28 text-center">Aksi</div>
             </div>
 
             {/* Product Rows */}
@@ -491,9 +492,9 @@ export default function Inventory() {
                   }`}
                 >
                   {/* Desktop Layout */}
-                  <div className="hidden lg:grid lg:grid-cols-12 lg:gap-4 lg:items-center">
+                  <div className="hidden lg:grid lg:grid-cols-[2fr_1fr_1fr_1fr_auto_auto_auto] lg:gap-3 lg:items-center">
                     {/* Product Name */}
-                    <div className="col-span-3">
+                    <div>
                       <p className="font-medium">{product.name}</p>
                       {isOutOfStock && (
                         <span className="inline-flex items-center gap-1 text-xs text-destructive mt-1">
@@ -508,7 +509,7 @@ export default function Inventory() {
                     </div>
                     
                     {/* Modal / Purchase Price */}
-                    <div className="col-span-2 text-right">
+                    <div className="text-right">
                       {isEditing ? (
                         <Input
                           type="number"
@@ -526,7 +527,7 @@ export default function Inventory() {
                     </div>
                     
                     {/* Retail Price */}
-                    <div className="col-span-2 text-right">
+                    <div className="text-right">
                       {isEditing ? (
                         <Input
                           type="number"
@@ -542,7 +543,7 @@ export default function Inventory() {
                     </div>
                     
                     {/* Bulk Price */}
-                    <div className="col-span-2 text-right">
+                    <div className="text-right">
                       {isEditing ? (
                         <Input
                           type="number"
@@ -558,20 +559,59 @@ export default function Inventory() {
                     </div>
                     
                     {/* Category */}
-                    <div className="col-span-1">
-                      <span className="text-xs px-2 py-1 bg-secondary rounded-full truncate">
+                    <div className="w-24">
+                      <span className="text-xs px-2 py-1 bg-secondary rounded-full truncate block text-center">
                         {product.category}
                       </span>
                     </div>
                     
                     {/* Stock Controls */}
-                    <div className="col-span-2 flex items-center justify-end gap-2">
+                    <div className="w-32 flex items-center justify-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDecrement(product.id)}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={(edited?.stock ?? product.stock) === 0 ? '' : (edited?.stock ?? product.stock)}
+                          placeholder="0"
+                          onChange={(e) => handleStockInputChange(product.id, e.target.value)}
+                          onBlur={() => handleStockInputBlur(product.id)}
+                          className={`w-14 text-center font-mono text-sm h-8 pr-4 placeholder:text-muted-foreground/40 ${
+                            isOutOfStock ? 'text-destructive' : 
+                            isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
+                          }`}
+                          min={0}
+                        />
+                        {savingStockIds.has(product.id) && (
+                          <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleIncrement(product.id)}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="w-28 flex items-center justify-end gap-1">
                       {isEditing ? (
                         <>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-destructive"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
                             onClick={() => setProductToDelete(product)}
                             disabled={deletingProductId === product.id}
                           >
@@ -592,7 +632,7 @@ export default function Inventory() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-green-600"
+                            className="h-8 w-8 text-green-600 hover:text-green-600"
                             onClick={confirmEditing}
                           >
                             <Check className="w-4 h-4" />
@@ -608,42 +648,6 @@ export default function Inventory() {
                           <Edit2 className="w-4 h-4" />
                         </Button>
                       )}
-                      
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleDecrement(product.id)}
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                      
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          value={(edited?.stock ?? product.stock) === 0 ? '' : (edited?.stock ?? product.stock)}
-                          placeholder="0"
-                          onChange={(e) => handleStockInputChange(product.id, e.target.value)}
-                          onBlur={() => handleStockInputBlur(product.id)}
-                          className={`w-16 text-center font-mono text-sm h-8 pr-5 placeholder:text-muted-foreground/40 ${
-                            isOutOfStock ? 'text-destructive' : 
-                            isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
-                          }`}
-                          min={0}
-                        />
-                        {savingStockIds.has(product.id) && (
-                          <Loader2 className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 animate-spin text-muted-foreground" />
-                        )}
-                      </div>
-                      
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleIncrement(product.id)}
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
                     </div>
                   </div>
 
