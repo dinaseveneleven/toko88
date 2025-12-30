@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ReceiptData } from '@/types/pos';
-import { buildReceiptBytes, isBluetoothSupported, PRINTER_SERVICE_UUIDS, PRINTER_CHARACTERISTIC_UUIDS } from '@/utils/escpos';
+import { buildReceiptBytes, buildWorkerCopyBytes, isBluetoothSupported, PRINTER_SERVICE_UUIDS, PRINTER_CHARACTERISTIC_UUIDS } from '@/utils/escpos';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -251,9 +251,26 @@ export function useBluetoothPrinter() {
     });
   }, [device]);
 
+  // Helper function to send bytes to printer
+  const sendBytesToPrinter = useCallback(async (bytes: Uint8Array, char: BluetoothRemoteGATTCharacteristic): Promise<void> => {
+    for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+      const chunk = bytes.slice(i, i + CHUNK_SIZE);
+      
+      if (char.properties.writeWithoutResponse) {
+        await char.writeValueWithoutResponse(chunk);
+      } else {
+        await char.writeValue(chunk);
+      }
+      
+      // Small delay between chunks
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+  }, []);
+
   const printReceipt = useCallback(async (
     receipt: ReceiptData, 
-    storeInfo?: { address: string; phone: string }
+    storeInfo?: { address: string; phone: string },
+    printWorkerCopy: boolean = true // Default to printing worker copy
   ): Promise<boolean> => {
     if (!characteristic) {
       // Try to connect first
@@ -275,27 +292,26 @@ export function useBluetoothPrinter() {
     setState(prev => ({ ...prev, isPrinting: true, error: null }));
 
     try {
+      // 1. Print Customer Invoice first
       const receiptBytes = buildReceiptBytes(receipt, storeInfo);
+      await sendBytesToPrinter(receiptBytes, characteristic);
       
-      // Send data in chunks
-      for (let i = 0; i < receiptBytes.length; i += CHUNK_SIZE) {
-        const chunk = receiptBytes.slice(i, i + CHUNK_SIZE);
+      // 2. Print Worker Copy (carbon copy with big text)
+      if (printWorkerCopy) {
+        // Small delay between prints
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        if (characteristic.properties.writeWithoutResponse) {
-          await characteristic.writeValueWithoutResponse(chunk);
-        } else {
-          await characteristic.writeValue(chunk);
-        }
-        
-        // Small delay between chunks
-        await new Promise(resolve => setTimeout(resolve, 50));
+        const workerCopyBytes = buildWorkerCopyBytes(receipt);
+        await sendBytesToPrinter(workerCopyBytes, characteristic);
       }
 
       setState(prev => ({ ...prev, isPrinting: false }));
 
       toast({
         title: 'Struk Dicetak',
-        description: 'Struk berhasil dicetak ke thermal printer.',
+        description: printWorkerCopy 
+          ? 'Struk pelanggan & copy dapur berhasil dicetak.' 
+          : 'Struk berhasil dicetak ke thermal printer.',
       });
 
       return true;
@@ -318,7 +334,7 @@ export function useBluetoothPrinter() {
 
       return false;
     }
-  }, [characteristic, connectPrinter]);
+  }, [characteristic, connectPrinter, sendBytesToPrinter]);
 
   return {
     ...state,
