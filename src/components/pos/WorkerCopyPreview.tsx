@@ -1,4 +1,6 @@
 import { ReceiptData } from '@/types/pos';
+import { format } from 'date-fns';
+import { id } from 'date-fns/locale';
 
 interface WorkerCopyPreviewProps {
   receipt: ReceiptData;
@@ -13,90 +15,94 @@ const formatRupiah = (num: number) => {
 };
 
 export function WorkerCopyPreview({ receipt }: WorkerCopyPreviewProps) {
-  const orderNumber = receipt.id.split('-').pop() || receipt.id;
-  const time = receipt.timestamp.toLocaleTimeString('id-ID', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  });
-
   return (
-    <div className="bg-secondary/80 rounded-xl p-4 font-mono border-2 border-dashed border-orange-500/50">
-      {/* Header */}
-      <div className="text-center mb-4 pb-3 border-b-2 border-dashed border-border">
-        <p className="text-xs text-orange-500 font-bold uppercase tracking-wider mb-1">
-          Salinan Pekerja
-        </p>
-        <p className="text-3xl font-black">#{orderNumber}</p>
-        <p className="text-lg font-bold text-muted-foreground">{time}</p>
-        {receipt.customerName && (
-          <p className="text-xl font-bold mt-2 text-primary">{receipt.customerName}</p>
-        )}
+    <div className="receipt-paper text-gray-900 p-6 rounded-lg max-w-xs mx-auto">
+      {/* Header - Worker Copy Badge */}
+      <div className="text-center border-b-2 border-dashed border-gray-400 pb-4 mb-4">
+        <div className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
+          SALINAN PEKERJA
+        </div>
+        <h1 className="text-2xl font-black tracking-wide">
+          {receipt.customerName || 'PELANGGAN'}
+        </h1>
+        <p className="text-xs mt-1 text-gray-600">No: {receipt.id}</p>
       </div>
 
-      {/* Items - Large text for easy reading */}
-      <div className="space-y-3">
-        {receipt.items.map((item, index) => {
-          const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
+      {/* Date & Time Info */}
+      <div className="text-xs border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="flex justify-between">
+          <span>Tanggal:</span>
+          <span className="font-semibold">{format(receipt.timestamp, 'dd MMM yyyy', { locale: id })}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Waktu:</span>
+          <span className="font-semibold">{format(receipt.timestamp, 'HH:mm:ss')}</span>
+        </div>
+      </div>
+
+      {/* Items - Larger text for workers */}
+      <div className="border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="text-xs font-semibold flex justify-between mb-2 text-gray-600">
+          <span className="flex-1">Item</span>
+          <span className="w-16 text-right">Qty</span>
+          <span className="w-20 text-right">Total</span>
+        </div>
+        {receipt.items.map((item, idx) => {
+          const price = item.priceType === 'retail' 
+            ? item.product.retailPrice 
+            : item.product.bulkPrice;
           const itemDiscount = item.discount || 0;
-          const itemTotal = (price * item.quantity) - itemDiscount;
+          const total = (price * item.quantity) - itemDiscount;
           
           return (
-            <div 
-              key={`${item.product.id}-${item.priceType}-${index}`}
-              className="bg-background/50 rounded-lg p-3"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
-                  <p className="text-xl font-bold leading-tight">{item.product.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      item.priceType === 'retail' 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'bg-blue-500/20 text-blue-400'
-                    }`}>
-                      {item.priceType === 'retail' ? 'Eceran' : 'Grosir'}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-black">{item.quantity}x</p>
-                </div>
-              </div>
-              <div className="mt-2 pt-2 border-t border-border/50 flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">
-                  {formatRupiah(price)} × {item.quantity}
+            <div key={idx} className="text-sm mb-2">
+              <div className="flex justify-between items-start">
+                <span className="flex-1 font-bold pr-2">
+                  {item.product.name}
+                  <span className="text-gray-500 ml-1 text-xs font-normal">
+                    ({item.priceType === 'retail' ? 'E' : 'G'})
+                  </span>
                 </span>
-                <span className="text-lg font-bold">{formatRupiah(itemTotal)}</span>
+                <span className="w-16 text-right font-bold text-base">{item.quantity}x</span>
+                <span className="w-20 text-right text-xs">{formatRupiah(total)}</span>
+              </div>
+              <div className="text-gray-500 text-xs">
+                @ {formatRupiah(price)}
               </div>
               {itemDiscount > 0 && (
-                <p className="text-sm text-orange-400 mt-1">
+                <div className="text-orange-600 text-xs">
                   Disc: -{formatRupiah(itemDiscount)}
-                </p>
+                </div>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Total */}
-      <div className="mt-4 pt-3 border-t-2 border-dashed border-border">
+      {/* Totals */}
+      <div className="text-xs space-y-1 border-b border-dashed border-gray-400 pb-3 mb-3">
+        <div className="flex justify-between">
+          <span>Subtotal:</span>
+          <span>{formatRupiah(receipt.subtotal)}</span>
+        </div>
         {receipt.discount > 0 && (
-          <div className="flex justify-between text-muted-foreground mb-1">
-            <span>Diskon</span>
+          <div className="flex justify-between text-orange-600">
+            <span>Diskon:</span>
             <span>-{formatRupiah(receipt.discount)}</span>
           </div>
         )}
-        <div className="flex justify-between items-center">
-          <span className="text-xl font-bold">TOTAL</span>
-          <span className="text-2xl font-black text-primary">{formatRupiah(receipt.total)}</span>
+        <div className="flex justify-between font-bold text-sm mt-2 pt-2 border-t border-gray-300">
+          <span>TOTAL:</span>
+          <span>{formatRupiah(receipt.total)}</span>
         </div>
       </div>
 
-      {/* Footer note */}
-      <div className="mt-4 pt-3 border-t border-dashed border-border text-center">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">
-          Copy ini untuk persiapan pesanan
-        </p>
+      {/* Footer */}
+      <div className="text-center text-xs text-gray-600 mt-4">
+        <div className="bg-gray-200 rounded py-2 px-3">
+          <p className="font-bold text-gray-800">COPY UNTUK PERSIAPAN</p>
+          <p className="text-gray-500 mt-1">Bukan struk pelanggan</p>
+        </div>
       </div>
     </div>
   );
