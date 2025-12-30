@@ -3,6 +3,7 @@ import { CartItem, ReceiptData, ReceiptDeliveryMethod, BankInfo, StoreInfo } fro
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Banknote, Wallet, ArrowLeft, Building2, Loader2, Bluetooth } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { isBluetoothSupported } from '@/utils/escpos';
@@ -39,6 +40,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
   const [receiptMethod, setReceiptMethod] = useState<ReceiptDeliveryMethod | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [printWorkerCopy, setPrintWorkerCopy] = useState(true);
 
   const [discountPercent, setDiscountPercent] = useState('');
 
@@ -154,6 +156,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
       customerName: customerName.trim() || undefined,
       bankInfo: paymentMethod === 'Transfer' && bankInfo ? bankInfo : undefined,
       storeInfo: storeInfo || undefined,
+      printWorkerCopy: receiptMethod === 'bluetooth' ? printWorkerCopy : undefined,
     };
 
     onComplete(receipt, receiptMethod, receiptMethod === 'whatsapp' ? whatsappNumber : undefined);
@@ -427,22 +430,43 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
             <div className="grid gap-3">
               {/* Bluetooth Print Option - Only show if supported */}
               {isBluetoothSupported() && (
-                <button
-                  onClick={() => setReceiptMethod('bluetooth')}
-                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
-                    receiptMethod === 'bluetooth'
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                    <Bluetooth className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="font-semibold">Print Bluetooth</p>
-                    <p className="text-sm text-muted-foreground">Cetak ke thermal printer</p>
-                  </div>
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setReceiptMethod('bluetooth')}
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left w-full ${
+                      receiptMethod === 'bluetooth'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                      <Bluetooth className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Print Bluetooth</p>
+                      <p className="text-sm text-muted-foreground">Cetak ke thermal printer</p>
+                    </div>
+                  </button>
+                  
+                  {/* Carbon Copy Toggle - Only show when bluetooth is selected */}
+                  {receiptMethod === 'bluetooth' && (
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-secondary/50 animate-fade-in ml-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                          <span className="text-lg">📋</span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">Carbon Copy (Salinan)</p>
+                          <p className="text-xs text-muted-foreground">Print salinan untuk pekerja</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={printWorkerCopy}
+                        onCheckedChange={setPrintWorkerCopy}
+                      />
+                    </div>
+                  )}
+                </div>
               )}
 
               <button

@@ -277,7 +277,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                 ) : (
                   <Button 
                     onClick={async () => {
-                      const success = await printReceipt(receipt, storeInfo || undefined);
+                      const success = await printReceipt(receipt, storeInfo || undefined, receipt.printWorkerCopy ?? true);
                       if (success) {
                         setPrintTriggered(true);
                       }

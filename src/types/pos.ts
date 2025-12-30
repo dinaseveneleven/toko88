@@ -40,6 +40,7 @@ export interface ReceiptData {
   customerName?: string;
   bankInfo?: BankInfo;
   storeInfo?: StoreInfo;
+  printWorkerCopy?: boolean;
 }
 
 export type ReceiptDeliveryMethod = 'display' | 'barcode' | 'whatsapp' | 'bluetooth';
