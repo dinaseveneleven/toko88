@@ -115,7 +115,7 @@ const Index = () => {
         return updated;
       }
 
-      return [...prev, { product, quantity: Math.min(quantity, product.stock), priceType }];
+      return [...prev, { product, quantity: Math.min(quantity, product.stock), priceType, discount: 0 }];
     });
 
     toast({
