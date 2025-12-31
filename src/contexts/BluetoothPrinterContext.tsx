@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode, type Context } from 'react';
 import { ReceiptData } from '@/types/pos';
 import { buildReceiptBytes, buildWorkerCopyBytes, isBluetoothSupported, PRINTER_SERVICE_UUIDS, PRINTER_CHARACTERISTIC_UUIDS } from '@/utils/escpos';
 import { toast } from '@/hooks/use-toast';
@@ -28,7 +28,13 @@ interface BluetoothPrinterContextType {
   printCarbonCopyOnly: (receipt: ReceiptData) => Promise<boolean>;
 }
 
-const BluetoothPrinterContext = createContext<BluetoothPrinterContextType | null>(null);
+// Keep a single context instance across HMR to avoid provider/consumer mismatch
+const __global = globalThis as unknown as {
+  __lov_bt_printer_ctx?: Context<BluetoothPrinterContextType | null>;
+};
+const BluetoothPrinterContext =
+  __global.__lov_bt_printer_ctx ?? createContext<BluetoothPrinterContextType | null>(null);
+__global.__lov_bt_printer_ctx = BluetoothPrinterContext;
 
 export function BluetoothPrinterProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState({
@@ -192,6 +198,7 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
 
   const connectPrinter = useCallback(async (): Promise<boolean> => {
     console.log('[BluetoothPrinter] connectPrinter called');
+
     if (!isBluetoothSupported()) {
       toast({
         title: 'Bluetooth Tidak Didukung',
@@ -203,50 +210,81 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
 
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const nav = navigator as any;
-      const bluetoothDevice = await nav.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: PRINTER_SERVICE_UUIDS,
-      });
-
-      if (!bluetoothDevice.gatt) {
-        throw new Error('GATT tidak tersedia');
-      }
-
-      setState(prev => ({ ...prev, printerName: bluetoothDevice.name || 'Unknown Printer' }));
-
-      const server = await bluetoothDevice.gatt.connect();
-      let writeCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-
+    const discoverWritableCharacteristic = async (server: any): Promise<BluetoothRemoteGATTCharacteristic | null> => {
       for (const serviceUuid of PRINTER_SERVICE_UUIDS) {
         try {
           const service = await server.getPrimaryService(serviceUuid);
-          
+
+          // Try known characteristic UUIDs first
           for (const charUuid of PRINTER_CHARACTERISTIC_UUIDS) {
             try {
               const char = await service.getCharacteristic(charUuid);
               if (char.properties.write || char.properties.writeWithoutResponse) {
-                writeCharacteristic = char;
-                break;
+                return char;
               }
-            } catch { /* Try next characteristic */ }
+            } catch {
+              // try next
+            }
           }
-          
-          if (writeCharacteristic) break;
 
+          // Fallback: any writable characteristic in the service
           const characteristics = await service.getCharacteristics();
           for (const char of characteristics) {
             if (char.properties.write || char.properties.writeWithoutResponse) {
-              writeCharacteristic = char;
-              break;
+              return char;
             }
           }
-          
-          if (writeCharacteristic) break;
-        } catch { /* Service not found, try next */ }
+        } catch {
+          // service not found, try next
+        }
       }
+
+      return null;
+    };
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nav = navigator as any;
+
+      let targetDevice: BluetoothDevice | null = null;
+
+      // 1) Reuse existing selected device (best chance)
+      if (device?.gatt) {
+        targetDevice = device;
+        console.log('[BluetoothPrinter] Reusing existing device instance:', device.name);
+      }
+
+      // 2) If we have a saved printer name, try reconnecting to an already-paired device
+      if (!targetDevice && nav.bluetooth?.getDevices && state.savedPrinterName) {
+        const devices = await nav.bluetooth.getDevices();
+        targetDevice = devices.find((d: BluetoothDevice) => d?.name === state.savedPrinterName) ?? null;
+        console.log('[BluetoothPrinter] getDevices matched:', targetDevice?.name ?? null);
+      }
+
+      // 3) Otherwise ask user to pick a device
+      if (!targetDevice) {
+        targetDevice = await nav.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: PRINTER_SERVICE_UUIDS,
+        });
+        console.log('[BluetoothPrinter] User selected device:', targetDevice?.name);
+      }
+
+      if (!targetDevice?.gatt) {
+        throw new Error('GATT tidak tersedia');
+      }
+
+      // Connect (or reconnect)
+      if (targetDevice.gatt.connected) {
+        try {
+          targetDevice.gatt.disconnect();
+        } catch {
+          // ignore
+        }
+      }
+
+      const server = await targetDevice.gatt.connect();
+      const writeCharacteristic = await discoverWritableCharacteristic(server);
 
       if (!writeCharacteristic) {
         throw new Error('Tidak dapat menemukan karakteristik tulis pada printer');
@@ -259,39 +297,39 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
           .from('printer_configs')
           .upsert({
             user_id: user.id,
-            printer_name: bluetoothDevice.name || 'Thermal Printer',
-            printer_device_id: bluetoothDevice.id,
+            printer_name: targetDevice.name || 'Thermal Printer',
+            printer_device_id: targetDevice.id,
             is_enabled: true,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id' });
       }
-      
-      setDevice(bluetoothDevice);
+
+      setDevice(targetDevice);
       setCharacteristic(writeCharacteristic);
-      
+
       setState(prev => ({
         ...prev,
         isConnected: true,
         isConnecting: false,
-        printerName: bluetoothDevice.name || 'Thermal Printer',
-        savedPrinterName: bluetoothDevice.name || 'Thermal Printer',
+        printerName: targetDevice.name || 'Thermal Printer',
+        savedPrinterName: targetDevice.name || prev.savedPrinterName || 'Thermal Printer',
       }));
 
       toast({
         title: 'Printer Terhubung',
-        description: `Berhasil terhubung ke ${bluetoothDevice.name || 'printer'}`,
+        description: `Berhasil terhubung ke ${targetDevice.name || 'printer'}`,
       });
 
       return true;
     } catch (error) {
       console.error('Bluetooth connection error:', error);
-      
       const errorMessage = error instanceof Error ? error.message : 'Gagal menghubungkan printer';
-      
+
       setState(prev => ({
         ...prev,
         isConnecting: false,
         isConnected: false,
+        printerName: prev.savedPrinterName ? `Tersimpan: ${prev.savedPrinterName}` : prev.printerName,
         error: errorMessage,
       }));
 
@@ -305,7 +343,7 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
 
       return false;
     }
-  }, []);
+  }, [device, state.savedPrinterName]);
 
   const disconnectPrinter = useCallback(() => {
     if (device?.gatt?.connected) {
@@ -578,10 +616,26 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
   );
 }
 
-export function useBluetoothPrinterContext() {
+export function useBluetoothPrinterContext(): BluetoothPrinterContextType {
   const context = useContext(BluetoothPrinterContext);
   if (!context) {
-    throw new Error('useBluetoothPrinterContext must be used within a BluetoothPrinterProvider');
+    // Avoid hard-crash during HMR/provider remount; return safe no-op.
+    console.error('[BluetoothPrinter] Context missing (provider not mounted yet).');
+    return {
+      isConnected: false,
+      isConnecting: false,
+      isPrinting: false,
+      printerName: null,
+      savedPrinterName: null,
+      error: 'Printer context belum siap',
+      isSupported: isBluetoothSupported(),
+      hasSavedPrinter: false,
+      connectPrinter: async () => false,
+      disconnectPrinter: () => undefined,
+      printReceipt: async () => false,
+      printInvoiceOnly: async () => false,
+      printCarbonCopyOnly: async () => false,
+    };
   }
   return context;
 }
