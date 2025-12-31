@@ -77,6 +77,7 @@ export const buildInvoiceLines = (
   lines.push(createSeparator('-'));
   
   // Items
+  let totalBulkDiscount = 0;
   let totalItemDiscount = 0;
   let subtotalBeforeDiscount = 0; // Sum of all items at retail price × quantity
   
@@ -88,9 +89,10 @@ export const buildInvoiceLines = (
     
     // Calculate bulk discount (difference between retail and bulk price)
     const bulkDiscount = item.priceType === 'bulk' ? (retailPrice - item.product.bulkPrice) * item.quantity : 0;
+    totalBulkDiscount += bulkDiscount;
     
     const itemDiscount = item.discount || 0;
-    totalItemDiscount += itemDiscount + bulkDiscount;
+    totalItemDiscount += itemDiscount;
     const finalTotal = Math.max(0, retailTotal - bulkDiscount - itemDiscount);
     
     // Line 1: qty | gap | Name | total - FIXED columns, BOLD
@@ -104,35 +106,27 @@ export const buildInvoiceLines = (
     // Line 2: @ unit price (always show retail price)
     const unitPriceStr = `@ Rp${formatRupiah(retailPrice)}`;
     lines.push(padLeft(unitPriceStr, LINE_WIDTH));
-    
-    // Show bulk discount as "Diskon Grosir" if applicable
-    if (bulkDiscount > 0) {
-      const bulkDiscountStr = `Diskon Grosir: -Rp${formatRupiah(bulkDiscount)}`;
-      lines.push(padLeft(bulkDiscountStr, LINE_WIDTH));
-    }
-    
-    // Item discount if any - show under price
-    if (itemDiscount > 0) {
-      const discountStr = `Diskon: -Rp${formatRupiah(itemDiscount)}`;
-      lines.push(padLeft(discountStr, LINE_WIDTH));
-    }
   }
   
   lines.push(createSeparator('-'));
   
-  // Calculate total discount (all item discounts + global discount)
-  const totalDiscount = totalItemDiscount + (receipt.discount || 0);
-  const finalTotal = subtotalBeforeDiscount - totalDiscount;
-  
   // Subtotal: total before any discounts
   lines.push(formatTwoColumn('Subtotal:', `Rp${formatRupiah(subtotalBeforeDiscount)}`));
   
-  // Diskon: total of all discounts (grosir + item discounts + global discount)
-  if (totalDiscount > 0) {
-    lines.push(formatTwoColumn('Diskon:', `-Rp${formatRupiah(totalDiscount)}`));
+  // Diskon Grosir: total of all bulk discounts
+  if (totalBulkDiscount > 0) {
+    lines.push(formatTwoColumn('Diskon Grosir:', `-Rp${formatRupiah(totalBulkDiscount)}`));
   }
   
-  // Total: after discount
+  // Diskon: item discounts + global discount
+  const otherDiscount = totalItemDiscount + (receipt.discount || 0);
+  if (otherDiscount > 0) {
+    lines.push(formatTwoColumn('Diskon:', `-Rp${formatRupiah(otherDiscount)}`));
+  }
+  
+  // Total: after all discounts
+  const totalAllDiscounts = totalBulkDiscount + otherDiscount;
+  const finalTotal = subtotalBeforeDiscount - totalAllDiscounts;
   lines.push('@@BOLD@@' + formatTwoColumn('TOTAL:', `Rp${formatRupiah(finalTotal)}`));
   lines.push(createSeparator('-'));
   
