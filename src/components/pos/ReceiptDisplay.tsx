@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
 import { Receipt } from './Receipt';
 import { WorkerCopyPreview } from './WorkerCopyPreview';
+import { ThermalReceiptPreview } from './ThermalReceiptPreview';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Download, Printer, Check, MessageCircle, AlertTriangle, Bluetooth, Loader2 } from 'lucide-react';
@@ -37,6 +38,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const [invoicePrinted, setInvoicePrinted] = useState(false);
   const [carbonCopyPrinted, setCarbonCopyPrinted] = useState(false);
   const [showWorkerCopy, setShowWorkerCopy] = useState(false);
+  const [showThermalPreview, setShowThermalPreview] = useState(false);
   
   const { printReceipt, printInvoiceOnly, printCarbonCopyOnly, isPrinting, isConnected, connectPrinter, isConnecting } = useBluetoothPrinter();
 
@@ -63,6 +65,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
       setInvoicePrinted(false);
       setCarbonCopyPrinted(false);
       setShowWorkerCopy(false);
+      setShowThermalPreview(false);
     }
   }, [open]);
 
@@ -163,7 +166,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
           {deliveryMethod === 'display' && (
             <div className="animate-slide-up">
               {/* Toggle between customer receipt and worker copy */}
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-2 mb-2">
                 <button
                   onClick={() => setShowWorkerCopy(false)}
                   className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
@@ -186,8 +189,24 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                 </button>
               </div>
 
+              {/* Toggle between pretty preview and thermal preview */}
+              <div className="flex justify-center mb-4">
+                <button
+                  onClick={() => setShowThermalPreview(!showThermalPreview)}
+                  className="text-xs text-muted-foreground hover:text-foreground underline"
+                >
+                  {showThermalPreview ? 'Tampilan Normal' : 'Tampilan Printer (Thermal)'}
+                </button>
+              </div>
+
               <div ref={receiptRef}>
-                {showWorkerCopy ? (
+                {showThermalPreview ? (
+                  <ThermalReceiptPreview 
+                    receipt={receipt} 
+                    storeInfo={storeInfo || undefined}
+                    type={showWorkerCopy ? 'worker' : 'invoice'}
+                  />
+                ) : showWorkerCopy ? (
                   <WorkerCopyPreview receipt={receipt} />
                 ) : (
                   <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
