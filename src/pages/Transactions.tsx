@@ -164,6 +164,31 @@ export default function Transactions() {
     setDetailOpen(true);
   };
 
+  // Fetch fresh store info for printing (same as ReceiptDisplay)
+  const getStoreInfoForPrint = async (): Promise<{ address: string; phone: string }> => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('key, value');
+      
+      const settings = data?.reduce((acc, item) => {
+        acc[item.key] = item.value || '';
+        return acc;
+      }, {} as Record<string, string>) || {};
+      
+      return {
+        address: settings['store_address'] || 'Jl. Raya No. 88, Jakarta',
+        phone: settings['store_phone'] || '(021) 1234-5678',
+      };
+    } catch (error) {
+      console.error('Error fetching store info for print:', error);
+      return {
+        address: 'Jl. Raya No. 88, Jakarta',
+        phone: '(021) 1234-5678',
+      };
+    }
+  };
+
   const handlePrintInvoice = async (transaction: Transaction) => {
     if (!isConnected) {
       toast({
@@ -174,8 +199,21 @@ export default function Transactions() {
       return;
     }
     setPrintingId(transaction.id);
-    const receipt = convertToReceiptData(transaction);
-    await printInvoiceOnly(receipt, storeInfo || undefined);
+    
+    try {
+      // Fetch fresh store info before printing (same as ReceiptDisplay)
+      const freshStoreInfo = await getStoreInfoForPrint();
+      const receipt = convertToReceiptData(transaction);
+      await printInvoiceOnly(receipt, freshStoreInfo);
+    } catch (error) {
+      console.error('Print invoice error:', error);
+      toast({
+        title: 'Gagal Mencetak',
+        description: 'Terjadi kesalahan saat mencetak invoice.',
+        variant: 'destructive',
+      });
+    }
+    
     setPrintingId(null);
   };
 
@@ -189,8 +227,19 @@ export default function Transactions() {
       return;
     }
     setPrintingId(transaction.id);
-    const receipt = convertToReceiptData(transaction);
-    await printCarbonCopyOnly(receipt);
+    
+    try {
+      const receipt = convertToReceiptData(transaction);
+      await printCarbonCopyOnly(receipt);
+    } catch (error) {
+      console.error('Print carbon copy error:', error);
+      toast({
+        title: 'Gagal Mencetak',
+        description: 'Terjadi kesalahan saat mencetak carbon copy.',
+        variant: 'destructive',
+      });
+    }
+    
     setPrintingId(null);
   };
 
@@ -464,6 +513,7 @@ export default function Transactions() {
             <div className="space-y-4">
               <ThermalReceiptPreview 
                 receipt={convertToReceiptData(selectedTransaction)} 
+                storeInfo={storeInfo || undefined}
                 type="invoice"
               />
               <div className="grid grid-cols-2 gap-2">
