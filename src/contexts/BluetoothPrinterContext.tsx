@@ -211,8 +211,44 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     const discoverWritableCharacteristic = async (server: any): Promise<BluetoothRemoteGATTCharacteristic | null> => {
+      console.log('[BluetoothPrinter] Discovering services...');
+      
+      // First, try to get ALL services to see what the printer actually exposes
+      try {
+        const allServices = await server.getPrimaryServices();
+        console.log('[BluetoothPrinter] Available services:', allServices.map((s: any) => s.uuid));
+        
+        // Try each discovered service
+        for (const service of allServices) {
+          console.log('[BluetoothPrinter] Checking service:', service.uuid);
+          try {
+            const characteristics = await service.getCharacteristics();
+            console.log('[BluetoothPrinter] Characteristics in', service.uuid, ':', 
+              characteristics.map((c: any) => ({
+                uuid: c.uuid,
+                write: c.properties.write,
+                writeWithoutResponse: c.properties.writeWithoutResponse
+              }))
+            );
+            
+            for (const char of characteristics) {
+              if (char.properties.write || char.properties.writeWithoutResponse) {
+                console.log('[BluetoothPrinter] Found writable characteristic:', char.uuid, 'in service:', service.uuid);
+                return char;
+              }
+            }
+          } catch (err) {
+            console.log('[BluetoothPrinter] Error getting characteristics for', service.uuid, err);
+          }
+        }
+      } catch (err) {
+        console.log('[BluetoothPrinter] Could not get all services, trying known UUIDs:', err);
+      }
+
+      // Fallback: Try known service UUIDs explicitly
       for (const serviceUuid of PRINTER_SERVICE_UUIDS) {
         try {
+          console.log('[BluetoothPrinter] Trying known service UUID:', serviceUuid);
           const service = await server.getPrimaryService(serviceUuid);
 
           // Try known characteristic UUIDs first
@@ -220,6 +256,7 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
             try {
               const char = await service.getCharacteristic(charUuid);
               if (char.properties.write || char.properties.writeWithoutResponse) {
+                console.log('[BluetoothPrinter] Found characteristic via known UUID:', charUuid);
                 return char;
               }
             } catch {
@@ -231,6 +268,7 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
           const characteristics = await service.getCharacteristics();
           for (const char of characteristics) {
             if (char.properties.write || char.properties.writeWithoutResponse) {
+              console.log('[BluetoothPrinter] Found writable characteristic in known service:', char.uuid);
               return char;
             }
           }
@@ -239,6 +277,7 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
         }
       }
 
+      console.log('[BluetoothPrinter] No writable characteristic found in any service');
       return null;
     };
 
