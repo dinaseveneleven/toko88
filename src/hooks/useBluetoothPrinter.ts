@@ -34,9 +34,9 @@ export function useBluetoothPrinter() {
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
   const [characteristic, setCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);
 
-  // Load saved printer config from database on mount
+  // Auto-reconnect to saved printer on mount
   useEffect(() => {
-    const loadPrinterConfig = async () => {
+    const autoReconnect = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -58,14 +58,85 @@ export function useBluetoothPrinter() {
             savedPrinterName: config.printer_name,
             printerName: `Tersimpan: ${config.printer_name}`
           }));
+
+          // Try to auto-reconnect using getDevices() API
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const nav = navigator as any;
+          if (nav.bluetooth?.getDevices) {
+            try {
+              const devices = await nav.bluetooth.getDevices();
+              const savedDevice = devices.find((d: BluetoothDevice) => 
+                d.name === config.printer_name || d.id === config.printer_device_id
+              );
+              
+              if (savedDevice && savedDevice.gatt) {
+                console.log('Auto-reconnecting to saved printer:', savedDevice.name);
+                setState(prev => ({ ...prev, isConnecting: true }));
+                
+                const server = await savedDevice.gatt.connect();
+                
+                // Find write characteristic
+                let writeCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+                
+                for (const serviceUuid of PRINTER_SERVICE_UUIDS) {
+                  try {
+                    const service = await server.getPrimaryService(serviceUuid);
+                    
+                    for (const charUuid of PRINTER_CHARACTERISTIC_UUIDS) {
+                      try {
+                        const char = await service.getCharacteristic(charUuid);
+                        if (char.properties.write || char.properties.writeWithoutResponse) {
+                          writeCharacteristic = char;
+                          break;
+                        }
+                      } catch {
+                        // Try next characteristic
+                      }
+                    }
+                    
+                    if (writeCharacteristic) break;
+
+                    const characteristics = await service.getCharacteristics();
+                    for (const char of characteristics) {
+                      if (char.properties.write || char.properties.writeWithoutResponse) {
+                        writeCharacteristic = char;
+                        break;
+                      }
+                    }
+                    
+                    if (writeCharacteristic) break;
+                  } catch {
+                    // Service not found, try next
+                  }
+                }
+
+                if (writeCharacteristic) {
+                  setDevice(savedDevice);
+                  setCharacteristic(writeCharacteristic);
+                  setState(prev => ({
+                    ...prev,
+                    isConnected: true,
+                    isConnecting: false,
+                    printerName: savedDevice.name || config.printer_name,
+                  }));
+                  console.log('Auto-reconnected to printer successfully');
+                } else {
+                  setState(prev => ({ ...prev, isConnecting: false }));
+                }
+              }
+            } catch (err) {
+              console.log('Auto-reconnect failed (user may need to pair again):', err);
+              setState(prev => ({ ...prev, isConnecting: false }));
+            }
+          }
         }
       } catch (error) {
-        console.error('Error loading printer config:', error);
+        console.error('Error in auto-reconnect:', error);
       }
     };
 
     if (isBluetoothSupported()) {
-      loadPrinterConfig();
+      autoReconnect();
     }
   }, []);
 
