@@ -64,6 +64,7 @@ export default function Transactions() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [storeInfo, setStoreInfo] = useState<{ address: string; phone: string } | null>(null);
 
   useEffect(() => {
     // Wait for auth to be determined (not null)
@@ -74,7 +75,28 @@ export default function Transactions() {
       return;
     }
     fetchTransactions();
+    fetchStoreInfo();
   }, [isAuthenticated, navigate]);
+
+  const fetchStoreInfo = async () => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('key, value');
+      
+      const settings = data?.reduce((acc, item) => {
+        acc[item.key] = item.value || '';
+        return acc;
+      }, {} as Record<string, string>) || {};
+      
+      setStoreInfo({
+        address: settings['store_address'] || 'Jl. Raya No. 88, Jakarta',
+        phone: settings['store_phone'] || '(021) 1234-5678',
+      });
+    } catch (error) {
+      console.error('Error fetching store info:', error);
+    }
+  };
 
   const fetchTransactions = async () => {
     setLoading(true);
@@ -153,7 +175,7 @@ export default function Transactions() {
     }
     setPrintingId(transaction.id);
     const receipt = convertToReceiptData(transaction);
-    await printInvoiceOnly(receipt);
+    await printInvoiceOnly(receipt, storeInfo || undefined);
     setPrintingId(null);
   };
 
