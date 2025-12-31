@@ -200,9 +200,10 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
   lines.push(createSeparator('-', LINE_WIDTH));
   
   // Items - Name and Quantity (double size, 24 char width)
-  // Format: name on left (up to 16 chars), qty on right (8 chars for up to 5 digits)
-  const ITEM_NAME_W = 16;
-  const ITEM_QTY_W = 8;
+  // Dynamically adjust column widths based on longest qty string
+  const maxQtyLen = Math.max(...receipt.items.map(item => `${item.quantity}x`.length));
+  const ITEM_QTY_W = Math.max(4, maxQtyLen + 1); // Min 4 chars, +1 for spacing
+  const ITEM_NAME_W = W - ITEM_QTY_W; // Remaining space for name
   
   for (const item of receipt.items) {
     const productName = item.product.name;
@@ -210,20 +211,20 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
     
     // If name is too long, wrap to multiple lines
     if (productName.length > ITEM_NAME_W) {
-      // First line: first part of name + qty (centered)
+      // First line: first part of name + qty
       const firstPart = productName.slice(0, ITEM_NAME_W);
       const itemLine = padRight(firstPart, ITEM_NAME_W) + padLeft(qtyStr, ITEM_QTY_W);
       lines.push('@@CENTER@@@@DOUBLE@@' + itemLine);
       
-      // Subsequent lines: rest of name (no qty, centered)
+      // Subsequent lines: rest of name (no qty)
       let remaining = productName.slice(ITEM_NAME_W);
       while (remaining.length > 0) {
         const part = remaining.slice(0, W);
-        lines.push('@@CENTER@@@@DOUBLE@@' + part);
+        lines.push('@@CENTER@@@@DOUBLE@@  ' + part); // Indent continuation
         remaining = remaining.slice(W);
       }
     } else {
-      // Single line (centered)
+      // Single line
       const itemLine = padRight(productName, ITEM_NAME_W) + padLeft(qtyStr, ITEM_QTY_W);
       lines.push('@@CENTER@@@@DOUBLE@@' + itemLine);
     }
