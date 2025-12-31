@@ -288,7 +288,7 @@ const Index = () => {
     const discountedTotal = (price * item.quantity) - discount;
     return sum + Math.max(0, discountedTotal);
   }, 0);
-  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartItemCount = cart.length;
 
   return (
     <div 
