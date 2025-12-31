@@ -116,8 +116,9 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   const bytes: number[] = [];
   const LINE_WIDTH = LINE_WIDTH_80MM;
   
-  // Initialize printer
+  // Initialize printer and feed paper first to avoid cutting previous content
   bytes.push(...INIT);
+  bytes.push(LF, LF, LF); // Feed paper at start to clear cutter area
   
   // Store header (centered, bold)
   bytes.push(...ALIGN_CENTER);
@@ -215,8 +216,9 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
 export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
   const bytes: number[] = [];
   
-  // Initialize printer
+  // Initialize printer and feed paper first to avoid cutting previous content
   bytes.push(...INIT);
+  bytes.push(LF, LF, LF); // Feed paper at start to clear cutter area
   
   // ===== HEADER =====
   bytes.push(...ALIGN_CENTER);

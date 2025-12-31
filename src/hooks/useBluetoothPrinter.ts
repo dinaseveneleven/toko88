@@ -296,11 +296,11 @@ export function useBluetoothPrinter() {
       const receiptBytes = buildReceiptBytes(receipt, storeInfo);
       await sendBytesToPrinter(receiptBytes, characteristic);
       
-      // 2. Print Worker Copy (carbon copy with big text)
+      // Wait for first print to complete and paper to be cut
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // 2. Print Worker Copy (carbon copy with big text) as separate job
       if (printWorkerCopy) {
-        // Small delay between prints
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
         const workerCopyBytes = buildWorkerCopyBytes(receipt);
         await sendBytesToPrinter(workerCopyBytes, characteristic);
       }
