@@ -116,9 +116,9 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   const bytes: number[] = [];
   const LINE_WIDTH = LINE_WIDTH_80MM;
   
-  // Initialize printer and feed paper first to avoid cutting previous content
+  // Initialize printer
   bytes.push(...INIT);
-  bytes.push(LF, LF, LF); // Feed paper at start to clear cutter area
+  bytes.push(LF); // Single line feed at start
   
   // Store header (centered, bold)
   bytes.push(...ALIGN_CENTER);
@@ -211,14 +211,11 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   bytes.push(...createDoubleSeparator(LINE_WIDTH));
   bytes.push(...textToBytes('*** SIMPAN STRUK INI ***'), LF);
 
-  // Feed more paper before cutting so the cutter doesn't slice through printed content
-  bytes.push(LF, LF, LF, LF, LF, LF, LF, LF, LF, LF, LF, LF); // 12 lines
+  // Feed paper before cutting (reduced waste)
+  bytes.push(LF, LF, LF, LF, LF, LF); // 6 lines instead of 12
 
-  // Cut paper - partial cut tends to be more reliable on many thermal printers
-  bytes.push(...PARTIAL_CUT);
-
-  // Small feed after cut to separate from next print
-  bytes.push(LF, LF);
+  // Cut paper
+  bytes.push(...CUT_PAPER);
 
   return new Uint8Array(bytes);
 };
@@ -228,9 +225,9 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
 export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
   const bytes: number[] = [];
   
-  // Initialize printer and feed paper first to avoid cutting previous content
+  // Initialize printer
   bytes.push(...INIT);
-  bytes.push(LF, LF, LF); // Feed paper at start to clear cutter area
+  bytes.push(LF); // Single line feed at start
   
   // ===== HEADER =====
   bytes.push(...ALIGN_CENTER);
@@ -314,14 +311,11 @@ export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
   bytes.push(...NORMAL_SIZE);
   bytes.push(...BOLD_OFF);
   
-  // Feed paper sufficiently before cutting to ensure content clears the cutter
-  bytes.push(LF, LF, LF, LF, LF, LF, LF, LF, LF, LF, LF, LF); // 12 lines
+  // Feed paper before cutting (reduced waste)
+  bytes.push(LF, LF, LF, LF, LF, LF); // 6 lines
 
-  // Cut paper - use FULL cut for worker copy (more compatible across printers)
+  // Cut paper
   bytes.push(...CUT_PAPER);
-
-  // Small feed after cut to separate from next print
-  bytes.push(LF, LF);
 
   return new Uint8Array(bytes);
 };

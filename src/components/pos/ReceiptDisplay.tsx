@@ -34,10 +34,11 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const receiptRef = useRef<HTMLDivElement>(null);
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null);
   const [storeInfo, setStoreInfo] = useState<{ address: string; phone: string } | null>(null);
-  const [printTriggered, setPrintTriggered] = useState(false);
+  const [invoicePrinted, setInvoicePrinted] = useState(false);
+  const [carbonCopyPrinted, setCarbonCopyPrinted] = useState(false);
   const [showWorkerCopy, setShowWorkerCopy] = useState(false);
   
-  const { printReceipt, isPrinting, isConnected, connectPrinter, isConnecting } = useBluetoothPrinter();
+  const { printReceipt, printInvoiceOnly, printCarbonCopyOnly, isPrinting, isConnected, connectPrinter, isConnecting } = useBluetoothPrinter();
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -59,7 +60,8 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
     
     if (open) {
       fetchSettings();
-      setPrintTriggered(false);
+      setInvoicePrinted(false);
+      setCarbonCopyPrinted(false);
       setShowWorkerCopy(false);
     }
   }, [open]);
@@ -266,12 +268,20 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                   <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
                   <p className="text-muted-foreground">Mencetak struk...</p>
                 </div>
-              ) : printTriggered ? (
+              ) : (invoicePrinted || carbonCopyPrinted) ? (
                 <div className="bg-primary/10 rounded-xl p-4 border border-primary/20 text-center">
                   <Bluetooth className="w-8 h-8 text-primary mx-auto mb-2" />
-                  <p className="font-semibold">Struk Berhasil Dicetak!</p>
+                  <p className="font-semibold">
+                    {invoicePrinted && carbonCopyPrinted 
+                      ? 'Semua Struk Dicetak!' 
+                      : invoicePrinted 
+                        ? 'Invoice Dicetak!' 
+                        : 'Carbon Copy Dicetak!'}
+                  </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Struk telah dikirim ke thermal printer
+                    {invoicePrinted && !carbonCopyPrinted && 'Cetak carbon copy jika diperlukan'}
+                    {!invoicePrinted && carbonCopyPrinted && 'Cetak invoice jika diperlukan'}
+                    {invoicePrinted && carbonCopyPrinted && 'Kedua struk telah dicetak'}
                   </p>
                 </div>
               ) : (
@@ -279,19 +289,19 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                   <Bluetooth className="w-8 h-8 text-blue-400 mx-auto mb-2" />
                   <p className="font-semibold">Print via Bluetooth</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {isConnected ? 'Printer terhubung' : 'Pilih printer untuk mencetak'}
+                    {isConnected ? 'Printer terhubung - pilih struk untuk dicetak' : 'Hubungkan printer terlebih dahulu'}
                   </p>
                 </div>
               )}
               
               <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
 
-              <div className="flex gap-2">
+              <div className="space-y-2">
                 {!isConnected ? (
                   <Button 
                     onClick={connectPrinter}
                     disabled={isConnecting}
-                    className="flex-1"
+                    className="w-full"
                   >
                     {isConnecting ? (
                       <>
@@ -306,36 +316,56 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                     )}
                   </Button>
                 ) : (
-                  <Button 
-                    onClick={async () => {
-                      const success = await printReceipt(receipt, storeInfo || undefined, receipt.printWorkerCopy ?? true);
-                      if (success) {
-                        setPrintTriggered(true);
-                      }
-                    }}
-                    disabled={isPrinting}
-                    className="flex-1"
-                  >
-                    {isPrinting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Mencetak...
-                      </>
-                    ) : printTriggered ? (
-                      <>
-                        <Printer className="w-4 h-4 mr-2" />
-                        Cetak Ulang
-                      </>
-                    ) : (
-                      <>
-                        <Printer className="w-4 h-4 mr-2" />
-                        Cetak Struk
-                      </>
-                    )}
-                  </Button>
+                  <>
+                    {/* Two separate print buttons */}
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={async () => {
+                          const success = await printInvoiceOnly(receipt, storeInfo || undefined);
+                          if (success) {
+                            setInvoicePrinted(true);
+                          }
+                        }}
+                        disabled={isPrinting}
+                        className="flex-1"
+                        variant={invoicePrinted ? "outline" : "default"}
+                      >
+                        {isPrinting ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : invoicePrinted ? (
+                          <Check className="w-4 h-4 mr-2" />
+                        ) : (
+                          <Printer className="w-4 h-4 mr-2" />
+                        )}
+                        {invoicePrinted ? 'Invoice ✓' : 'Cetak Invoice'}
+                      </Button>
+                      
+                      <Button 
+                        onClick={async () => {
+                          const success = await printCarbonCopyOnly(receipt);
+                          if (success) {
+                            setCarbonCopyPrinted(true);
+                          }
+                        }}
+                        disabled={isPrinting}
+                        className="flex-1"
+                        variant={carbonCopyPrinted ? "outline" : "secondary"}
+                      >
+                        {isPrinting ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : carbonCopyPrinted ? (
+                          <Check className="w-4 h-4 mr-2" />
+                        ) : (
+                          <span className="mr-2">📋</span>
+                        )}
+                        {carbonCopyPrinted ? 'Copy ✓' : 'Carbon Copy'}
+                      </Button>
+                    </div>
+                  </>
                 )}
-                <Button onClick={handleDownload} variant="outline">
-                  <Download className="w-4 h-4" />
+                <Button onClick={handleDownload} variant="outline" className="w-full">
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
                 </Button>
               </div>
             </div>
