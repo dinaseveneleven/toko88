@@ -106,6 +106,18 @@ export const buildInvoiceLines = (
     // Line 2: @ unit price (always show retail price)
     const unitPriceStr = `@ Rp${formatRupiah(retailPrice)}`;
     lines.push(padLeft(unitPriceStr, LINE_WIDTH));
+    
+    // Show bulk discount per item if applicable
+    if (bulkDiscount > 0) {
+      const bulkDiscountStr = `Diskon Grosir: -Rp${formatRupiah(bulkDiscount)}`;
+      lines.push(padLeft(bulkDiscountStr, LINE_WIDTH));
+    }
+    
+    // Show item discount if any
+    if (itemDiscount > 0) {
+      const discountStr = `Diskon: -Rp${formatRupiah(itemDiscount)}`;
+      lines.push(padLeft(discountStr, LINE_WIDTH));
+    }
   }
   
   lines.push(createSeparator('-'));
