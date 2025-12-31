@@ -24,9 +24,12 @@ const NORMAL_SIZE = [ESC, 0x21, 0x00];
 const CUT_WITH_FEED = (feedAmount: number) => [GS, 0x56, 0x42, feedAmount];
 const CUT_PAPER = [GS, 0x56, 0x42, 80]; // Feed ~8mm then partial cut
 
-// Convert string to byte array (ASCII)
+// Convert string to byte array (UTF-8, sanitized to avoid accidental control codes)
+const __encoder = new TextEncoder();
 const textToBytes = (text: string): number[] => {
-  return Array.from(text).map(char => char.charCodeAt(0));
+  // Strip non-printable ASCII control chars except LF (we add LF ourselves)
+  const safe = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  return Array.from(__encoder.encode(safe));
 };
 
 // Process a single line with formatting tags and output bytes
