@@ -399,7 +399,78 @@ export function useBluetoothPrinter() {
 
       return false;
     }
-  }, [characteristic, connectPrinter, sendBytesToPrinter]);
+  }, [characteristic, state.isConnected, sendBytesToPrinter]);
+
+  // Print ONLY the customer invoice (no carbon copy)
+  const printInvoiceOnly = useCallback(async (
+    receipt: ReceiptData, 
+    storeInfo?: { address: string; phone: string }
+  ): Promise<boolean> => {
+    if (!characteristic || !state.isConnected) {
+      toast({
+        title: 'Printer Belum Terhubung',
+        description: 'Hubungkan printer terlebih dahulu.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    setState(prev => ({ ...prev, isPrinting: true, error: null }));
+
+    try {
+      const receiptBytes = buildReceiptBytes(receipt, storeInfo);
+      await sendBytesToPrinter(receiptBytes, characteristic);
+
+      setState(prev => ({ ...prev, isPrinting: false }));
+
+      toast({
+        title: 'Invoice Dicetak',
+        description: 'Struk pelanggan berhasil dicetak.',
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Print error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Gagal mencetak';
+      setState(prev => ({ ...prev, isPrinting: false, error: errorMessage }));
+      toast({ title: 'Gagal Mencetak', description: errorMessage, variant: 'destructive' });
+      return false;
+    }
+  }, [characteristic, state.isConnected, sendBytesToPrinter]);
+
+  // Print ONLY the carbon copy / worker copy
+  const printCarbonCopyOnly = useCallback(async (receipt: ReceiptData): Promise<boolean> => {
+    if (!characteristic || !state.isConnected) {
+      toast({
+        title: 'Printer Belum Terhubung',
+        description: 'Hubungkan printer terlebih dahulu.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    setState(prev => ({ ...prev, isPrinting: true, error: null }));
+
+    try {
+      const workerCopyBytes = buildWorkerCopyBytes(receipt);
+      await sendBytesToPrinter(workerCopyBytes, characteristic);
+
+      setState(prev => ({ ...prev, isPrinting: false }));
+
+      toast({
+        title: 'Carbon Copy Dicetak',
+        description: 'Salinan pekerja berhasil dicetak.',
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Print error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Gagal mencetak';
+      setState(prev => ({ ...prev, isPrinting: false, error: errorMessage }));
+      toast({ title: 'Gagal Mencetak', description: errorMessage, variant: 'destructive' });
+      return false;
+    }
+  }, [characteristic, state.isConnected, sendBytesToPrinter]);
 
   return {
     ...state,
@@ -408,5 +479,7 @@ export function useBluetoothPrinter() {
     connectPrinter,
     disconnectPrinter,
     printReceipt,
+    printInvoiceOnly,
+    printCarbonCopyOnly,
   };
 }
