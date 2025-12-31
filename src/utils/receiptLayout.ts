@@ -95,27 +95,27 @@ export const buildInvoiceLines = (
     totalItemDiscount += itemDiscount;
     const finalTotal = Math.max(0, retailTotal - bulkDiscount - itemDiscount);
     
-    // Line 1: qty | gap | Name | total - FIXED columns, BOLD
+    // Line 1: qty | gap | Name | subtotal (retail × qty) - BOLD
     const nameStr = item.product.name;
     const qtyStr = `${item.quantity}x`;
-    const totalStr = `Rp${formatRupiah(finalTotal)}`;
+    const subtotalStr = `Rp${formatRupiah(retailTotal)}`;
     
-    const itemLine = padRight(qtyStr, QTY_COL) + ' '.repeat(GAP_COL) + padRight(nameStr, NAME_COL) + padLeft(totalStr, TOTAL_COL);
+    const itemLine = padRight(qtyStr, QTY_COL) + ' '.repeat(GAP_COL) + padRight(nameStr, NAME_COL) + padLeft(subtotalStr, TOTAL_COL);
     lines.push('@@BOLD@@' + itemLine);
     
     // Line 2: @ unit price (always show retail price)
     const unitPriceStr = `@ Rp${formatRupiah(retailPrice)}`;
     lines.push(padLeft(unitPriceStr, LINE_WIDTH));
     
-    // Show bulk discount per item if applicable
+    // Show bulk discount per item (just the minus amount, no label)
     if (bulkDiscount > 0) {
-      const bulkDiscountStr = `Diskon Grosir: -Rp${formatRupiah(bulkDiscount)}`;
+      const bulkDiscountStr = `-Rp${formatRupiah(bulkDiscount)}`;
       lines.push(padLeft(bulkDiscountStr, LINE_WIDTH));
     }
     
-    // Show item discount if any
+    // Show item discount (just the minus amount, no label)
     if (itemDiscount > 0) {
-      const discountStr = `Diskon: -Rp${formatRupiah(itemDiscount)}`;
+      const discountStr = `-Rp${formatRupiah(itemDiscount)}`;
       lines.push(padLeft(discountStr, LINE_WIDTH));
     }
   }
