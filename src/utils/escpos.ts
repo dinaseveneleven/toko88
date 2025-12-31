@@ -308,14 +308,14 @@ export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
   bytes.push(...BOLD_OFF);
   
   // Feed paper sufficiently before cutting to ensure content clears the cutter
-  bytes.push(LF, LF, LF, LF, LF, LF); // Extra feed for proper cut position
-  
-  // Cut paper - use partial cut for better reliability on some printers
-  bytes.push(...PARTIAL_CUT);
-  
+  bytes.push(LF, LF, LF, LF, LF, LF, LF, LF, LF, LF, LF, LF); // 12 lines
+
+  // Cut paper - use FULL cut for worker copy (more compatible across printers)
+  bytes.push(...CUT_PAPER);
+
   // Small feed after cut to separate from next print
   bytes.push(LF, LF);
-  
+
   return new Uint8Array(bytes);
 };
 
