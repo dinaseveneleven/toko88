@@ -110,11 +110,6 @@ export const buildInvoiceLines = (
   // Totals
   lines.push(formatTwoColumn('Subtotal:', `Rp${formatRupiah(receipt.subtotal)}`));
   
-  // Total item discounts
-  if (totalItemDiscount > 0) {
-    lines.push(formatTwoColumn('Total Diskon Item:', `-Rp${formatRupiah(totalItemDiscount)}`));
-  }
-  
   // Global discount (if any)
   if (receipt.discount > 0) {
     lines.push(formatTwoColumn('Diskon Tambahan:', `-Rp${formatRupiah(receipt.discount)}`));
