@@ -5,9 +5,10 @@ const LINE_WIDTH = 48;
 const LINE_WIDTH_DOUBLE = 24;
 
 // Column widths for item lines (must be consistent!)
-const NAME_COL = 28;
-const QTY_COL = 6;
-const TOTAL_COL = 14; // NAME_COL + QTY_COL + TOTAL_COL = 48
+// Qty column needs to be wider to accommodate up to 5 digits (10000x)
+const QTY_COL = 8;
+const NAME_COL = 26;
+const TOTAL_COL = 14; // QTY_COL + NAME_COL + TOTAL_COL = 48
 
 // Helper to format Rupiah without symbol for receipt (compact)
 const formatRupiah = (num: number): string => {
@@ -171,9 +172,9 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
   lines.push(createSeparator('-', LINE_WIDTH));
   
   // Items - Name and Quantity (double size, 24 char width)
-  // Format: name on left (up to 18 chars), qty on right (6 chars)
-  const ITEM_NAME_W = 18;
-  const ITEM_QTY_W = 6;
+  // Format: name on left (up to 16 chars), qty on right (8 chars for up to 5 digits)
+  const ITEM_NAME_W = 16;
+  const ITEM_QTY_W = 8;
   
   for (const item of receipt.items) {
     const productName = item.product.name;

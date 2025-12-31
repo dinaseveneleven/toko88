@@ -25,6 +25,14 @@ export function Receipt({ data }: ReceiptProps) {
   const storePhone = data.storeInfo?.phone || '(021) 1234-5678';
   const paymentLabel = paymentMethodLabels[data.paymentMethod] || data.paymentMethod;
 
+  // Helper to get dynamic font size for qty based on length
+  const getQtyFontSize = (qty: number) => {
+    const qtyStr = `${qty}x`;
+    if (qtyStr.length > 5) return 'text-[8px]';
+    if (qtyStr.length > 4) return 'text-[10px]';
+    return 'text-xs';
+  };
+
   return (
     <div className="receipt-paper text-gray-900 p-6 rounded-lg max-w-xs mx-auto">
       {/* Header */}
@@ -75,8 +83,8 @@ export function Receipt({ data }: ReceiptProps) {
           
           return (
             <div key={idx} className="text-xs mb-2">
-              <div className="flex justify-between">
-                <span className="w-12 text-left">{item.quantity}x</span>
+              <div className="flex justify-between items-center">
+                <span className={`w-12 text-left ${getQtyFontSize(item.quantity)}`}>{item.quantity}x</span>
                 <span className="flex-1 truncate pr-2">
                   {item.product.name}
                   <span className="text-gray-500 ml-1">
