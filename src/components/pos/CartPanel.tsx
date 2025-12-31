@@ -1,8 +1,66 @@
+import { useState } from 'react';
 import { CartItem } from '@/types/pos';
 import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+// Separate component for quantity input to manage local state
+interface QuantityInputProps {
+  item: CartItem;
+  onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number) => void;
+}
+
+function QuantityInput({ item, onSetQuantity }: QuantityInputProps) {
+  const [localValue, setLocalValue] = useState<string>(String(item.quantity));
+
+  // Sync local value when item.quantity changes from external source (e.g., +/- buttons)
+  if (String(item.quantity) !== localValue && localValue !== '') {
+    setLocalValue(String(item.quantity));
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Allow empty string for typing, don't commit yet
+    setLocalValue(e.target.value);
+  };
+
+  const handleBlur = () => {
+    const parsed = parseInt(localValue);
+    if (!isNaN(parsed) && parsed >= 1) {
+      const clamped = Math.min(parsed, item.product.stock);
+      onSetQuantity(item.product.id, item.priceType, clamped);
+      setLocalValue(String(clamped));
+    } else {
+      // Revert to original quantity if invalid
+      setLocalValue(String(item.quantity));
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  return (
+    <Input
+      type="number"
+      value={localValue}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      onFocus={(e) => {
+        const input = e.target;
+        setTimeout(() => {
+          input.select();
+        }, 0);
+      }}
+      className="w-16 h-7 text-left font-mono text-sm px-2"
+      min={1}
+      max={item.product.stock}
+    />
+  );
+}
 
 interface CartPanelProps {
   items: CartItem[];
@@ -121,24 +179,7 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
                     >
                       <Minus className="w-3 h-3" />
                     </button>
-                    <Input
-                      type="number"
-                      value={item.quantity}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        onSetQuantity(item.product.id, item.priceType, val);
-                      }}
-                      onFocus={(e) => {
-                        const input = e.target;
-                        const length = input.value.length;
-                        setTimeout(() => {
-                          input.setSelectionRange(length, length);
-                        }, 0);
-                      }}
-                      className="w-16 h-7 text-left font-mono text-sm px-2"
-                      min={1}
-                      max={item.product.stock}
-                    />
+                    <QuantityInput item={item} onSetQuantity={onSetQuantity} />
                     <button
                       onClick={() => onUpdateQuantity(item.product.id, item.priceType, 1)}
                       disabled={item.quantity >= item.product.stock}
