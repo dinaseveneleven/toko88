@@ -94,12 +94,11 @@ export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
     processLine(line, bytes);
   }
   
-  // Extra line feeds before cut for carbon copy (ensures proper cut position)
-  bytes.push(LF, LF);
+  // Extra line feed before cut (same as invoice)
+  bytes.push(LF);
   
-  // Blueprint Lite 80x: GS V B n - feeds n/10mm then cuts
-  // Using higher feed amount (120 = 12mm) for carbon copy to ensure proper cut
-  bytes.push(...CUT_WITH_FEED(120));
+  // Use same cut command as invoice - consistent behavior
+  bytes.push(...CUT_PAPER);
   
   return new Uint8Array(bytes);
 };
