@@ -107,18 +107,12 @@ export const buildInvoiceLines = (
   
   lines.push(createSeparator('-'));
   
-  // Totals
+  // Totals - Subtotal is already after item discounts (receipt.subtotal)
   lines.push(formatTwoColumn('Subtotal:', `Rp${formatRupiah(receipt.subtotal)}`));
   
-  // Global discount (if any)
+  // Show global discount if any
   if (receipt.discount > 0) {
-    lines.push(formatTwoColumn('Diskon Tambahan:', `-Rp${formatRupiah(receipt.discount)}`));
-  }
-  
-  // Combined total discount
-  const combinedDiscount = totalItemDiscount + (receipt.discount || 0);
-  if (combinedDiscount > 0) {
-    lines.push('@@BOLD@@' + formatTwoColumn('TOTAL DISKON:', `-Rp${formatRupiah(combinedDiscount)}`));
+    lines.push(formatTwoColumn('Diskon:', `-Rp${formatRupiah(receipt.discount)}`));
   }
   
   lines.push('@@BOLD@@' + formatTwoColumn('TOTAL:', `Rp${formatRupiah(receipt.total)}`));
