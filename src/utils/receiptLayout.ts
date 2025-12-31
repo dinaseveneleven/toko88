@@ -95,17 +95,21 @@ export const buildInvoiceLines = (
     totalItemDiscount += itemDiscount;
     const finalTotal = Math.max(0, retailTotal - bulkDiscount - itemDiscount);
     
-    // Line 1: qty | gap | Name | subtotal (retail × qty) - BOLD
+    // Line 1: qty | name | @ unit price
     const nameStr = item.product.name;
     const qtyStr = `${item.quantity}x`;
-    const subtotalStr = `Rp${formatRupiah(retailTotal)}`;
-    
-    const itemLine = padRight(qtyStr, QTY_COL) + ' '.repeat(GAP_COL) + padRight(nameStr, NAME_COL) + padLeft(subtotalStr, TOTAL_COL);
-    lines.push('@@BOLD@@' + itemLine);
-    
-    // Line 2: @ unit price (always show retail price)
     const unitPriceStr = `@ Rp${formatRupiah(retailPrice)}`;
-    lines.push(padLeft(unitPriceStr, LINE_WIDTH));
+    
+    // Calculate column widths: qty(6) + gap(2) + name(remaining) + price(~14)
+    const priceColWidth = unitPriceStr.length + 2;
+    const availableNameWidth = LINE_WIDTH - QTY_COL - GAP_COL - priceColWidth;
+    
+    const itemLine = padRight(qtyStr, QTY_COL) + ' '.repeat(GAP_COL) + padRight(nameStr, availableNameWidth) + padLeft(unitPriceStr, priceColWidth);
+    lines.push(itemLine);
+    
+    // Line 2: subtotal (retail × qty) - BOLD, right-aligned
+    const subtotalStr = `Rp${formatRupiah(retailTotal)}`;
+    lines.push('@@BOLD@@' + padLeft(subtotalStr, LINE_WIDTH));
     
     // Show bulk discount per item (just the minus amount, no label)
     if (bulkDiscount > 0) {
