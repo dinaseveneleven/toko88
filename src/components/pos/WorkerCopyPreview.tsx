@@ -29,16 +29,22 @@ export function WorkerCopyPreview({ receipt }: WorkerCopyPreviewProps) {
 
       {/* Items - BIG text, just name and quantity */}
       <div className="space-y-3 border-b border-dashed border-gray-400 pb-4 mb-4">
-        {receipt.items.map((item, idx) => (
-          <div key={idx} className="flex justify-between items-center gap-3">
-            <span className="flex-1 text-lg font-bold leading-tight">
-              {item.product.name}
-            </span>
-            <span className="text-3xl font-black min-w-[60px] text-right">
-              {item.quantity}x
-            </span>
-          </div>
-        ))}
+        {receipt.items.map((item, idx) => {
+          // Dynamic font size for qty based on length
+          const qtyStr = `${item.quantity}x`;
+          const qtySize = qtyStr.length > 5 ? 'text-xl' : qtyStr.length > 4 ? 'text-2xl' : 'text-3xl';
+          
+          return (
+            <div key={idx} className="flex justify-between items-center gap-3">
+              <span className="flex-1 text-lg font-bold leading-tight">
+                {item.product.name}
+              </span>
+              <span className={`${qtySize} font-black min-w-[60px] text-right`}>
+                {qtyStr}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Footer */}

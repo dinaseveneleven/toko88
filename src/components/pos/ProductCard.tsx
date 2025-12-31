@@ -24,10 +24,11 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
   const isLowStock = product.stock > 0 && product.stock <= 10;
 
   const handleQuantityChange = (delta: number) => {
+    const maxQty = Math.min(10000, product.stock);
     setQuantity((prev) => {
       const newQty = prev + delta;
       if (newQty < 1) return 1;
-      if (newQty > product.stock) return product.stock;
+      if (newQty > maxQty) return maxQty;
       setInputValue(String(newQty));
       return newQty;
     });
@@ -36,18 +37,20 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
   const handleInputChange = (value: string) => {
     setInputValue(value);
     const num = parseInt(value);
-    if (!isNaN(num) && num >= 1 && num <= product.stock) {
+    const maxQty = Math.min(10000, product.stock);
+    if (!isNaN(num) && num >= 1 && num <= maxQty) {
       setQuantity(num);
     }
   };
 
   const handleInputBlur = () => {
+    const maxQty = Math.min(10000, product.stock);
     if (inputValue === '' || parseInt(inputValue) < 1) {
       setQuantity(1);
       setInputValue('1');
-    } else if (parseInt(inputValue) > product.stock) {
-      setQuantity(product.stock);
-      setInputValue(String(product.stock));
+    } else if (parseInt(inputValue) > maxQty) {
+      setQuantity(maxQty);
+      setInputValue(String(maxQty));
     } else {
       setInputValue(String(quantity));
     }
@@ -123,16 +126,16 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
             onChange={(e) => handleInputChange(e.target.value)}
             onBlur={handleInputBlur}
             onFocus={handleInputFocus}
-            className="w-10 sm:w-14 h-8 text-center text-xs sm:text-sm font-mono bg-transparent border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-12 sm:w-16 h-8 text-center text-xs sm:text-sm font-mono bg-transparent border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={1}
-            max={product.stock}
+            max={Math.min(10000, product.stock)}
           />
           <Button
             variant="outline"
             size="icon"
             className="h-8 w-8 sm:h-8 sm:w-8 min-h-[32px] min-w-[32px]"
             onClick={() => handleQuantityChange(1)}
-            disabled={quantity >= product.stock}
+            disabled={quantity >= Math.min(10000, product.stock)}
           >
             <Plus className="w-3 h-3" />
           </Button>

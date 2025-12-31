@@ -146,13 +146,13 @@ export function MobileCartSheet({
                             const val = parseInt(e.target.value) || 0;
                             onSetQuantity(item.product.id, item.priceType, val);
                           }}
-                          className="w-14 h-8 text-center font-mono text-sm px-1"
+                          className="w-16 h-8 text-center font-mono text-sm px-1"
                           min={1}
-                          max={item.product.stock}
+                          max={Math.min(10000, item.product.stock)}
                         />
                         <button
                           onClick={() => onUpdateQuantity(item.product.id, item.priceType, 1)}
-                          disabled={item.quantity >= item.product.stock}
+                          disabled={item.quantity >= Math.min(10000, item.product.stock)}
                           className="w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-30 min-h-[32px]"
                         >
                           <Plus className="w-3 h-3" />

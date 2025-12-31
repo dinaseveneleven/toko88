@@ -135,9 +135,9 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
                           input.setSelectionRange(length, length);
                         }, 0);
                       }}
-                      className="w-12 h-7 text-left font-mono text-sm px-2"
+                      className="w-16 h-7 text-left font-mono text-sm px-2"
                       min={1}
-                      max={item.product.stock}
+                      max={Math.min(10000, item.product.stock)}
                     />
                     <button
                       onClick={() => onUpdateQuantity(item.product.id, item.priceType, 1)}
