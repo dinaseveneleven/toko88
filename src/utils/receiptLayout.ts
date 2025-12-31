@@ -78,12 +78,13 @@ export const buildInvoiceLines = (
   
   // Items
   let totalItemDiscount = 0;
+  let subtotalBeforeDiscount = 0; // Sum of all items at retail price × quantity
   
   for (const item of receipt.items) {
     // Always use retail price as base, bulk is shown as discount
     const retailPrice = item.product.retailPrice;
-    const effectivePrice = item.priceType === 'retail' ? retailPrice : item.product.bulkPrice;
     const retailTotal = retailPrice * item.quantity;
+    subtotalBeforeDiscount += retailTotal;
     
     // Calculate bulk discount (difference between retail and bulk price)
     const bulkDiscount = item.priceType === 'bulk' ? (retailPrice - item.product.bulkPrice) * item.quantity : 0;
@@ -119,15 +120,20 @@ export const buildInvoiceLines = (
   
   lines.push(createSeparator('-'));
   
-  // Totals - Subtotal is already after item discounts (receipt.subtotal)
-  lines.push(formatTwoColumn('Subtotal:', `Rp${formatRupiah(receipt.subtotal)}`));
+  // Calculate total discount (all item discounts + global discount)
+  const totalDiscount = totalItemDiscount + (receipt.discount || 0);
+  const finalTotal = subtotalBeforeDiscount - totalDiscount;
   
-  // Show global discount if any
-  if (receipt.discount > 0) {
-    lines.push(formatTwoColumn('Diskon:', `-Rp${formatRupiah(receipt.discount)}`));
+  // Subtotal: total before any discounts
+  lines.push(formatTwoColumn('Subtotal:', `Rp${formatRupiah(subtotalBeforeDiscount)}`));
+  
+  // Diskon: total of all discounts (grosir + item discounts + global discount)
+  if (totalDiscount > 0) {
+    lines.push(formatTwoColumn('Diskon:', `-Rp${formatRupiah(totalDiscount)}`));
   }
   
-  lines.push('@@BOLD@@' + formatTwoColumn('TOTAL:', `Rp${formatRupiah(receipt.total)}`));
+  // Total: after discount
+  lines.push('@@BOLD@@' + formatTwoColumn('TOTAL:', `Rp${formatRupiah(finalTotal)}`));
   lines.push(createSeparator('-'));
   
   // Payment
