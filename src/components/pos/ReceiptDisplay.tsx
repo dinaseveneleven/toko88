@@ -1,7 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
 import { ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
-import { Receipt } from './Receipt';
-import { WorkerCopyPreview } from './WorkerCopyPreview';
 import { ThermalReceiptPreview } from './ThermalReceiptPreview';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -38,7 +36,6 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const [invoicePrinted, setInvoicePrinted] = useState(false);
   const [carbonCopyPrinted, setCarbonCopyPrinted] = useState(false);
   const [showWorkerCopy, setShowWorkerCopy] = useState(false);
-  const [showThermalPreview, setShowThermalPreview] = useState(false);
   
   const { printReceipt, printInvoiceOnly, printCarbonCopyOnly, isPrinting, isConnected, connectPrinter, isConnecting } = useBluetoothPrinter();
 
@@ -65,7 +62,6 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
       setInvoicePrinted(false);
       setCarbonCopyPrinted(false);
       setShowWorkerCopy(false);
-      setShowThermalPreview(false);
     }
   }, [open]);
 
@@ -189,28 +185,12 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                 </button>
               </div>
 
-              {/* Toggle between pretty preview and thermal preview */}
-              <div className="flex justify-center mb-4">
-                <button
-                  onClick={() => setShowThermalPreview(!showThermalPreview)}
-                  className="text-xs text-muted-foreground hover:text-foreground underline"
-                >
-                  {showThermalPreview ? 'Tampilan Normal' : 'Tampilan Printer (Thermal)'}
-                </button>
-              </div>
-
               <div ref={receiptRef}>
-                {showThermalPreview ? (
-                  <ThermalReceiptPreview 
-                    receipt={receipt} 
-                    storeInfo={storeInfo || undefined}
-                    type={showWorkerCopy ? 'worker' : 'invoice'}
-                  />
-                ) : showWorkerCopy ? (
-                  <WorkerCopyPreview receipt={receipt} />
-                ) : (
-                  <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
-                )}
+                <ThermalReceiptPreview 
+                  receipt={receipt} 
+                  storeInfo={storeInfo || undefined}
+                  type={showWorkerCopy ? 'worker' : 'invoice'}
+                />
               </div>
               <div className="flex gap-2 mt-4">
                 <Button onClick={handleDownload} variant="outline" className="flex-1">
@@ -267,7 +247,11 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                 </p>
               </div>
               
-              <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
+              <ThermalReceiptPreview 
+                receipt={receipt} 
+                storeInfo={storeInfo || undefined}
+                type="invoice"
+              />
 
               <Button 
                 onClick={handleWhatsAppSend} 
@@ -313,7 +297,11 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
                 </div>
               )}
               
-              <Receipt data={{ ...receipt, storeInfo: storeInfo || receipt.storeInfo }} />
+              <ThermalReceiptPreview 
+                receipt={receipt} 
+                storeInfo={storeInfo || undefined}
+                type="invoice"
+              />
 
               <div className="space-y-2">
                 {!isConnected ? (
