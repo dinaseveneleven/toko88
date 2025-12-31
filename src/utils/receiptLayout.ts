@@ -198,6 +198,9 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
       const itemLine = padRight(productName, ITEM_NAME_W) + padLeft(qtyStr, ITEM_QTY_W);
       lines.push('@@DOUBLE@@' + itemLine);
     }
+    
+    // Add spacing between items
+    lines.push('');
   }
   
   lines.push(createSeparator('-', LINE_WIDTH));
