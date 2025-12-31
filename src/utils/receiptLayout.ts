@@ -77,10 +77,13 @@ export const buildInvoiceLines = (
   lines.push(createSeparator('-'));
   
   // Items
+  let totalItemDiscount = 0;
+  
   for (const item of receipt.items) {
     const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
     const itemTotal = price * item.quantity;
     const itemDiscount = item.discount || 0;
+    totalItemDiscount += itemDiscount;
     const finalTotal = Math.max(0, itemTotal - itemDiscount);
     
     // Line 1: qty | gap | Name | total - FIXED columns, BOLD
@@ -95,9 +98,10 @@ export const buildInvoiceLines = (
     const unitPriceStr = `@ Rp${formatRupiah(price)}`;
     lines.push(padLeft(unitPriceStr, LINE_WIDTH));
     
-    // Item discount if any
+    // Item discount if any - show under price
     if (itemDiscount > 0) {
-      lines.push(`  Diskon: -Rp${formatRupiah(itemDiscount)}`);
+      const discountStr = `Diskon: -Rp${formatRupiah(itemDiscount)}`;
+      lines.push(padLeft(discountStr, LINE_WIDTH));
     }
   }
   
@@ -105,9 +109,23 @@ export const buildInvoiceLines = (
   
   // Totals
   lines.push(formatTwoColumn('Subtotal:', `Rp${formatRupiah(receipt.subtotal)}`));
-  if (receipt.discount > 0) {
-    lines.push(formatTwoColumn('Diskon:', `-Rp${formatRupiah(receipt.discount)}`));
+  
+  // Total item discounts
+  if (totalItemDiscount > 0) {
+    lines.push(formatTwoColumn('Total Diskon Item:', `-Rp${formatRupiah(totalItemDiscount)}`));
   }
+  
+  // Global discount (if any)
+  if (receipt.discount > 0) {
+    lines.push(formatTwoColumn('Diskon Tambahan:', `-Rp${formatRupiah(receipt.discount)}`));
+  }
+  
+  // Combined total discount
+  const combinedDiscount = totalItemDiscount + (receipt.discount || 0);
+  if (combinedDiscount > 0) {
+    lines.push('@@BOLD@@' + formatTwoColumn('TOTAL DISKON:', `-Rp${formatRupiah(combinedDiscount)}`));
+  }
+  
   lines.push('@@BOLD@@' + formatTwoColumn('TOTAL:', `Rp${formatRupiah(receipt.total)}`));
   lines.push(createSeparator('-'));
   
