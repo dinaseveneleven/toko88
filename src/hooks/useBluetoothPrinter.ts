@@ -322,19 +322,45 @@ export function useBluetoothPrinter() {
     });
   }, [device]);
 
-  // Helper function to send bytes to printer
-  const sendBytesToPrinter = useCallback(async (bytes: Uint8Array, char: BluetoothRemoteGATTCharacteristic): Promise<void> => {
-    for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-      const chunk = bytes.slice(i, i + CHUNK_SIZE);
-      
-      if (char.properties.writeWithoutResponse) {
-        await char.writeValueWithoutResponse(chunk);
-      } else {
-        await char.writeValue(chunk);
+  // Helper function to send bytes to printer with retry logic
+  const sendBytesToPrinter = useCallback(async (bytes: Uint8Array, char: BluetoothRemoteGATTCharacteristic, retries = 2): Promise<void> => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+          const chunk = bytes.slice(i, i + CHUNK_SIZE);
+          
+          // Try writeValueWithoutResponse first (faster), fallback to writeValue
+          try {
+            if (char.properties.writeWithoutResponse) {
+              await char.writeValueWithoutResponse(chunk);
+            } else if (char.properties.write) {
+              await char.writeValue(chunk);
+            } else {
+              throw new Error('No writable property on characteristic');
+            }
+          } catch (writeError) {
+            // If writeValueWithoutResponse fails, try writeValue
+            if (char.properties.write) {
+              await char.writeValue(chunk);
+            } else {
+              throw writeError;
+            }
+          }
+          
+          // Small delay between chunks (increase for stability)
+          await new Promise(resolve => setTimeout(resolve, 80));
+        }
+        // Success, exit retry loop
+        return;
+      } catch (error) {
+        console.warn(`Print attempt ${attempt + 1} failed:`, error);
+        if (attempt < retries) {
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          throw error;
+        }
       }
-      
-      // Small delay between chunks
-      await new Promise(resolve => setTimeout(resolve, 50));
     }
   }, []);
 
@@ -406,10 +432,44 @@ export function useBluetoothPrinter() {
     receipt: ReceiptData, 
     storeInfo?: { address: string; phone: string }
   ): Promise<boolean> => {
-    if (!characteristic || !state.isConnected) {
+    if (!state.isConnected) {
       toast({
         title: 'Printer Belum Terhubung',
         description: 'Hubungkan printer terlebih dahulu.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    // Check if characteristic is still valid, if not try to get it from device
+    let activeChar = characteristic;
+    if (!activeChar && device?.gatt?.connected) {
+      console.log('Characteristic lost, attempting to recover...');
+      try {
+        const server = device.gatt;
+        for (const serviceUuid of PRINTER_SERVICE_UUIDS) {
+          try {
+            const service = await server.getPrimaryService(serviceUuid);
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+              if (char.properties.write || char.properties.writeWithoutResponse) {
+                activeChar = char;
+                setCharacteristic(char);
+                break;
+              }
+            }
+            if (activeChar) break;
+          } catch { /* try next service */ }
+        }
+      } catch (err) {
+        console.error('Failed to recover characteristic:', err);
+      }
+    }
+
+    if (!activeChar) {
+      toast({
+        title: 'Printer Error',
+        description: 'Koneksi printer bermasalah. Coba disconnect dan connect ulang.',
         variant: 'destructive',
       });
       return false;
@@ -419,7 +479,7 @@ export function useBluetoothPrinter() {
 
     try {
       const receiptBytes = buildReceiptBytes(receipt, storeInfo);
-      await sendBytesToPrinter(receiptBytes, characteristic);
+      await sendBytesToPrinter(receiptBytes, activeChar);
 
       setState(prev => ({ ...prev, isPrinting: false }));
 
@@ -432,18 +492,62 @@ export function useBluetoothPrinter() {
     } catch (error) {
       console.error('Print error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Gagal mencetak';
+      
+      // If GATT error, suggest reconnecting
+      const isGattError = errorMessage.includes('GATT') || errorMessage.includes('NotSupported');
+      
       setState(prev => ({ ...prev, isPrinting: false, error: errorMessage }));
-      toast({ title: 'Gagal Mencetak', description: errorMessage, variant: 'destructive' });
+      toast({ 
+        title: 'Gagal Mencetak', 
+        description: isGattError 
+          ? 'Koneksi Bluetooth error. Coba disconnect lalu connect ulang printer.' 
+          : errorMessage, 
+        variant: 'destructive' 
+      });
       return false;
     }
-  }, [characteristic, state.isConnected, sendBytesToPrinter]);
+  }, [characteristic, device, state.isConnected, sendBytesToPrinter]);
 
   // Print ONLY the carbon copy / worker copy
   const printCarbonCopyOnly = useCallback(async (receipt: ReceiptData): Promise<boolean> => {
-    if (!characteristic || !state.isConnected) {
+    if (!state.isConnected) {
       toast({
         title: 'Printer Belum Terhubung',
         description: 'Hubungkan printer terlebih dahulu.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    // Check if characteristic is still valid
+    let activeChar = characteristic;
+    if (!activeChar && device?.gatt?.connected) {
+      console.log('Characteristic lost, attempting to recover...');
+      try {
+        const server = device.gatt;
+        for (const serviceUuid of PRINTER_SERVICE_UUIDS) {
+          try {
+            const service = await server.getPrimaryService(serviceUuid);
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+              if (char.properties.write || char.properties.writeWithoutResponse) {
+                activeChar = char;
+                setCharacteristic(char);
+                break;
+              }
+            }
+            if (activeChar) break;
+          } catch { /* try next service */ }
+        }
+      } catch (err) {
+        console.error('Failed to recover characteristic:', err);
+      }
+    }
+
+    if (!activeChar) {
+      toast({
+        title: 'Printer Error',
+        description: 'Koneksi printer bermasalah. Coba disconnect dan connect ulang.',
         variant: 'destructive',
       });
       return false;
@@ -453,7 +557,7 @@ export function useBluetoothPrinter() {
 
     try {
       const workerCopyBytes = buildWorkerCopyBytes(receipt);
-      await sendBytesToPrinter(workerCopyBytes, characteristic);
+      await sendBytesToPrinter(workerCopyBytes, activeChar);
 
       setState(prev => ({ ...prev, isPrinting: false }));
 
@@ -466,11 +570,20 @@ export function useBluetoothPrinter() {
     } catch (error) {
       console.error('Print error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Gagal mencetak';
+      
+      const isGattError = errorMessage.includes('GATT') || errorMessage.includes('NotSupported');
+      
       setState(prev => ({ ...prev, isPrinting: false, error: errorMessage }));
-      toast({ title: 'Gagal Mencetak', description: errorMessage, variant: 'destructive' });
+      toast({ 
+        title: 'Gagal Mencetak', 
+        description: isGattError 
+          ? 'Koneksi Bluetooth error. Coba disconnect lalu connect ulang printer.' 
+          : errorMessage, 
+        variant: 'destructive' 
+      });
       return false;
     }
-  }, [characteristic, state.isConnected, sendBytesToPrinter]);
+  }, [characteristic, device, state.isConnected, sendBytesToPrinter]);
 
   return {
     ...state,
