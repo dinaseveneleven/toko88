@@ -24,11 +24,10 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
   const isLowStock = product.stock > 0 && product.stock <= 10;
 
   const handleQuantityChange = (delta: number) => {
-    const maxQty = Math.min(10000, product.stock);
     setQuantity((prev) => {
       const newQty = prev + delta;
       if (newQty < 1) return 1;
-      if (newQty > maxQty) return maxQty;
+      if (newQty > 10000) return 10000;
       setInputValue(String(newQty));
       return newQty;
     });
@@ -37,20 +36,18 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
   const handleInputChange = (value: string) => {
     setInputValue(value);
     const num = parseInt(value);
-    const maxQty = Math.min(10000, product.stock);
-    if (!isNaN(num) && num >= 1 && num <= maxQty) {
+    if (!isNaN(num) && num >= 1 && num <= 10000) {
       setQuantity(num);
     }
   };
 
   const handleInputBlur = () => {
-    const maxQty = Math.min(10000, product.stock);
     if (inputValue === '' || parseInt(inputValue) < 1) {
       setQuantity(1);
       setInputValue('1');
-    } else if (parseInt(inputValue) > maxQty) {
-      setQuantity(maxQty);
-      setInputValue(String(maxQty));
+    } else if (parseInt(inputValue) > 10000) {
+      setQuantity(10000);
+      setInputValue('10000');
     } else {
       setInputValue(String(quantity));
     }
@@ -128,14 +125,14 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
             onFocus={handleInputFocus}
             className="w-12 sm:w-16 h-8 text-center text-xs sm:text-sm font-mono bg-transparent border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={1}
-            max={Math.min(10000, product.stock)}
+            max={10000}
           />
           <Button
             variant="outline"
             size="icon"
             className="h-8 w-8 sm:h-8 sm:w-8 min-h-[32px] min-w-[32px]"
             onClick={() => handleQuantityChange(1)}
-            disabled={quantity >= Math.min(10000, product.stock)}
+            disabled={quantity >= 10000}
           >
             <Plus className="w-3 h-3" />
           </Button>

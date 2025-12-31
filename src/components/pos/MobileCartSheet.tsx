@@ -148,11 +148,11 @@ export function MobileCartSheet({
                           }}
                           className="w-16 h-8 text-center font-mono text-sm px-1"
                           min={1}
-                          max={Math.min(10000, item.product.stock)}
+                          max={10000}
                         />
                         <button
                           onClick={() => onUpdateQuantity(item.product.id, item.priceType, 1)}
-                          disabled={item.quantity >= Math.min(10000, item.product.stock)}
+                          disabled={item.quantity >= 10000}
                           className="w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-30 min-h-[32px]"
                         >
                           <Plus className="w-3 h-3" />
