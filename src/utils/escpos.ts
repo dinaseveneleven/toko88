@@ -203,11 +203,16 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   bytes.push(...textToBytes('tidak dapat ditukar/dikembalikan'), LF);
   bytes.push(...createDoubleSeparator(LINE_WIDTH));
   bytes.push(...textToBytes('*** SIMPAN STRUK INI ***'), LF);
-  bytes.push(LF, LF, LF); // Feed some paper
-  
-  // Cut paper
-  bytes.push(...CUT_PAPER);
-  
+
+  // Feed more paper before cutting so the cutter doesn't slice through printed content
+  bytes.push(LF, LF, LF, LF, LF, LF, LF, LF, LF, LF, LF, LF); // 12 lines
+
+  // Cut paper - partial cut tends to be more reliable on many thermal printers
+  bytes.push(...PARTIAL_CUT);
+
+  // Small feed after cut to separate from next print
+  bytes.push(LF, LF);
+
   return new Uint8Array(bytes);
 };
 
