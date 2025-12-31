@@ -11,9 +11,23 @@ const GAP_COL = 2; // Space between qty and name
 const NAME_COL = 26;
 const TOTAL_COL = 14; // QTY_COL + GAP_COL + NAME_COL + TOTAL_COL = 48
 
+// Sanitize text for receipt printing - ensures preview matches print output
+// Strips non-printable chars and normalizes to ASCII-safe characters
+export const sanitizeReceiptText = (text: string): string => {
+  if (!text) return '';
+  // Replace non-ASCII and control chars with safe alternatives
+  return text
+    .normalize('NFD') // Decompose diacritics
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .replace(/[^\x20-\x7E]/g, '?') // Replace non-printable with ?
+    .trim();
+};
+
 // Helper to format Rupiah without symbol for receipt (compact)
+// Guards against NaN/undefined to prevent layout corruption
 const formatRupiah = (num: number): string => {
-  return new Intl.NumberFormat('id-ID').format(num);
+  const safeNum = Number(num) || 0;
+  return new Intl.NumberFormat('id-ID').format(safeNum);
 };
 
 // Pad text to fixed width (right padding)
@@ -56,19 +70,19 @@ export const buildInvoiceLines = (
   // Header (will be printed centered with special formatting)
   lines.push('@@CENTER@@TOKO BESI 88@@DOUBLE@@');
   
-  const address = storeInfo?.address || receipt.storeInfo?.address || 'Jl. Raya No. 88';
-  const phone = storeInfo?.phone || receipt.storeInfo?.phone || '(021) 1234-5678';
+  const address = sanitizeReceiptText(storeInfo?.address || receipt.storeInfo?.address || 'Jl. Raya No. 88');
+  const phone = sanitizeReceiptText(storeInfo?.phone || receipt.storeInfo?.phone || '(021) 1234-5678');
   lines.push('@@CENTER@@' + address);
   lines.push('@@CENTER@@Tel: ' + phone);
   lines.push(createSeparator('-'));
   
   // Transaction info
-  lines.push(formatTwoColumn('No:', receipt.id));
+  lines.push(formatTwoColumn('No:', sanitizeReceiptText(receipt.id)));
   lines.push(formatTwoColumn('Tanggal:', receipt.timestamp.toLocaleDateString('id-ID', { 
     day: '2-digit', month: 'short', year: 'numeric' 
   })));
   lines.push(formatTwoColumn('Waktu:', receipt.timestamp.toLocaleTimeString('id-ID')));
-  lines.push(formatTwoColumn('Nama Pelanggan:', (receipt.customerName || '-').slice(0, 20)));
+  lines.push(formatTwoColumn('Nama Pelanggan:', sanitizeReceiptText((receipt.customerName || '-').slice(0, 20))));
   lines.push(createSeparator('-'));
   
   // Items header - FIXED columns (Qty on left) - BOLD
@@ -82,22 +96,25 @@ export const buildInvoiceLines = (
   let subtotalBeforeDiscount = 0; // Sum of all items at retail price × quantity
   
   for (const item of receipt.items) {
-    // Always use retail price as base, bulk is shown as discount
-    const retailPrice = item.product.retailPrice;
-    const retailTotal = retailPrice * item.quantity;
+    // Safely get numeric values with defaults
+    const retailPrice = Number(item.product?.retailPrice) || 0;
+    const bulkPrice = Number(item.product?.bulkPrice) || 0;
+    const quantity = Number(item.quantity) || 1;
+    
+    const retailTotal = retailPrice * quantity;
     subtotalBeforeDiscount += retailTotal;
     
     // Calculate bulk discount (difference between retail and bulk price)
-    const bulkDiscount = item.priceType === 'bulk' ? (retailPrice - item.product.bulkPrice) * item.quantity : 0;
+    const bulkDiscount = item.priceType === 'bulk' ? (retailPrice - bulkPrice) * quantity : 0;
     totalBulkDiscount += bulkDiscount;
     
-    const itemDiscount = item.discount || 0;
+    const itemDiscount = Number(item.discount) || 0;
     totalItemDiscount += itemDiscount;
     const finalTotal = Math.max(0, retailTotal - bulkDiscount - itemDiscount);
     
-    // Line 1: qty | name | @ unit price
-    const nameStr = item.product.name;
-    const qtyStr = `${item.quantity}x`;
+    // Line 1: qty | name | @ unit price - sanitize product name for print
+    const nameStr = sanitizeReceiptText(item.product?.name || 'Item');
+    const qtyStr = `${quantity}x`;
     const unitPriceStr = `@ Rp${formatRupiah(retailPrice)}`;
     
     // Calculate column widths: qty(6) + gap(2) + name(remaining) + price(~14)
@@ -189,8 +206,8 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
   lines.push('@@CENTER@@NOTA GUDANG@@DOUBLE@@');
   lines.push(createSeparator('-', LINE_WIDTH));
   
-  // Customer name - BIG (double size)
-  const customerName = (receipt.customerName || 'PELANGGAN').toUpperCase();
+  // Customer name - BIG (double size) - sanitize for print
+  const customerName = sanitizeReceiptText((receipt.customerName || 'PELANGGAN').toUpperCase());
   lines.push('@@CENTER@@' + customerName + '@@DOUBLE@@');
   
   // Date & Time (normal size)
@@ -205,13 +222,13 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
   
   // Items - Name and Quantity (double size, 24 char width)
   // Dynamically adjust column widths based on longest qty string
-  const maxQtyLen = Math.max(...receipt.items.map(item => `${item.quantity}x`.length));
+  const maxQtyLen = Math.max(...receipt.items.map(item => `${Number(item.quantity) || 1}x`.length));
   const ITEM_QTY_W = Math.max(4, maxQtyLen + 1); // Min 4 chars, +1 for spacing
   const ITEM_NAME_W = W - ITEM_QTY_W; // Remaining space for name
   
   for (const item of receipt.items) {
-    const productName = item.product.name;
-    const qtyStr = `${item.quantity}x`;
+    const productName = sanitizeReceiptText(item.product?.name || 'Item');
+    const qtyStr = `${Number(item.quantity) || 1}x`;
     
     // If name is too long, wrap to multiple lines
     if (productName.length > ITEM_NAME_W) {
