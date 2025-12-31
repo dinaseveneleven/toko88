@@ -118,11 +118,10 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   
   // Initialize printer
   bytes.push(...INIT);
-  bytes.push(LF); // Single line feed at start
+  bytes.push(LF);
   
-  // Store header (centered, bold)
+  // ===== HEADER (centered) =====
   bytes.push(...ALIGN_CENTER);
-  bytes.push(...createDoubleSeparator(LINE_WIDTH));
   bytes.push(...DOUBLE_SIZE);
   bytes.push(...BOLD_ON);
   bytes.push(...textToBytes('TOKO 88'), LF);
@@ -134,10 +133,10 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   const phone = storeInfo?.phone || receipt.storeInfo?.phone || '(021) 1234-5678';
   bytes.push(...textToBytes(address.slice(0, LINE_WIDTH)), LF);
   bytes.push(...textToBytes(`Tel: ${phone}`), LF);
-  bytes.push(...createDoubleSeparator(LINE_WIDTH));
-  bytes.push(LF);
   
-  // Receipt details (left aligned)
+  bytes.push(...createSeparator('-', LINE_WIDTH));
+  
+  // ===== TRANSACTION INFO =====
   bytes.push(...ALIGN_LEFT);
   bytes.push(...formatTwoColumn('No:', receipt.id, LINE_WIDTH));
   bytes.push(...formatTwoColumn('Tanggal:', receipt.timestamp.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), LINE_WIDTH));
@@ -151,12 +150,7 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   
   bytes.push(...createSeparator('-', LINE_WIDTH));
   
-  // Items header
-  const itemHeader = 'Item'.padEnd(LINE_WIDTH - 18, ' ') + 'Qty'.padStart(6, ' ') + '  ' + 'Total'.padStart(10, ' ');
-  bytes.push(...textToBytes(itemHeader), LF);
-  bytes.push(...createSeparator('-', LINE_WIDTH));
-  
-  // Items
+  // ===== ITEMS =====
   for (const item of receipt.items) {
     const itemLines = formatItemLine(item, LINE_WIDTH);
     for (const line of itemLines) {
@@ -166,20 +160,20 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   
   bytes.push(...createSeparator('-', LINE_WIDTH));
   
-  // Totals
+  // ===== TOTALS =====
   bytes.push(...formatTwoColumn('Subtotal:', `Rp ${formatRupiah(receipt.subtotal)}`, LINE_WIDTH));
   
   if (receipt.discount > 0) {
     bytes.push(...formatTwoColumn('Diskon:', `-Rp ${formatRupiah(receipt.discount)}`, LINE_WIDTH));
   }
   
-  bytes.push(...createSeparator('-', LINE_WIDTH));
   bytes.push(...BOLD_ON);
   bytes.push(...formatTwoColumn('TOTAL:', `Rp ${formatRupiah(receipt.total)}`, LINE_WIDTH));
   bytes.push(...BOLD_OFF);
-  bytes.push(...createDoubleSeparator(LINE_WIDTH));
   
-  // Payment info
+  bytes.push(...createSeparator('-', LINE_WIDTH));
+  
+  // ===== PAYMENT INFO =====
   const paymentLabels: Record<string, string> = {
     'cash': 'Tunai',
     'qris': 'QRIS',
@@ -195,24 +189,29 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   // Bank transfer info
   if (receipt.paymentMethod === 'transfer' && receipt.bankInfo) {
     bytes.push(LF);
+    bytes.push(...BOLD_ON);
     bytes.push(...textToBytes('Transfer ke:'), LF);
-    bytes.push(...textToBytes(`Bank: ${receipt.bankInfo.bankName}`), LF);
-    bytes.push(...textToBytes(`No.Rek: ${receipt.bankInfo.accountNumber}`), LF);
-    bytes.push(...textToBytes(`A/N: ${receipt.bankInfo.accountHolder}`), LF);
+    bytes.push(...BOLD_OFF);
+    bytes.push(...formatTwoColumn('Bank:', receipt.bankInfo.bankName, LINE_WIDTH));
+    bytes.push(...formatTwoColumn('No.Rek:', receipt.bankInfo.accountNumber, LINE_WIDTH));
+    bytes.push(...formatTwoColumn('A/N:', receipt.bankInfo.accountHolder, LINE_WIDTH));
   }
   
-  bytes.push(...createDoubleSeparator(LINE_WIDTH));
+  bytes.push(...createSeparator('-', LINE_WIDTH));
   
-  // Footer (centered)
+  // ===== FOOTER (centered) =====
   bytes.push(...ALIGN_CENTER);
+  bytes.push(...BOLD_ON);
   bytes.push(...textToBytes('Terima Kasih!'), LF);
+  bytes.push(...BOLD_OFF);
   bytes.push(...textToBytes('Barang yang sudah dibeli'), LF);
   bytes.push(...textToBytes('tidak dapat ditukar/dikembalikan'), LF);
-  bytes.push(...createDoubleSeparator(LINE_WIDTH));
+  
+  bytes.push(...createSeparator('-', LINE_WIDTH));
   bytes.push(...textToBytes('*** SIMPAN STRUK INI ***'), LF);
 
-  // Feed paper before cutting (reduced waste)
-  bytes.push(LF, LF, LF, LF, LF, LF); // 6 lines instead of 12
+  // Feed paper before cutting
+  bytes.push(LF, LF, LF, LF, LF, LF);
 
   // Cut paper
   bytes.push(...CUT_PAPER);
