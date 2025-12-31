@@ -67,7 +67,7 @@ const createDoubleSeparator = (width: number = LINE_WIDTH_80MM): number[] => {
   return [...textToBytes('='.repeat(width)), LF];
 };
 
-// Format a single item line for receipt
+// Format a single item line for receipt - matches preview exactly
 const formatItemLine = (item: CartItem, lineWidth: number = LINE_WIDTH_80MM): number[][] => {
   const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
   const priceLabel = item.priceType === 'retail' ? '(E)' : '(G)';
@@ -77,21 +77,21 @@ const formatItemLine = (item: CartItem, lineWidth: number = LINE_WIDTH_80MM): nu
   
   const lines: number[][] = [];
   
-  // Product name with price type indicator
+  // Line 1: Product name (E/G)  |  Qty  |  Total
   const productName = `${item.product.name} ${priceLabel}`;
-  lines.push([...textToBytes(productName.slice(0, lineWidth)), LF]);
-  
-  // Quantity x Price = Total (indented)
-  const qtyPrice = `  ${item.quantity} x Rp ${formatRupiah(price)}`;
+  const qtyStr = `${item.quantity}x`;
   const totalStr = `Rp ${formatRupiah(finalTotal)}`;
-  const spaceBetween = lineWidth - qtyPrice.length - totalStr.length;
   
-  if (spaceBetween > 0) {
-    lines.push([...textToBytes(qtyPrice + ' '.repeat(spaceBetween) + totalStr), LF]);
-  } else {
-    lines.push([...textToBytes(qtyPrice), LF]);
-    lines.push([...ALIGN_RIGHT, ...textToBytes(totalStr), LF, ...ALIGN_LEFT]);
-  }
+  // Format: Name (left), Qty (middle), Total (right)
+  const nameWidth = lineWidth - 8 - totalStr.length; // 8 for qty column
+  const namePart = productName.slice(0, nameWidth).padEnd(nameWidth, ' ');
+  const qtyPart = qtyStr.padStart(6, ' ');
+  
+  lines.push([...textToBytes(namePart + qtyPart + '  ' + totalStr), LF]);
+  
+  // Line 2: @ unit price (right aligned, indented)
+  const unitPriceStr = `@ Rp ${formatRupiah(price)}`;
+  lines.push([...ALIGN_RIGHT, ...textToBytes(unitPriceStr), LF, ...ALIGN_LEFT]);
   
   // Show item discount if any
   if (itemDiscount > 0) {
@@ -139,14 +139,21 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   
   // Receipt details (left aligned)
   bytes.push(...ALIGN_LEFT);
-  bytes.push(...textToBytes(`No: ${receipt.id}`), LF);
-  bytes.push(...textToBytes(`Tanggal: ${receipt.timestamp.toLocaleDateString('id-ID')}`), LF);
-  bytes.push(...textToBytes(`Waktu: ${receipt.timestamp.toLocaleTimeString('id-ID')}`), LF);
+  bytes.push(...formatTwoColumn('No:', receipt.id, LINE_WIDTH));
+  bytes.push(...formatTwoColumn('Tanggal:', receipt.timestamp.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), LINE_WIDTH));
+  bytes.push(...formatTwoColumn('Waktu:', receipt.timestamp.toLocaleTimeString('id-ID'), LINE_WIDTH));
   
   if (receipt.customerName) {
-    bytes.push(...textToBytes(`Pelanggan: ${receipt.customerName.slice(0, 30)}`), LF);
+    bytes.push(...formatTwoColumn('Pelanggan:', receipt.customerName.slice(0, 20), LINE_WIDTH));
   }
   
+  bytes.push(...formatTwoColumn('Kasir:', 'Admin', LINE_WIDTH));
+  
+  bytes.push(...createSeparator('-', LINE_WIDTH));
+  
+  // Items header
+  const itemHeader = 'Item'.padEnd(LINE_WIDTH - 18, ' ') + 'Qty'.padStart(6, ' ') + '  ' + 'Total'.padStart(10, ' ');
+  bytes.push(...textToBytes(itemHeader), LF);
   bytes.push(...createSeparator('-', LINE_WIDTH));
   
   // Items
