@@ -21,10 +21,13 @@ const DOUBLE_WIDTH = [ESC, 0x21, 0x20];
 const DOUBLE_SIZE = [ESC, 0x21, 0x30];
 const NORMAL_SIZE = [ESC, 0x21, 0x00];
 
-// Paper control
+// Paper control - Blueprint Lite 80x compatible
 const FEED_LINE = [LF];
-const CUT_PAPER = [GS, 0x56, 0x00]; // Full cut
-const PARTIAL_CUT = [GS, 0x56, 0x01]; // Partial cut
+// GS V 66 n - Feed and cut (Function B) - feeds n/10 mm then partial cut
+// This is more compatible with Blueprint Lite 80x
+const CUT_WITH_FEED = (feedAmount: number) => [GS, 0x56, 0x42, feedAmount]; // GS V B n
+const CUT_PAPER = [GS, 0x56, 0x42, 80]; // Feed ~8mm then partial cut
+const PARTIAL_CUT = [GS, 0x56, 0x01]; // Partial cut (no feed)
 
 // Paper widths (characters per line)
 const LINE_WIDTH_80MM = 48; // 80mm paper = 48 chars (standard font)
@@ -118,77 +121,101 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   
   // Initialize printer
   bytes.push(...INIT);
-  bytes.push(LF);
   
-  // ===== HEADER (centered) =====
+  // ===== HEADER (centered) - matches preview =====
   bytes.push(...ALIGN_CENTER);
-  bytes.push(...DOUBLE_SIZE);
   bytes.push(...BOLD_ON);
+  bytes.push(...DOUBLE_SIZE);
   bytes.push(...textToBytes('TOKO 88'), LF);
   bytes.push(...NORMAL_SIZE);
   bytes.push(...BOLD_OFF);
   
-  // Store info
+  // Store info (smaller text, centered)
   const address = storeInfo?.address || receipt.storeInfo?.address || 'Jl. Raya No. 88';
   const phone = storeInfo?.phone || receipt.storeInfo?.phone || '(021) 1234-5678';
   bytes.push(...textToBytes(address.slice(0, LINE_WIDTH)), LF);
   bytes.push(...textToBytes(`Tel: ${phone}`), LF);
-  
   bytes.push(...createSeparator('-', LINE_WIDTH));
   
-  // ===== TRANSACTION INFO =====
+  // ===== TRANSACTION INFO (left aligned, two-column) =====
   bytes.push(...ALIGN_LEFT);
   bytes.push(...formatTwoColumn('No:', receipt.id, LINE_WIDTH));
   bytes.push(...formatTwoColumn('Tanggal:', receipt.timestamp.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }), LINE_WIDTH));
   bytes.push(...formatTwoColumn('Waktu:', receipt.timestamp.toLocaleTimeString('id-ID'), LINE_WIDTH));
-  
   if (receipt.customerName) {
     bytes.push(...formatTwoColumn('Pelanggan:', receipt.customerName.slice(0, 20), LINE_WIDTH));
   }
-  
   bytes.push(...formatTwoColumn('Kasir:', 'Admin', LINE_WIDTH));
-  
   bytes.push(...createSeparator('-', LINE_WIDTH));
   
-  // ===== ITEMS =====
+  // ===== ITEMS (matches preview: Name (E/G) | Qty | Total, then @ price) =====
+  // Header row
+  const hdrName = 'Item';
+  const hdrQty = 'Qty';
+  const hdrTotal = 'Total';
+  const hdrLine = hdrName.padEnd(LINE_WIDTH - 6 - 12) + hdrQty.padStart(6) + hdrTotal.padStart(12);
+  bytes.push(...textToBytes(hdrLine), LF);
+  bytes.push(...createSeparator('-', LINE_WIDTH));
+  
   for (const item of receipt.items) {
-    const itemLines = formatItemLine(item, LINE_WIDTH);
-    for (const line of itemLines) {
-      bytes.push(...line);
+    const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
+    const priceLabel = item.priceType === 'retail' ? 'E' : 'G';
+    const itemTotal = price * item.quantity;
+    const itemDiscount = item.discount || 0;
+    const finalTotal = Math.max(0, itemTotal - itemDiscount);
+    
+    // Line 1: Name (E) | qty | total
+    const nameStr = `${item.product.name} (${priceLabel})`;
+    const qtyStr = `${item.quantity}x`;
+    const totalStr = `Rp${formatRupiah(finalTotal)}`;
+    
+    const nameWidth = LINE_WIDTH - 6 - totalStr.length - 1;
+    const itemLine = nameStr.slice(0, nameWidth).padEnd(nameWidth) + qtyStr.padStart(6) + ' ' + totalStr;
+    bytes.push(...textToBytes(itemLine), LF);
+    
+    // Line 2: @ unit price (right aligned)
+    const unitPriceStr = `@ Rp${formatRupiah(price)}`;
+    bytes.push(...ALIGN_RIGHT);
+    bytes.push(...textToBytes(unitPriceStr), LF);
+    bytes.push(...ALIGN_LEFT);
+    
+    // Item discount if any
+    if (itemDiscount > 0) {
+      bytes.push(...textToBytes(`  Diskon: -Rp${formatRupiah(itemDiscount)}`), LF);
     }
   }
   
   bytes.push(...createSeparator('-', LINE_WIDTH));
   
   // ===== TOTALS =====
-  bytes.push(...formatTwoColumn('Subtotal:', `Rp ${formatRupiah(receipt.subtotal)}`, LINE_WIDTH));
-  
+  bytes.push(...formatTwoColumn('Subtotal:', `Rp${formatRupiah(receipt.subtotal)}`, LINE_WIDTH));
   if (receipt.discount > 0) {
-    bytes.push(...formatTwoColumn('Diskon:', `-Rp ${formatRupiah(receipt.discount)}`, LINE_WIDTH));
+    bytes.push(...formatTwoColumn('Diskon:', `-Rp${formatRupiah(receipt.discount)}`, LINE_WIDTH));
   }
-  
+  // Total row with emphasis
   bytes.push(...BOLD_ON);
-  bytes.push(...formatTwoColumn('TOTAL:', `Rp ${formatRupiah(receipt.total)}`, LINE_WIDTH));
+  bytes.push(...formatTwoColumn('TOTAL:', `Rp${formatRupiah(receipt.total)}`, LINE_WIDTH));
   bytes.push(...BOLD_OFF);
-  
   bytes.push(...createSeparator('-', LINE_WIDTH));
   
   // ===== PAYMENT INFO =====
   const paymentLabels: Record<string, string> = {
     'cash': 'Tunai',
     'qris': 'QRIS',
-    'transfer': 'Transfer',
+    'transfer': 'Transfer Bank',
   };
   bytes.push(...formatTwoColumn('Pembayaran:', paymentLabels[receipt.paymentMethod] || receipt.paymentMethod, LINE_WIDTH));
   
   if (receipt.cashReceived) {
-    bytes.push(...formatTwoColumn('Tunai:', `Rp ${formatRupiah(receipt.cashReceived)}`, LINE_WIDTH));
-    bytes.push(...formatTwoColumn('Kembalian:', `Rp ${formatRupiah(receipt.change || 0)}`, LINE_WIDTH));
+    bytes.push(...formatTwoColumn('Tunai:', `Rp${formatRupiah(receipt.cashReceived)}`, LINE_WIDTH));
+    bytes.push(...BOLD_ON);
+    bytes.push(...formatTwoColumn('Kembalian:', `Rp${formatRupiah(receipt.change || 0)}`, LINE_WIDTH));
+    bytes.push(...BOLD_OFF);
   }
   
   // Bank transfer info
   if (receipt.paymentMethod === 'transfer' && receipt.bankInfo) {
-    bytes.push(LF);
+    bytes.push(...createSeparator('-', LINE_WIDTH));
     bytes.push(...BOLD_ON);
     bytes.push(...textToBytes('Transfer ke:'), LF);
     bytes.push(...BOLD_OFF);
@@ -206,14 +233,12 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
   bytes.push(...BOLD_OFF);
   bytes.push(...textToBytes('Barang yang sudah dibeli'), LF);
   bytes.push(...textToBytes('tidak dapat ditukar/dikembalikan'), LF);
-  
   bytes.push(...createSeparator('-', LINE_WIDTH));
   bytes.push(...textToBytes('*** SIMPAN STRUK INI ***'), LF);
+  bytes.push(LF);
 
-  // Feed paper before cutting
-  bytes.push(LF, LF, LF, LF, LF, LF);
-
-  // Cut paper
+  // Blueprint Lite 80x: Use GS V B n (Function B) - feeds n/10mm then partial cut
+  // This avoids needing to press feed button manually
   bytes.push(...CUT_PAPER);
 
   return new Uint8Array(bytes);
@@ -223,41 +248,31 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
 // Works on both 50mm and 80mm paper - BLACK AND WHITE ONLY
 export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
   const bytes: number[] = [];
+  const LINE_WIDTH = LINE_WIDTH_80MM;
   
   // Initialize printer
   bytes.push(...INIT);
-  bytes.push(LF); // Single line feed at start
   
   // ===== HEADER =====
   bytes.push(...ALIGN_CENTER);
-  bytes.push(...DOUBLE_SIZE);
   bytes.push(...BOLD_ON);
+  bytes.push(...DOUBLE_SIZE);
   bytes.push(...textToBytes('SALINAN PEKERJA'), LF);
   bytes.push(...NORMAL_SIZE);
   bytes.push(...BOLD_OFF);
+  bytes.push(...createSeparator('-', LINE_WIDTH));
   
-  bytes.push(...createDoubleSeparator(LINE_WIDTH_50MM_DOUBLE * 2));
-  
-  // ===== CUSTOMER NAME - BIGGEST =====
+  // ===== CUSTOMER NAME - BIG =====
   bytes.push(...ALIGN_CENTER);
   bytes.push(...DOUBLE_SIZE);
   bytes.push(...BOLD_ON);
-  
   const customerName = receipt.customerName || 'PELANGGAN';
-  // Wrap name if too long
-  const maxChars = 12;
-  for (let i = 0; i < customerName.length; i += maxChars) {
-    const chunk = customerName.slice(i, i + maxChars);
-    bytes.push(...textToBytes(chunk), LF);
-  }
-  
+  bytes.push(...textToBytes(customerName.slice(0, 20).toUpperCase()), LF);
   bytes.push(...NORMAL_SIZE);
   bytes.push(...BOLD_OFF);
-  bytes.push(LF);
   
   // ===== DATE & TIME =====
   bytes.push(...ALIGN_CENTER);
-  bytes.push(...DOUBLE_WIDTH);
   const dateStr = receipt.timestamp.toLocaleDateString('id-ID', { 
     day: '2-digit', 
     month: 'short', 
@@ -267,53 +282,37 @@ export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
     hour: '2-digit', 
     minute: '2-digit' 
   });
-  bytes.push(...textToBytes(`${dateStr}  ${timeStr}`), LF);
-  bytes.push(...NORMAL_SIZE);
+  bytes.push(...textToBytes(`${dateStr} ${timeStr}`), LF);
+  bytes.push(...createSeparator('-', LINE_WIDTH));
   
-  bytes.push(...createDoubleSeparator(LINE_WIDTH_50MM_DOUBLE * 2));
-  bytes.push(LF);
-  
-  // ===== ITEMS - ONLY NAME AND QUANTITY =====
+  // ===== ITEMS - NAME AND QUANTITY =====
   bytes.push(...ALIGN_LEFT);
   
   for (const item of receipt.items) {
-    // Product name - DOUBLE SIZE
-    bytes.push(...DOUBLE_SIZE);
     bytes.push(...BOLD_ON);
+    bytes.push(...DOUBLE_SIZE);
     
+    // Product name and quantity on same line
     const productName = item.product.name;
-    // Wrap long names
-    for (let i = 0; i < productName.length; i += maxChars) {
-      const chunk = productName.slice(i, i + maxChars);
-      bytes.push(...textToBytes(chunk), LF);
-    }
-    
-    // Quantity - EXTRA BIG, right aligned
-    bytes.push(...ALIGN_RIGHT);
-    bytes.push(...textToBytes(`${item.quantity}x`), LF);
-    bytes.push(...ALIGN_LEFT);
+    const qtyStr = `${item.quantity}x`;
+    const nameWidth = 20;
+    const itemLine = productName.slice(0, nameWidth).padEnd(nameWidth) + qtyStr.padStart(4);
+    bytes.push(...textToBytes(itemLine), LF);
     
     bytes.push(...NORMAL_SIZE);
     bytes.push(...BOLD_OFF);
-    
-    bytes.push(...createSeparator('-', LINE_WIDTH_50MM_DOUBLE * 2));
   }
   
-  bytes.push(LF);
-  bytes.push(...createDoubleSeparator(LINE_WIDTH_50MM_DOUBLE * 2));
+  bytes.push(...createSeparator('-', LINE_WIDTH));
   
   // ===== FOOTER =====
   bytes.push(...ALIGN_CENTER);
-  bytes.push(...DOUBLE_HEIGHT);
   bytes.push(...BOLD_ON);
   bytes.push(...textToBytes('COPY UNTUK PERSIAPAN'), LF);
-  bytes.push(...NORMAL_SIZE);
   bytes.push(...BOLD_OFF);
-  
-  // Feed paper before cutting (reduced waste)
-  bytes.push(LF, LF, LF, LF, LF, LF); // 6 lines
+  bytes.push(LF);
 
-  // Cut paper
+  // Blueprint Lite 80x: GS V B n - feeds then cuts
   bytes.push(...CUT_PAPER);
 
   return new Uint8Array(bytes);
