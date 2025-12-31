@@ -146,8 +146,7 @@ const Index = () => {
         .map((item) => {
           if (item.product.id === productId && item.priceType === priceType) {
             if (quantity <= 0) return null;
-            // Cap at 10000 max, ignore stock limit
-            const newQty = Math.min(quantity, 10000);
+            const newQty = Math.min(quantity, item.product.stock);
             return { ...item, quantity: newQty };
           }
           return item;
