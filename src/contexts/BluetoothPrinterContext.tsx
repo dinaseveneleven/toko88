@@ -43,12 +43,26 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
   const [device, setDevice] = useState<BluetoothDevice | null>(null);
   const [characteristic, setCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);
 
+  // Log state changes for debugging
+  useEffect(() => {
+    console.log('[BluetoothPrinter] State changed:', { 
+      isConnected: state.isConnected, 
+      printerName: state.printerName,
+      hasDevice: !!device,
+      hasCharacteristic: !!characteristic
+    });
+  }, [state.isConnected, state.printerName, device, characteristic]);
+
   // Auto-reconnect to saved printer on mount
   useEffect(() => {
     const autoReconnect = async () => {
       try {
+        console.log('[BluetoothPrinter] Attempting auto-reconnect...');
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          console.log('[BluetoothPrinter] No user found, skipping auto-reconnect');
+          return;
+        }
 
         const { data: config, error } = await supabase
           .from('printer_configs')
@@ -57,11 +71,12 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
           .maybeSingle();
 
         if (error) {
-          console.error('Error loading printer config:', error);
+          console.error('[BluetoothPrinter] Error loading printer config:', error);
           return;
         }
 
         if (config?.printer_name && config.is_enabled) {
+          console.log('[BluetoothPrinter] Found saved printer config:', config.printer_name);
           setState(prev => ({ 
             ...prev, 
             savedPrinterName: config.printer_name,
@@ -73,12 +88,13 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
           if (nav.bluetooth?.getDevices) {
             try {
               const devices = await nav.bluetooth.getDevices();
+              console.log('[BluetoothPrinter] Found paired devices:', devices.length);
               const savedDevice = devices.find((d: BluetoothDevice) => 
                 d.name === config.printer_name || d.id === config.printer_device_id
               );
               
               if (savedDevice && savedDevice.gatt) {
-                console.log('Auto-reconnecting to saved printer:', savedDevice.name);
+                console.log('[BluetoothPrinter] Auto-reconnecting to saved printer:', savedDevice.name);
                 setState(prev => ({ ...prev, isConnecting: true }));
                 
                 const server = await savedDevice.gatt.connect();
@@ -121,19 +137,26 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
                     isConnecting: false,
                     printerName: savedDevice.name || config.printer_name,
                   }));
-                  console.log('Auto-reconnected to printer successfully');
+                  console.log('[BluetoothPrinter] Auto-reconnected successfully!');
                 } else {
+                  console.log('[BluetoothPrinter] No writable characteristic found');
                   setState(prev => ({ ...prev, isConnecting: false }));
                 }
+              } else {
+                console.log('[BluetoothPrinter] Saved device not found in paired devices');
               }
             } catch (err) {
-              console.log('Auto-reconnect failed:', err);
+              console.log('[BluetoothPrinter] Auto-reconnect failed:', err);
               setState(prev => ({ ...prev, isConnecting: false }));
             }
+          } else {
+            console.log('[BluetoothPrinter] getDevices not supported');
           }
+        } else {
+          console.log('[BluetoothPrinter] No saved printer config found');
         }
       } catch (error) {
-        console.error('Error in auto-reconnect:', error);
+        console.error('[BluetoothPrinter] Error in auto-reconnect:', error);
       }
     };
 
@@ -168,6 +191,7 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
   }, [device]);
 
   const connectPrinter = useCallback(async (): Promise<boolean> => {
+    console.log('[BluetoothPrinter] connectPrinter called');
     if (!isBluetoothSupported()) {
       toast({
         title: 'Bluetooth Tidak Didukung',

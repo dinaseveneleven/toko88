@@ -1,10 +1,16 @@
-import { Bluetooth, BluetoothOff, Loader2 } from 'lucide-react';
+import { Bluetooth, BluetoothOff, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBluetoothPrinter } from '@/hooks/useBluetoothPrinter';
 import { isBluetoothSupported } from '@/utils/escpos';
+import { useEffect } from 'react';
 
 export function BluetoothPrinterButton() {
   const { isConnected, isConnecting, printerName, connectPrinter, disconnectPrinter } = useBluetoothPrinter();
+
+  // Log connection state changes for debugging
+  useEffect(() => {
+    console.log('[BluetoothPrinterButton] Connection state:', { isConnected, isConnecting, printerName });
+  }, [isConnected, isConnecting, printerName]);
 
   // Don't render if Bluetooth is not supported
   if (!isBluetoothSupported()) {
@@ -18,8 +24,9 @@ export function BluetoothPrinterButton() {
           onClick={disconnectPrinter}
           variant="outline"
           size="sm"
-          className="bg-card border-primary/50 text-primary hover:bg-primary/10 shadow-lg gap-2"
+          className="bg-primary/10 border-primary text-primary hover:bg-primary/20 shadow-lg gap-2 animate-fade-in"
         >
+          <Check className="w-4 h-4" />
           <Bluetooth className="w-4 h-4" />
           <span className="hidden sm:inline">{printerName || 'Printer'}</span>
           <span className="sm:hidden">🖨️</span>
