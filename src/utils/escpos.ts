@@ -312,8 +312,9 @@ export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
   bytes.push(...BOLD_OFF);
   bytes.push(LF);
 
-  // Blueprint Lite 80x: GS V B n - feeds then cuts
-  bytes.push(...CUT_PAPER);
+  // Blueprint Lite 80x: GS V B n - feeds n/10mm then cuts
+  // Using higher feed amount (120 = 12mm) for carbon copy to ensure proper cut
+  bytes.push(...CUT_WITH_FEED(120));
 
   return new Uint8Array(bytes);
 };
