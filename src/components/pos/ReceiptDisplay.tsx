@@ -83,7 +83,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const generateReceiptText = () => {
     const lines = [
       '================================',
-      '         TOKO 88',
+      '         TOKO BESI 88',
       `    ${storeAddress}`,
       `      Tel: ${storePhone}`,
       '================================',

@@ -29,7 +29,7 @@ export function Receipt({ data }: ReceiptProps) {
     <div className="receipt-paper text-gray-900 p-6 rounded-lg max-w-xs mx-auto">
       {/* Header */}
       <div className="text-center border-b-2 border-dashed border-gray-400 pb-4 mb-4">
-        <h1 className="text-xl font-bold tracking-wide">TOKO 88</h1>
+        <h1 className="text-xl font-bold tracking-wide">TOKO BESI 88</h1>
         <p className="text-xs mt-1">{storeAddress}</p>
         <p className="text-xs">Tel: {storePhone}</p>
       </div>
@@ -63,8 +63,8 @@ export function Receipt({ data }: ReceiptProps) {
       {/* Items */}
       <div className="border-b border-dashed border-gray-400 pb-3 mb-3">
         <div className="text-xs font-semibold flex justify-between mb-2 text-gray-600">
+          <span className="w-12 text-left">Qty</span>
           <span className="flex-1">Item</span>
-          <span className="w-16 text-right">Qty</span>
           <span className="w-20 text-right">Total</span>
         </div>
         {data.items.map((item, idx) => {
@@ -76,13 +76,13 @@ export function Receipt({ data }: ReceiptProps) {
           return (
             <div key={idx} className="text-xs mb-2">
               <div className="flex justify-between">
+                <span className="w-12 text-left">{item.quantity}x</span>
                 <span className="flex-1 truncate pr-2">
                   {item.product.name}
                   <span className="text-gray-500 ml-1">
                     ({item.priceType === 'retail' ? 'E' : 'G'})
                   </span>
                 </span>
-                <span className="w-16 text-right">{item.quantity}x</span>
                 <span className="w-20 text-right">{formatRupiah(total)}</span>
               </div>
               <div className="text-gray-500 text-right">
