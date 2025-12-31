@@ -52,7 +52,7 @@ export const buildInvoiceLines = (
   const lines: string[] = [];
   
   // Header (will be printed centered with special formatting)
-  lines.push('@@CENTER@@TOKO 88@@DOUBLE@@');
+  lines.push('@@CENTER@@TOKO BESI 88@@DOUBLE@@');
   
   const address = storeInfo?.address || receipt.storeInfo?.address || 'Jl. Raya No. 88';
   const phone = storeInfo?.phone || receipt.storeInfo?.phone || '(021) 1234-5678';
@@ -72,8 +72,8 @@ export const buildInvoiceLines = (
   lines.push(formatTwoColumn('Kasir:', 'Admin'));
   lines.push(createSeparator('-'));
   
-  // Items header - FIXED columns
-  const hdrLine = padRight('Item', NAME_COL) + padLeft('Qty', QTY_COL) + padLeft('Total', TOTAL_COL);
+  // Items header - FIXED columns (Qty on left)
+  const hdrLine = padLeft('Qty', QTY_COL) + padRight('Item', NAME_COL) + padLeft('Total', TOTAL_COL);
   lines.push(hdrLine);
   lines.push(createSeparator('-'));
   
@@ -85,12 +85,12 @@ export const buildInvoiceLines = (
     const itemDiscount = item.discount || 0;
     const finalTotal = Math.max(0, itemTotal - itemDiscount);
     
-    // Line 1: Name (E) | qty | total - FIXED columns
+    // Line 1: qty | Name (E) | total - FIXED columns (Qty on left)
     const nameStr = `${item.product.name} (${priceLabel})`;
     const qtyStr = `${item.quantity}x`;
     const totalStr = `Rp${formatRupiah(finalTotal)}`;
     
-    const itemLine = padRight(nameStr, NAME_COL) + padLeft(qtyStr, QTY_COL) + padLeft(totalStr, TOTAL_COL);
+    const itemLine = padLeft(qtyStr, QTY_COL) + padRight(nameStr, NAME_COL) + padLeft(totalStr, TOTAL_COL);
     lines.push(itemLine);
     
     // Line 2: @ unit price (right aligned using padding)
@@ -153,7 +153,7 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
   const W = LINE_WIDTH_DOUBLE; // 24 chars for double-size
   
   // Header
-  lines.push('@@CENTER@@SALINAN PEKERJA@@DOUBLE@@');
+  lines.push('@@CENTER@@NOTA GUDANG@@DOUBLE@@');
   lines.push(createSeparator('-', LINE_WIDTH));
   
   // Customer name - BIG (double size)
