@@ -181,22 +181,22 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
     
     // If name is too long, wrap to multiple lines
     if (productName.length > ITEM_NAME_W) {
-      // First line: first part of name + qty
+      // First line: first part of name + qty (centered)
       const firstPart = productName.slice(0, ITEM_NAME_W);
       const itemLine = padRight(firstPart, ITEM_NAME_W) + padLeft(qtyStr, ITEM_QTY_W);
-      lines.push('@@DOUBLE@@' + itemLine);
+      lines.push('@@CENTER@@@@DOUBLE@@' + itemLine);
       
-      // Subsequent lines: rest of name (no qty)
+      // Subsequent lines: rest of name (no qty, centered)
       let remaining = productName.slice(ITEM_NAME_W);
       while (remaining.length > 0) {
         const part = remaining.slice(0, W);
-        lines.push('@@DOUBLE@@' + part);
+        lines.push('@@CENTER@@@@DOUBLE@@' + part);
         remaining = remaining.slice(W);
       }
     } else {
-      // Single line
+      // Single line (centered)
       const itemLine = padRight(productName, ITEM_NAME_W) + padLeft(qtyStr, ITEM_QTY_W);
-      lines.push('@@DOUBLE@@' + itemLine);
+      lines.push('@@CENTER@@@@DOUBLE@@' + itemLine);
     }
     
     // Add spacing between items
