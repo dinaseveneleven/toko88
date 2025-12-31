@@ -27,7 +27,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
     setQuantity((prev) => {
       const newQty = prev + delta;
       if (newQty < 1) return 1;
-      if (newQty > 10000) return 10000;
+      if (newQty > product.stock) return product.stock;
       setInputValue(String(newQty));
       return newQty;
     });
@@ -36,7 +36,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
   const handleInputChange = (value: string) => {
     setInputValue(value);
     const num = parseInt(value);
-    if (!isNaN(num) && num >= 1 && num <= 10000) {
+    if (!isNaN(num) && num >= 1 && num <= product.stock) {
       setQuantity(num);
     }
   };
@@ -45,9 +45,9 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
     if (inputValue === '' || parseInt(inputValue) < 1) {
       setQuantity(1);
       setInputValue('1');
-    } else if (parseInt(inputValue) > 10000) {
-      setQuantity(10000);
-      setInputValue('10000');
+    } else if (parseInt(inputValue) > product.stock) {
+      setQuantity(product.stock);
+      setInputValue(String(product.stock));
     } else {
       setInputValue(String(quantity));
     }
@@ -125,14 +125,14 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
             onFocus={handleInputFocus}
             className="w-12 sm:w-16 h-8 text-center text-xs sm:text-sm font-mono bg-transparent border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={1}
-            max={10000}
+            max={product.stock}
           />
           <Button
             variant="outline"
             size="icon"
             className="h-8 w-8 sm:h-8 sm:w-8 min-h-[32px] min-w-[32px]"
             onClick={() => handleQuantityChange(1)}
-            disabled={quantity >= 10000}
+            disabled={quantity >= product.stock}
           >
             <Plus className="w-3 h-3" />
           </Button>
