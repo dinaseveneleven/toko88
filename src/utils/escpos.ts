@@ -9,6 +9,9 @@ const LF = 0x0A;
 // Initialize printer
 const INIT = [ESC, 0x40];
 
+// Set code page to CP437 (standard for most thermal printers)
+const SET_CODEPAGE = [ESC, 0x74, 0x00]; // ESC t 0 = CP437
+
 // Text alignment
 const ALIGN_LEFT = [ESC, 0x61, 0x00];
 const ALIGN_CENTER = [ESC, 0x61, 0x01];
@@ -24,12 +27,20 @@ const NORMAL_SIZE = [ESC, 0x21, 0x00];
 const CUT_WITH_FEED = (feedAmount: number) => [GS, 0x56, 0x42, feedAmount];
 const CUT_PAPER = [GS, 0x56, 0x42, 80]; // Feed ~8mm then partial cut
 
-// Convert string to byte array (UTF-8, sanitized to avoid accidental control codes)
-const __encoder = new TextEncoder();
+// Convert string to single-byte array for thermal printer
+// This ensures 1 character = 1 printed byte (critical for column alignment)
 const textToBytes = (text: string): number[] => {
-  // Strip non-printable ASCII control chars except LF (we add LF ourselves)
-  const safe = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-  return Array.from(__encoder.encode(safe));
+  const bytes: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    let code = text.charCodeAt(i);
+    // Only allow printable ASCII (0x20-0x7E) + space
+    // Replace anything else with '?' to maintain alignment
+    if (code < 0x20 || code > 0x7E) {
+      code = 0x3F; // '?'
+    }
+    bytes.push(code);
+  }
+  return bytes;
 };
 
 // Process a single line with formatting tags and output bytes
@@ -62,8 +73,9 @@ const processLine = (line: string, bytes: number[]): void => {
 export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: string; phone: string }): Uint8Array => {
   const bytes: number[] = [];
   
-  // Initialize printer
+  // Initialize printer and set code page
   bytes.push(...INIT);
+  bytes.push(...SET_CODEPAGE);
   
   // Get formatted lines from layout module
   const lines = buildInvoiceLines(receipt, storeInfo);
@@ -86,8 +98,9 @@ export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: s
 export const buildWorkerCopyBytes = (receipt: ReceiptData): Uint8Array => {
   const bytes: number[] = [];
   
-  // Initialize printer
+  // Initialize printer and set code page
   bytes.push(...INIT);
+  bytes.push(...SET_CODEPAGE);
   
   // Get formatted lines from layout module
   const lines = buildWorkerCopyLines(receipt);

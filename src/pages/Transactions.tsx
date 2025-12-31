@@ -253,8 +253,23 @@ export default function Transactions() {
   });
 
   const convertToReceiptData = (t: Transaction): ReceiptData => {
-    // Parse items from JSON - cast through unknown for safety
-    const items = (Array.isArray(t.items) ? t.items : []) as unknown as CartItem[];
+    // Parse and validate items from JSON - ensure all fields have safe defaults
+    const rawItems = Array.isArray(t.items) ? t.items : [];
+    
+    const items: CartItem[] = rawItems.map((item: any) => ({
+      product: {
+        id: item.product?.id || '',
+        name: item.product?.name || 'Unknown Item',
+        retailPrice: Number(item.product?.retailPrice) || 0,
+        bulkPrice: Number(item.product?.bulkPrice) || 0,
+        purchasePrice: Number(item.product?.purchasePrice) || 0,
+        stock: Number(item.product?.stock) || 0,
+        category: item.product?.category || '',
+      },
+      quantity: Number(item.quantity) || 1,
+      priceType: item.priceType === 'bulk' ? 'bulk' : 'retail',
+      discount: Number(item.discount) || 0,
+    }));
     
     return {
       id: t.id,
