@@ -4,10 +4,10 @@ import { useBluetoothPrinter } from '@/hooks/useBluetoothPrinter';
 import { isBluetoothSupported } from '@/utils/escpos';
 
 export function BluetoothPrinterButton() {
-  const { isConnected, isConnecting, printerName, connectPrinter, disconnectPrinter, isSupported } = useBluetoothPrinter();
+  const { isConnected, isConnecting, printerName, connectPrinter, disconnectPrinter } = useBluetoothPrinter();
 
   // Don't render if Bluetooth is not supported
-  if (!isSupported) {
+  if (!isBluetoothSupported()) {
     return null;
   }
 
