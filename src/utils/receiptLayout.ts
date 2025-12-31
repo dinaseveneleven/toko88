@@ -5,10 +5,11 @@ const LINE_WIDTH = 48;
 const LINE_WIDTH_DOUBLE = 24;
 
 // Column widths for item lines (must be consistent!)
-// Qty column needs to be wider to accommodate up to 5 digits (10000x)
-const QTY_COL = 8;
+// Qty column on left, then gap, then name, then total
+const QTY_COL = 6;
+const GAP_COL = 2; // Space between qty and name
 const NAME_COL = 26;
-const TOTAL_COL = 14; // QTY_COL + NAME_COL + TOTAL_COL = 48
+const TOTAL_COL = 14; // QTY_COL + GAP_COL + NAME_COL + TOTAL_COL = 48
 
 // Helper to format Rupiah without symbol for receipt (compact)
 const formatRupiah = (num: number): string => {
@@ -73,9 +74,9 @@ export const buildInvoiceLines = (
   lines.push(formatTwoColumn('Kasir:', 'Admin'));
   lines.push(createSeparator('-'));
   
-  // Items header - FIXED columns (Qty on left)
-  const hdrLine = padLeft('Qty', QTY_COL) + padRight('Item', NAME_COL) + padLeft('Total', TOTAL_COL);
-  lines.push(hdrLine);
+  // Items header - FIXED columns (Qty on left) - BOLD
+  const hdrLine = padRight('Qty', QTY_COL) + ' '.repeat(GAP_COL) + padRight('Item', NAME_COL) + padLeft('Total', TOTAL_COL);
+  lines.push('@@BOLD@@' + hdrLine);
   lines.push(createSeparator('-'));
   
   // Items
@@ -85,13 +86,13 @@ export const buildInvoiceLines = (
     const itemDiscount = item.discount || 0;
     const finalTotal = Math.max(0, itemTotal - itemDiscount);
     
-    // Line 1: qty | Name | total - FIXED columns (Qty on left)
+    // Line 1: qty | gap | Name | total - FIXED columns, BOLD
     const nameStr = item.product.name;
     const qtyStr = `${item.quantity}x`;
     const totalStr = `Rp${formatRupiah(finalTotal)}`;
     
-    const itemLine = padLeft(qtyStr, QTY_COL) + padRight(nameStr, NAME_COL) + padLeft(totalStr, TOTAL_COL);
-    lines.push(itemLine);
+    const itemLine = padRight(qtyStr, QTY_COL) + ' '.repeat(GAP_COL) + padRight(nameStr, NAME_COL) + padLeft(totalStr, TOTAL_COL);
+    lines.push('@@BOLD@@' + itemLine);
     
     // Line 2: @ unit price (right aligned using padding)
     const unitPriceStr = `@ Rp${formatRupiah(price)}`;
