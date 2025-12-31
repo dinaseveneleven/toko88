@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, forwardRef } from 'react';
 import { CartItem } from '@/types/pos';
 import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,56 +11,66 @@ interface QuantityInputProps {
   onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number) => void;
 }
 
-function QuantityInput({ item, onSetQuantity }: QuantityInputProps) {
-  const [localValue, setLocalValue] = useState<string>(String(item.quantity));
+const QuantityInput = forwardRef<HTMLInputElement, QuantityInputProps>(
+  ({ item, onSetQuantity }, ref) => {
+    const [localValue, setLocalValue] = useState<string>(String(item.quantity));
+    const [isFocused, setIsFocused] = useState(false);
 
-  // Sync local value when item.quantity changes from external source (e.g., +/- buttons)
-  if (String(item.quantity) !== localValue && localValue !== '') {
-    setLocalValue(String(item.quantity));
+    // Only sync when not focused and external quantity changes
+    useEffect(() => {
+      if (!isFocused) {
+        setLocalValue(String(item.quantity));
+      }
+    }, [item.quantity, isFocused]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setLocalValue(e.target.value);
+    };
+
+    const handleBlur = () => {
+      setIsFocused(false);
+      const parsed = parseInt(localValue);
+      if (!isNaN(parsed) && parsed >= 1) {
+        const clamped = Math.min(parsed, item.product.stock);
+        onSetQuantity(item.product.id, item.priceType, clamped);
+        setLocalValue(String(clamped));
+      } else {
+        // Revert to original quantity if invalid
+        setLocalValue(String(item.quantity));
+      }
+    };
+
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      setIsFocused(true);
+      setTimeout(() => {
+        e.target.select();
+      }, 0);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        (e.target as HTMLInputElement).blur();
+      }
+    };
+
+    return (
+      <Input
+        ref={ref}
+        type="number"
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        onFocus={handleFocus}
+        className="w-16 h-7 text-left font-mono text-sm px-2"
+        min={1}
+        max={item.product.stock}
+      />
+    );
   }
+);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow empty string for typing, don't commit yet
-    setLocalValue(e.target.value);
-  };
-
-  const handleBlur = () => {
-    const parsed = parseInt(localValue);
-    if (!isNaN(parsed) && parsed >= 1) {
-      const clamped = Math.min(parsed, item.product.stock);
-      onSetQuantity(item.product.id, item.priceType, clamped);
-      setLocalValue(String(clamped));
-    } else {
-      // Revert to original quantity if invalid
-      setLocalValue(String(item.quantity));
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      (e.target as HTMLInputElement).blur();
-    }
-  };
-
-  return (
-    <Input
-      type="number"
-      value={localValue}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
-      onFocus={(e) => {
-        const input = e.target;
-        setTimeout(() => {
-          input.select();
-        }, 0);
-      }}
-      className="w-16 h-7 text-left font-mono text-sm px-2"
-      min={1}
-      max={item.product.stock}
-    />
-  );
-}
+QuantityInput.displayName = 'QuantityInput';
 
 interface CartPanelProps {
   items: CartItem[];
