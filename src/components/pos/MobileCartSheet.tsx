@@ -47,7 +47,7 @@ export function MobileCartSheet({
     return sum + Math.max(0, discountedTotal);
   }, 0);
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = items.length;
 
   return (
     <Sheet open={open} onOpenChange={onClose}>

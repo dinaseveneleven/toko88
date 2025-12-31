@@ -88,7 +88,7 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
     return sum + Math.max(0, discountedTotal);
   }, 0);
 
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = items.length;
 
   return (
     <div className="h-full flex flex-col bg-pos-cart rounded-2xl border border-border">
