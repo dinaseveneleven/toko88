@@ -12,7 +12,7 @@ export function WorkerCopyPreview({ receipt }: WorkerCopyPreviewProps) {
       {/* Header - Worker Copy Badge */}
       <div className="text-center border-b-2 border-dashed border-gray-400 pb-4 mb-4">
         <div className="bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
-          SALINAN PEKERJA
+          NOTA GUDANG
         </div>
         <h1 className="text-2xl font-black tracking-wide">
           {receipt.customerName || 'PELANGGAN'}
