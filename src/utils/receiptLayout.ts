@@ -80,11 +80,17 @@ export const buildInvoiceLines = (
   let totalItemDiscount = 0;
   
   for (const item of receipt.items) {
-    const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
-    const itemTotal = price * item.quantity;
+    // Always use retail price as base, bulk is shown as discount
+    const retailPrice = item.product.retailPrice;
+    const effectivePrice = item.priceType === 'retail' ? retailPrice : item.product.bulkPrice;
+    const retailTotal = retailPrice * item.quantity;
+    
+    // Calculate bulk discount (difference between retail and bulk price)
+    const bulkDiscount = item.priceType === 'bulk' ? (retailPrice - item.product.bulkPrice) * item.quantity : 0;
+    
     const itemDiscount = item.discount || 0;
-    totalItemDiscount += itemDiscount;
-    const finalTotal = Math.max(0, itemTotal - itemDiscount);
+    totalItemDiscount += itemDiscount + bulkDiscount;
+    const finalTotal = Math.max(0, retailTotal - bulkDiscount - itemDiscount);
     
     // Line 1: qty | gap | Name | total - FIXED columns, BOLD
     const nameStr = item.product.name;
@@ -94,9 +100,15 @@ export const buildInvoiceLines = (
     const itemLine = padRight(qtyStr, QTY_COL) + ' '.repeat(GAP_COL) + padRight(nameStr, NAME_COL) + padLeft(totalStr, TOTAL_COL);
     lines.push('@@BOLD@@' + itemLine);
     
-    // Line 2: @ unit price (right aligned using padding)
-    const unitPriceStr = `@ Rp${formatRupiah(price)}`;
+    // Line 2: @ unit price (always show retail price)
+    const unitPriceStr = `@ Rp${formatRupiah(retailPrice)}`;
     lines.push(padLeft(unitPriceStr, LINE_WIDTH));
+    
+    // Show bulk discount as "Diskon Grosir" if applicable
+    if (bulkDiscount > 0) {
+      const bulkDiscountStr = `Diskon Grosir: -Rp${formatRupiah(bulkDiscount)}`;
+      lines.push(padLeft(bulkDiscountStr, LINE_WIDTH));
+    }
     
     // Item discount if any - show under price
     if (itemDiscount > 0) {
