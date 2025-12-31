@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Receipt } from '@/components/pos/Receipt';
+import { ThermalReceiptPreview } from '@/components/pos/ThermalReceiptPreview';
 import { ArrowLeft, Search, MessageCircle, Eye, RefreshCw, Loader2 } from 'lucide-react';
 import logo88 from '@/assets/logo-88.png';
 import { Json } from '@/integrations/supabase/types';
@@ -358,7 +358,10 @@ export default function Transactions() {
           </DialogHeader>
           {selectedTransaction && (
             <div className="space-y-4">
-              <Receipt data={convertToReceiptData(selectedTransaction)} />
+              <ThermalReceiptPreview 
+                receipt={convertToReceiptData(selectedTransaction)} 
+                type="invoice"
+              />
               {selectedTransaction.customer_phone && (
                 <Button
                   onClick={() => handleResendWhatsApp(selectedTransaction)}
