@@ -68,10 +68,7 @@ export const buildInvoiceLines = (
     day: '2-digit', month: 'short', year: 'numeric' 
   })));
   lines.push(formatTwoColumn('Waktu:', receipt.timestamp.toLocaleTimeString('id-ID')));
-  if (receipt.customerName) {
-    lines.push(formatTwoColumn('Pelanggan:', receipt.customerName.slice(0, 20)));
-  }
-  lines.push(formatTwoColumn('Kasir:', 'Admin'));
+  lines.push(formatTwoColumn('Nama Pelanggan:', (receipt.customerName || '-').slice(0, 20)));
   lines.push(createSeparator('-'));
   
   // Items header - FIXED columns (Qty on left) - BOLD
