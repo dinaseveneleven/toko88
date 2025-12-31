@@ -343,18 +343,12 @@ export function useBluetoothPrinter() {
     storeInfo?: { address: string; phone: string },
     printWorkerCopy: boolean = true // Default to printing worker copy
   ): Promise<boolean> => {
-    if (!characteristic) {
-      // Try to connect first
-      const connected = await connectPrinter();
-      if (!connected) {
-        return false;
-      }
-    }
-
-    if (!characteristic) {
+    // IMPORTANT: Do not auto-trigger pairing prompts during checkout.
+    // Users must connect manually using the Connect button beforehand.
+    if (!characteristic || !state.isConnected) {
       toast({
-        title: 'Printer Tidak Terhubung',
-        description: 'Silakan hubungkan printer terlebih dahulu.',
+        title: 'Printer Belum Terhubung',
+        description: 'Hubungkan printer terlebih dahulu (sekali), lalu cetak akan cepat tanpa popup pairing.',
         variant: 'destructive',
       });
       return false;
