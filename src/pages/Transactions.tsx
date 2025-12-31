@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useBluetoothPrinter } from '@/hooks/useBluetoothPrinter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,7 +22,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ThermalReceiptPreview } from '@/components/pos/ThermalReceiptPreview';
-import { ArrowLeft, Search, MessageCircle, Eye, RefreshCw, Loader2 } from 'lucide-react';
+import { BluetoothPrinterButton } from '@/components/pos/BluetoothPrinterButton';
+import { ArrowLeft, Search, MessageCircle, Eye, RefreshCw, Loader2, Printer, FileText, Copy } from 'lucide-react';
 import logo88 from '@/assets/logo-88.png';
 import { Json } from '@/integrations/supabase/types';
 import { ReceiptData, CartItem } from '@/types/pos';
@@ -53,6 +55,7 @@ export default function Transactions() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const { isConnected, isPrinting, printInvoiceOnly, printCarbonCopyOnly } = useBluetoothPrinter();
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +63,7 @@ export default function Transactions() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState<string | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
 
   useEffect(() => {
     // Wait for auth to be determined (not null)
@@ -136,6 +140,36 @@ export default function Transactions() {
   const handleViewDetail = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
     setDetailOpen(true);
+  };
+
+  const handlePrintInvoice = async (transaction: Transaction) => {
+    if (!isConnected) {
+      toast({
+        title: 'Printer Belum Terhubung',
+        description: 'Hubungkan printer Bluetooth terlebih dahulu.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setPrintingId(transaction.id);
+    const receipt = convertToReceiptData(transaction);
+    await printInvoiceOnly(receipt);
+    setPrintingId(null);
+  };
+
+  const handlePrintCarbonCopy = async (transaction: Transaction) => {
+    if (!isConnected) {
+      toast({
+        title: 'Printer Belum Terhubung',
+        description: 'Hubungkan printer Bluetooth terlebih dahulu.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setPrintingId(transaction.id);
+    const receipt = convertToReceiptData(transaction);
+    await printCarbonCopyOnly(receipt);
+    setPrintingId(null);
   };
 
   const filteredTransactions = transactions.filter((t) => {
@@ -257,13 +291,38 @@ export default function Transactions() {
                             <span className="capitalize">{t.payment_method}</span>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleViewDetail(t)}
+                                title="Lihat Detail"
                               >
                                 <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handlePrintInvoice(t)}
+                                disabled={isPrinting || printingId === t.id}
+                                title="Cetak Invoice"
+                                className="text-blue-500 hover:text-blue-600"
+                              >
+                                {printingId === t.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <FileText className="w-4 h-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handlePrintCarbonCopy(t)}
+                                disabled={isPrinting || printingId === t.id}
+                                title="Cetak Nota Gudang"
+                                className="text-orange-500 hover:text-orange-600"
+                              >
+                                <Copy className="w-4 h-4" />
                               </Button>
                               {t.customer_phone && (
                                 <Button
@@ -272,6 +331,7 @@ export default function Transactions() {
                                   onClick={() => handleResendWhatsApp(t)}
                                   disabled={sendingWhatsApp === t.id}
                                   className="text-green-500 hover:text-green-600"
+                                  title="Kirim WhatsApp"
                                 >
                                   {sendingWhatsApp === t.id ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -324,13 +384,35 @@ export default function Transactions() {
                             <Eye className="w-4 h-4 mr-1" />
                             Detail
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePrintInvoice(t)}
+                            disabled={isPrinting || printingId === t.id}
+                            className="h-8 w-8 text-blue-500 hover:text-blue-600"
+                          >
+                            {printingId === t.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <FileText className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePrintCarbonCopy(t)}
+                            disabled={isPrinting || printingId === t.id}
+                            className="h-8 w-8 text-orange-500 hover:text-orange-600"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
                           {t.customer_phone && (
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
                               onClick={() => handleResendWhatsApp(t)}
                               disabled={sendingWhatsApp === t.id}
-                              className="h-8 px-2 text-green-500 hover:text-green-600"
+                              className="h-8 w-8 text-green-500 hover:text-green-600"
                             >
                               {sendingWhatsApp === t.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -362,6 +444,34 @@ export default function Transactions() {
                 receipt={convertToReceiptData(selectedTransaction)} 
                 type="invoice"
               />
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={() => handlePrintInvoice(selectedTransaction)}
+                  disabled={isPrinting || printingId === selectedTransaction.id}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {printingId === selectedTransaction.id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4 mr-2" />
+                  )}
+                  Cetak Invoice
+                </Button>
+                <Button
+                  onClick={() => handlePrintCarbonCopy(selectedTransaction)}
+                  disabled={isPrinting || printingId === selectedTransaction.id}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {printingId === selectedTransaction.id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Copy className="w-4 h-4 mr-2" />
+                  )}
+                  Nota Gudang
+                </Button>
+              </div>
               {selectedTransaction.customer_phone && (
                 <Button
                   onClick={() => handleResendWhatsApp(selectedTransaction)}
@@ -380,6 +490,9 @@ export default function Transactions() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Bluetooth Printer Button */}
+      <BluetoothPrinterButton />
     </div>
   );
 }
