@@ -10,7 +10,7 @@ type BluetoothDevice = any;
 type BluetoothRemoteGATTCharacteristic = any;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-const CHUNK_SIZE = 512;
+const CHUNK_SIZE = 128;
 
 interface BluetoothPrinterContextType {
   isConnected: boolean;
@@ -408,34 +408,39 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
   }, [device]);
 
   const sendBytesToPrinter = useCallback(async (bytes: Uint8Array, char: BluetoothRemoteGATTCharacteristic, retries = 2): Promise<void> => {
+    const debug = localStorage.getItem('PRINT_DEBUG') === '1';
+
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
+        if (debug) {
+          console.log('[BluetoothPrinter] Sending bytes:', {
+            totalBytes: bytes.length,
+            chunkSize: CHUNK_SIZE,
+            write: !!char.properties.write,
+            writeWithoutResponse: !!char.properties.writeWithoutResponse,
+          });
+        }
+
         for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
           const chunk = bytes.slice(i, i + CHUNK_SIZE);
-          
-          try {
-            if (char.properties.writeWithoutResponse) {
-              await char.writeValueWithoutResponse(chunk);
-            } else if (char.properties.write) {
-              await char.writeValue(chunk);
-            } else {
-              throw new Error('No writable property on characteristic');
-            }
-          } catch (writeError) {
-            if (char.properties.write) {
-              await char.writeValue(chunk);
-            } else {
-              throw writeError;
-            }
+
+          if (char.properties.writeWithoutResponse) {
+            await char.writeValueWithoutResponse(chunk);
+          } else if (char.properties.write) {
+            await char.writeValue(chunk);
+          } else {
+            throw new Error('No writable property on characteristic');
           }
-          
-          await new Promise(resolve => setTimeout(resolve, 80));
+
+          // Throttle to avoid printer buffer overrun (most common cause of missing lines)
+          await new Promise(resolve => setTimeout(resolve, 140));
         }
+
         return;
       } catch (error) {
         console.warn(`Print attempt ${attempt + 1} failed:`, error);
         if (attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 700));
         } else {
           throw error;
         }
