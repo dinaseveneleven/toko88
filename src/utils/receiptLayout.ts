@@ -81,13 +81,12 @@ export const buildInvoiceLines = (
   // Items
   for (const item of receipt.items) {
     const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
-    const priceLabel = item.priceType === 'retail' ? 'E' : 'G';
     const itemTotal = price * item.quantity;
     const itemDiscount = item.discount || 0;
     const finalTotal = Math.max(0, itemTotal - itemDiscount);
     
-    // Line 1: qty | Name (E) | total - FIXED columns (Qty on left)
-    const nameStr = `${item.product.name} (${priceLabel})`;
+    // Line 1: qty | Name | total - FIXED columns (Qty on left)
+    const nameStr = item.product.name;
     const qtyStr = `${item.quantity}x`;
     const totalStr = `Rp${formatRupiah(finalTotal)}`;
     

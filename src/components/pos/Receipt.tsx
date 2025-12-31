@@ -87,9 +87,6 @@ export function Receipt({ data }: ReceiptProps) {
                 <span className={`w-12 text-left ${getQtyFontSize(item.quantity)}`}>{item.quantity}x</span>
                 <span className="flex-1 truncate pr-2">
                   {item.product.name}
-                  <span className="text-gray-500 ml-1">
-                    ({item.priceType === 'retail' ? 'E' : 'G'})
-                  </span>
                 </span>
                 <span className="w-20 text-right">{formatRupiah(total)}</span>
               </div>
