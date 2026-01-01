@@ -387,10 +387,10 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-6 pb-24 lg:pb-6">
-        <div className="grid lg:grid-cols-3 gap-3 sm:gap-6">
-          {/* Products Section */}
-          <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+      <main className="container max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-6 pb-24 xl:pb-6">
+        <div className="grid xl:grid-cols-3 gap-3 sm:gap-6">
+          {/* Products Section - full width on mobile/tablet, 2/3 on desktop */}
+          <div className="xl:col-span-2 space-y-3 sm:space-y-4">
             {/* Sticky Search and Filter Bar */}
             <div className="sticky top-[57px] sm:top-[73px] z-30 bg-background pt-2 pb-3 -mx-2 px-2 sm:-mx-4 sm:px-4 border-b border-border/50">
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
@@ -405,8 +405,8 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Responsive product grid: 2 cols mobile, 2-3 tablet, 3-4 desktop */}
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+            {/* Responsive product grid: 2 cols mobile, 3 tablet, 3-4 desktop */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
               {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -424,8 +424,8 @@ const Index = () => {
             )}
           </div>
 
-          {/* Cart Section - hidden on mobile/tablet, shown on desktop */}
-          <div className="lg:col-span-1 hidden lg:block">
+          {/* Cart Section - hidden on mobile/tablet, shown on xl desktop only */}
+          <div className="xl:col-span-1 hidden xl:block">
             <div className="sticky top-16 sm:top-24 h-[calc(100vh-6rem)] sm:h-[calc(100vh-8rem)]">
               <CartPanel
                 items={cart}
@@ -444,7 +444,7 @@ const Index = () => {
       {/* Bluetooth Printer Connection Button */}
       <BluetoothPrinterButton />
 
-      {/* Floating Cart Button - shown on mobile/tablet only */}
+      {/* Floating Cart Button - shown on mobile/tablet (hidden on xl desktop) */}
       <FloatingCartButton
         itemCount={cartItemCount}
         total={cartTotal}
