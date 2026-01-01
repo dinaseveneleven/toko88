@@ -248,7 +248,6 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
 export const renderPlainText = (lines: string[]): string => {
   return lines.map(line => {
     const shouldCenter = line.includes('@@CENTER@@');
-    const isDouble = line.includes('@@DOUBLE@@');
     
     // Remove formatting tags
     let cleanLine = line
@@ -256,10 +255,9 @@ export const renderPlainText = (lines: string[]): string => {
       .replace(/@@BOLD@@/g, '')
       .replace(/@@DOUBLE@@/g, '');
     
-    // Center the line if it had @@CENTER@@ tag
+    // Center the line if it had @@CENTER@@ tag (always use full width for preview)
     if (shouldCenter && cleanLine.trim().length > 0) {
-      const width = isDouble ? LINE_WIDTH_DOUBLE : LINE_WIDTH;
-      cleanLine = centerText(cleanLine.trim(), width);
+      cleanLine = centerText(cleanLine.trim(), LINE_WIDTH);
     }
     
     return cleanLine;
