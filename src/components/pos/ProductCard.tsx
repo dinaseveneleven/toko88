@@ -123,6 +123,11 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
             onChange={(e) => handleInputChange(e.target.value)}
             onBlur={handleInputBlur}
             onFocus={handleInputFocus}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
             className="w-12 sm:w-16 md:w-20 h-8 md:h-10 text-center text-xs sm:text-sm md:text-base font-mono bg-transparent border-input [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             min={1}
             max={product.stock}
