@@ -134,20 +134,14 @@ export const buildInvoiceLines = (
   // Subtotal: total before any discounts
   lines.push(formatTwoColumn('Subtotal:', `Rp${formatRupiah(subtotalBeforeDiscount)}`));
   
-  // Diskon Grosir: total of all bulk discounts
-  if (totalBulkDiscount > 0) {
-    lines.push(formatTwoColumn('Diskon Grosir:', `-Rp${formatRupiah(totalBulkDiscount)}`));
-  }
-  
-  // Diskon: item discounts + global discount
-  const otherDiscount = totalItemDiscount + (receipt.discount || 0);
-  if (otherDiscount > 0) {
-    lines.push(formatTwoColumn('Diskon:', `-Rp${formatRupiah(otherDiscount)}`));
+  // Diskon: combine all discounts (bulk + item + global)
+  const totalDiscount = totalBulkDiscount + totalItemDiscount + (receipt.discount || 0);
+  if (totalDiscount > 0) {
+    lines.push(formatTwoColumn('Diskon:', `-Rp${formatRupiah(totalDiscount)}`));
   }
   
   // Total: after all discounts
-  const totalAllDiscounts = totalBulkDiscount + otherDiscount;
-  const finalTotal = subtotalBeforeDiscount - totalAllDiscounts;
+  const finalTotal = subtotalBeforeDiscount - totalDiscount;
   lines.push('@@BOLD@@' + formatTwoColumn('TOTAL:', `Rp${formatRupiah(finalTotal)}`));
   lines.push(createSeparator('-'));
   
