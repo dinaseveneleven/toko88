@@ -85,15 +85,10 @@ export const buildInvoiceLines = (
   lines.push(formatTwoColumn('Nama Pelanggan:', sanitizeReceiptText((receipt.customerName || '-').slice(0, 20))));
   lines.push(createSeparator('-'));
   
-  // Items header - FIXED columns (Qty on left) - BOLD
-  const hdrLine = padRight('Qty', QTY_COL) + ' '.repeat(GAP_COL) + padRight('Item', NAME_COL) + padLeft('Total', TOTAL_COL);
-  lines.push('@@BOLD@@' + hdrLine);
-  lines.push(createSeparator('-'));
-  
-  // Items
+  // Items section
   let totalBulkDiscount = 0;
   let totalItemDiscount = 0;
-  let subtotalBeforeDiscount = 0; // Sum of all items at retail price × quantity
+  let subtotalBeforeDiscount = 0;
   
   for (const item of receipt.items) {
     // Safely get numeric values with defaults
@@ -110,35 +105,31 @@ export const buildInvoiceLines = (
     
     const itemDiscount = Number(item.discount) || 0;
     totalItemDiscount += itemDiscount;
-    const finalTotal = Math.max(0, retailTotal - bulkDiscount - itemDiscount);
     
-    // Line 1: qty | name | @ unit price - sanitize product name for print
+    // Line 1: Item name only (left-aligned, full width)
     const nameStr = sanitizeReceiptText(item.product?.name || 'Item');
-    const qtyStr = `${quantity}x`;
-    const unitPriceStr = `@ Rp${formatRupiah(retailPrice)}`;
+    lines.push(nameStr);
     
-    // Calculate column widths: qty(6) + gap(2) + name(remaining) + price(~14)
-    const priceColWidth = unitPriceStr.length + 2;
-    const availableNameWidth = LINE_WIDTH - QTY_COL - GAP_COL - priceColWidth;
+    // Line 2: "  2x @3.500" on left, subtotal on right
+    const qtyPriceStr = `  ${quantity}x @${formatRupiah(retailPrice)}`;
+    const subtotalStr = formatRupiah(retailTotal);
+    const spacing = LINE_WIDTH - qtyPriceStr.length - subtotalStr.length;
+    lines.push(qtyPriceStr + ' '.repeat(Math.max(1, spacing)) + subtotalStr);
     
-    const itemLine = padRight(qtyStr, QTY_COL) + ' '.repeat(GAP_COL) + padRight(nameStr, availableNameWidth) + padLeft(unitPriceStr, priceColWidth);
-    lines.push(itemLine);
-    
-    // Line 2: subtotal (retail × qty) - BOLD, right-aligned
-    const subtotalStr = `Rp${formatRupiah(retailTotal)}`;
-    lines.push('@@BOLD@@' + padLeft(subtotalStr, LINE_WIDTH));
-    
-    // Show bulk discount per item (just the minus amount, no label)
+    // Line 3: Bulk discount if exists (right-aligned with minus)
     if (bulkDiscount > 0) {
-      const bulkDiscountStr = `-Rp${formatRupiah(bulkDiscount)}`;
-      lines.push(padLeft(bulkDiscountStr, LINE_WIDTH));
-    }
-    
-    // Show item discount (just the minus amount, no label)
-    if (itemDiscount > 0) {
-      const discountStr = `-Rp${formatRupiah(itemDiscount)}`;
+      const discountStr = `-${formatRupiah(bulkDiscount)}`;
       lines.push(padLeft(discountStr, LINE_WIDTH));
     }
+    
+    // Line 4: Item discount if exists (right-aligned with minus)
+    if (itemDiscount > 0) {
+      const discountStr = `-${formatRupiah(itemDiscount)}`;
+      lines.push(padLeft(discountStr, LINE_WIDTH));
+    }
+    
+    // Empty line between items for readability
+    lines.push('');
   }
   
   lines.push(createSeparator('-'));
