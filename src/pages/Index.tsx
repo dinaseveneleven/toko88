@@ -13,16 +13,18 @@ import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, LogOut, Shield, RefreshCw, History } from 'lucide-react';
+import { Package, LogOut, Shield, RefreshCw, History, Maximize, Minimize } from 'lucide-react';
 import logo88 from '@/assets/logo-88.png';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useFullscreen } from '@/hooks/useFullscreen';
 
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAuthenticated, isAdmin, logout } = useAuth();
   const { fetchProducts, saveTransaction, updateStock } = useGoogleSheets();
+  const { isFullscreen, isSupported, toggleFullscreen } = useFullscreen();
   
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -352,6 +354,17 @@ const Index = () => {
                 >
                   <Shield className="w-4 h-4" />
                   <span className="hidden sm:inline">Admin</span>
+                </Button>
+              )}
+              {isSupported && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleFullscreen}
+                  className="gap-2 px-2 sm:px-3 h-9 sm:h-9"
+                  title={isFullscreen ? 'Keluar Fullscreen' : 'Fullscreen'}
+                >
+                  {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
                 </Button>
               )}
               <Button
