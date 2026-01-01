@@ -147,6 +147,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
       {/* Add buttons - touch-friendly with min heights */}
       <div className="flex gap-1 sm:gap-2 md:gap-3 mt-auto">
         <button
+          type="button"
           onClick={() => handleAdd('retail')}
           disabled={isOutOfStock}
           className="flex-1 flex items-center justify-center gap-0.5 sm:gap-1 md:gap-2 py-2 sm:py-2 md:py-3 min-h-[40px] md:min-h-[48px] rounded-lg bg-pos-retail/10 hover:bg-pos-retail/20 active:bg-pos-retail/30 text-pos-retail text-[10px] sm:text-xs md:text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
@@ -155,6 +156,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
           Eceran
         </button>
         <button
+          type="button"
           onClick={() => handleAdd('bulk')}
           disabled={isOutOfStock}
           className="flex-1 flex items-center justify-center gap-0.5 sm:gap-1 md:gap-2 py-2 sm:py-2 md:py-3 min-h-[40px] md:min-h-[48px] rounded-lg bg-pos-bulk/10 hover:bg-pos-bulk/20 active:bg-pos-bulk/30 text-pos-bulk text-[10px] sm:text-xs md:text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
