@@ -405,8 +405,8 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Responsive product grid: 2 cols mobile, 3 tablet, 3-4 desktop */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+            {/* Responsive product grid: 2 cols mobile, 2 cols tablet (bigger cards), 3 cols xl desktop */}
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-2 sm:gap-4 md:gap-5">
               {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
