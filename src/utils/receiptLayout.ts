@@ -106,15 +106,15 @@ export const buildInvoiceLines = (
     const itemDiscount = Number(item.discount) || 0;
     totalItemDiscount += itemDiscount;
     
-    // Line 1: Item name only (left-aligned, full width)
+    // Line 1: Item name only (left-aligned, BOLD)
     const nameStr = sanitizeReceiptText(item.product?.name || 'Item');
-    lines.push(nameStr);
+    lines.push('@@BOLD@@' + nameStr);
     
-    // Line 2: "  2x @3.500" on left, subtotal on right
+    // Line 2: "  2x @3.500" on left, subtotal on right (subtotal BOLD)
     const qtyPriceStr = `  ${quantity}x @${formatRupiah(retailPrice)}`;
     const subtotalStr = formatRupiah(retailTotal);
     const spacing = LINE_WIDTH - qtyPriceStr.length - subtotalStr.length;
-    lines.push(qtyPriceStr + ' '.repeat(Math.max(1, spacing)) + subtotalStr);
+    lines.push(qtyPriceStr + ' '.repeat(Math.max(1, spacing)) + '@@BOLD@@' + subtotalStr);
     
     // Line 3: Bulk discount if exists (right-aligned with minus)
     if (bulkDiscount > 0) {
