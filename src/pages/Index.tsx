@@ -56,16 +56,28 @@ const Index = () => {
     loadProducts();
   }, [loadProducts]);
 
-  // Auto-fullscreen on tablet (768px - 1280px)
+  // Auto-fullscreen on tablet (768px - 1280px) - only after user interaction
   useEffect(() => {
-    const isTablet = window.innerWidth >= 768 && window.innerWidth < 1280;
-    if (isTablet && isSupported && !isFullscreen) {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
+    const handleFirstInteraction = () => {
+      const isTablet = window.innerWidth >= 768 && window.innerWidth < 1280;
+      if (isTablet && isSupported && !isFullscreen) {
         toggleFullscreen();
-      }, 500);
-      return () => clearTimeout(timer);
+      }
+      // Remove listener after first interaction
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
+
+    const isTablet = window.innerWidth >= 768 && window.innerWidth < 1280;
+    if (isTablet && isSupported) {
+      document.addEventListener('click', handleFirstInteraction, { once: true });
+      document.addEventListener('touchstart', handleFirstInteraction, { once: true });
     }
+
+    return () => {
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+    };
   }, [isSupported]); // Only run on mount
 
   // Pull-to-refresh handlers
