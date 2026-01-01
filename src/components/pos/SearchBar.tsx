@@ -14,6 +14,11 @@ export function SearchBar({ value, onChange }: SearchBarProps) {
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
         placeholder="Cari produk..."
         className="pl-12 pr-10 h-12 bg-secondary/50 border-border text-base"
       />

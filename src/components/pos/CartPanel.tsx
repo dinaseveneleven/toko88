@@ -168,11 +168,16 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
                   <span className="text-xs text-muted-foreground">Disc:</span>
                   <span className="text-xs text-muted-foreground">Rp</span>
                   <Input
-                    type="number"
+type="number"
                     value={discount || ''}
                     onChange={(e) => {
                       const val = Math.min(Math.max(0, parseInt(e.target.value) || 0), originalTotal);
                       onSetDiscount(item.product.id, item.priceType, val);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        (e.target as HTMLInputElement).blur();
+                      }
                     }}
                     placeholder="0"
                     className="w-24 h-6 text-right font-mono text-xs px-1"
