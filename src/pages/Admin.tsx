@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from 'next-themes';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2, Link, Save, MapPin, Phone, Building2, CreditCard, Upload, Image, Printer, Bluetooth, Unlink, Percent } from 'lucide-react';
+import { ArrowLeft, UserPlus, Trash2, Shield, ShoppingCart, Loader2, Link, Save, MapPin, Phone, Building2, CreditCard, Upload, Image, Printer, Bluetooth, Unlink, Percent, Sun, Moon } from 'lucide-react';
 import { isBluetoothSupported, PRINTER_SERVICE_UUIDS, PRINTER_CHARACTERISTIC_UUIDS } from '@/utils/escpos';
 
 type AppRole = 'admin' | 'cashier';
@@ -36,6 +37,7 @@ interface UserWithRole {
 
 export default function Admin() {
   const navigate = useNavigate();
+  const { theme, setTheme } = useTheme();
   const { isAuthenticated, isAdmin, isLoadingRole } = useAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -531,6 +533,36 @@ export default function Admin() {
       </header>
 
       <main className="container max-w-4xl mx-auto px-4 py-6 space-y-8">
+        {/* Theme Settings */}
+        <section className="pos-card p-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            {theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            Tampilan
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Pilih tema tampilan aplikasi
+          </p>
+          
+          <div className="flex gap-3">
+            <Button
+              variant={theme === 'light' ? 'default' : 'outline'}
+              onClick={() => setTheme('light')}
+              className="flex-1 gap-2"
+            >
+              <Sun className="w-4 h-4" />
+              Light
+            </Button>
+            <Button
+              variant={theme === 'dark' ? 'default' : 'outline'}
+              onClick={() => setTheme('dark')}
+              className="flex-1 gap-2"
+            >
+              <Moon className="w-4 h-4" />
+              Dark
+            </Button>
+          </div>
+        </section>
+
         {/* Store Info Settings */}
         <section className="pos-card p-6">
           <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
