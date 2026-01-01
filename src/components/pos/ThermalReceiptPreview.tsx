@@ -19,7 +19,7 @@ export function ThermalReceiptPreview({ receipt, storeInfo, type }: ThermalRecei
       {/* Paper texture effect */}
       <div className="bg-gradient-to-b from-gray-50 to-white p-4">
         <pre 
-          className="font-mono text-[11px] leading-relaxed whitespace-pre text-center"
+          className="font-mono text-[11px] leading-relaxed whitespace-pre text-left"
           style={{ fontFamily: "'Courier New', Courier, monospace" }}
         >
           {plainText}
