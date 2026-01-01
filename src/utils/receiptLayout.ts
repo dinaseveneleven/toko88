@@ -127,9 +127,6 @@ export const buildInvoiceLines = (
       const discountStr = `-${formatRupiah(itemDiscount)}`;
       lines.push(padLeft(discountStr, LINE_WIDTH));
     }
-    
-    // Empty line between items for readability
-    lines.push('');
   }
   
   lines.push(createSeparator('-'));
