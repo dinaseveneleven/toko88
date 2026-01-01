@@ -244,14 +244,25 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
   return lines;
 };
 
-// Render lines as plain text (for preview) - strips formatting tags
+// Render lines as plain text (for preview) - applies centering and strips other tags
 export const renderPlainText = (lines: string[]): string => {
   return lines.map(line => {
+    const shouldCenter = line.includes('@@CENTER@@');
+    const isDouble = line.includes('@@DOUBLE@@');
+    
     // Remove formatting tags
-    return line
+    let cleanLine = line
       .replace(/@@CENTER@@/g, '')
       .replace(/@@BOLD@@/g, '')
       .replace(/@@DOUBLE@@/g, '');
+    
+    // Center the line if it had @@CENTER@@ tag
+    if (shouldCenter && cleanLine.trim().length > 0) {
+      const width = isDouble ? LINE_WIDTH_DOUBLE : LINE_WIDTH;
+      cleanLine = centerText(cleanLine.trim(), width);
+    }
+    
+    return cleanLine;
   }).join('\n');
 };
 
