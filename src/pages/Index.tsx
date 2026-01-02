@@ -71,20 +71,29 @@ const Index = () => {
     loadProducts();
   }, [loadProducts]);
 
-  // Auto-fullscreen on tablet (768px - 1280px) - only after user interaction
+  // Auto-fullscreen on tablet/phone (touch devices under 1280px) - only once per session
   useEffect(() => {
+    const hasAutoFullscreened = sessionStorage.getItem('auto-fullscreen-done');
+    if (hasAutoFullscreened) return;
+
     const handleFirstInteraction = () => {
-      const isTablet = window.innerWidth >= 768 && window.innerWidth < 1280;
-      if (isTablet && isSupported && !isFullscreen) {
+      // Only for touch devices (tablets/phones) with width < 1280px (not desktop)
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isNotDesktop = window.innerWidth < 1280;
+      
+      if (isTouchDevice && isNotDesktop && isSupported && !isFullscreen) {
         toggleFullscreen();
+        sessionStorage.setItem('auto-fullscreen-done', 'true');
       }
-      // Remove listener after first interaction
+      // Remove listeners after first interaction
       document.removeEventListener('click', handleFirstInteraction);
       document.removeEventListener('touchstart', handleFirstInteraction);
     };
 
-    const isTablet = window.innerWidth >= 768 && window.innerWidth < 1280;
-    if (isTablet && isSupported) {
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isNotDesktop = window.innerWidth < 1280;
+    
+    if (isTouchDevice && isNotDesktop && isSupported) {
       document.addEventListener('click', handleFirstInteraction, { once: true });
       document.addEventListener('touchstart', handleFirstInteraction, { once: true });
     }
