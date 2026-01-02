@@ -195,7 +195,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
 
   return (
     <Dialog open={open} onOpenChange={resetAndClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-md md:max-w-lg max-h-[90vh] overflow-hidden flex flex-col bg-card border-border">
+      <DialogContent className="max-w-[95vw] sm:max-w-md md:max-w-lg max-h-[85vh] landscape:max-h-[75vh] overflow-hidden flex flex-col bg-card border-border">
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center gap-2">
             {step !== 'payment' && (
@@ -212,7 +212,7 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto pr-1 -mr-1">
+        <div className="flex-1 overflow-y-auto pr-1 -mr-1 scroll-smooth" style={{ WebkitOverflowScrolling: 'touch' }}>
 
         {/* Customer Name & Total Display */}
         <div className="bg-secondary/50 rounded-xl p-4 mb-4">
@@ -222,6 +222,17 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
+              onFocus={(e) => {
+                setTimeout(() => {
+                  e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+              }}
+              enterKeyHint="done"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
               placeholder="Masukkan nama pelanggan..."
               className="h-10"
             />
@@ -300,8 +311,20 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
               <label className="text-sm text-muted-foreground mb-2 block">Jumlah Uang Diterima</label>
               <Input
                 type="text"
+                inputMode="numeric"
+                enterKeyHint="done"
                 value={cashReceived ? formatRupiah(parseInt(cashReceived.replace(/\D/g, '')) || 0) : ''}
                 onChange={(e) => setCashReceived(e.target.value.replace(/\D/g, ''))}
+                onFocus={(e) => {
+                  setTimeout(() => {
+                    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 300);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
                 placeholder="Masukkan jumlah..."
                 className="h-14 text-xl font-mono"
                 autoFocus
@@ -526,8 +549,20 @@ export function CheckoutModal({ open, onClose, items, onComplete }: CheckoutModa
                 <label className="text-sm text-muted-foreground mb-2 block">Nomor WhatsApp</label>
                 <Input
                   type="tel"
+                  inputMode="tel"
+                  enterKeyHint="done"
                   value={whatsappNumber}
                   onChange={(e) => setWhatsappNumber(e.target.value)}
+                  onFocus={(e) => {
+                    setTimeout(() => {
+                      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
                   placeholder="08xx xxxx xxxx"
                   className="h-12"
                 />
