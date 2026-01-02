@@ -3,7 +3,7 @@ import { buildInvoiceLines, buildWorkerCopyLines, renderPlainText } from '@/util
 
 interface ThermalReceiptPreviewProps {
   receipt: ReceiptData;
-  storeInfo?: { address: string; phone: string };
+  storeInfo?: { name?: string; address: string; phone: string };
   type: 'invoice' | 'worker';
 }
 

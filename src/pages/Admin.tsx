@@ -53,6 +53,7 @@ export default function Admin() {
   const [isSavingUrl, setIsSavingUrl] = useState(false);
 
   // Store info settings
+  const [storeName, setStoreName] = useState('');
   const [storeAddress, setStoreAddress] = useState('');
   const [storePhone, setStorePhone] = useState('');
   const [isSavingStoreInfo, setIsSavingStoreInfo] = useState(false);
@@ -103,6 +104,7 @@ export default function Admin() {
       }, {} as Record<string, string>) || {};
 
       setPublicInvoiceUrl(settings['public_invoice_base_url'] || '');
+      setStoreName(settings['store_name'] || '');
       setStoreAddress(settings['store_address'] || '');
       setStorePhone(settings['store_phone'] || '');
       setBankName(settings['bank_name'] || '');
@@ -146,6 +148,7 @@ export default function Admin() {
     setIsSavingStoreInfo(true);
     try {
       await Promise.all([
+        updateSetting('store_name', storeName.trim() || null),
         updateSetting('store_address', storeAddress.trim() || null),
         updateSetting('store_phone', storePhone.trim() || null),
       ]);
@@ -574,6 +577,15 @@ export default function Admin() {
           </p>
           
           <div className="space-y-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Nama Toko</label>
+              <Input
+                type="text"
+                placeholder="TOKO BESI 88"
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+              />
+            </div>
             <div>
               <label className="text-sm text-muted-foreground mb-1 block">Alamat Toko</label>
               <Input
