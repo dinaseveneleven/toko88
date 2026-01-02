@@ -32,7 +32,7 @@ const paymentMethodLabels: Record<string, string> = {
 export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: ReceiptDisplayProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null);
-  const [storeInfo, setStoreInfo] = useState<{ address: string; phone: string } | null>(null);
+  const [storeInfo, setStoreInfo] = useState<{ name: string; address: string; phone: string } | null>(null);
   const [invoicePrinted, setInvoicePrinted] = useState(false);
   const [carbonCopyPrinted, setCarbonCopyPrinted] = useState(false);
   const [showWorkerCopy, setShowWorkerCopy] = useState(false);
@@ -52,6 +52,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
       
       setPublicBaseUrl(settings['public_invoice_base_url'] || null);
       setStoreInfo({
+        name: settings['store_name'] || 'TOKO BESI 88',
         address: settings['store_address'] || 'Jl. Raya No. 88, Jakarta',
         phone: settings['store_phone'] || '(021) 1234-5678',
       });
@@ -72,6 +73,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const baseUrl = publicBaseUrl || window.location.origin;
   const showWarning = !publicBaseUrl && isPreviewUrl;
 
+  const storeName = storeInfo?.name || 'TOKO BESI 88';
   const storeAddress = storeInfo?.address || receipt.storeInfo?.address || 'Jl. Raya No. 88, Jakarta';
   const storePhone = storeInfo?.phone || receipt.storeInfo?.phone || '(021) 1234-5678';
   const paymentLabel = paymentMethodLabels[receipt.paymentMethod] || receipt.paymentMethod;
@@ -79,7 +81,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const generateReceiptText = () => {
     const lines = [
       '================================',
-      '         TOKO BESI 88',
+      `         ${storeName}`,
       `    ${storeAddress}`,
       `      Tel: ${storePhone}`,
       '================================',

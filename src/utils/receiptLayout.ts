@@ -63,12 +63,13 @@ const formatTwoColumn = (left: string, right: string, width: number = LINE_WIDTH
 // Build invoice lines (customer receipt)
 export const buildInvoiceLines = (
   receipt: ReceiptData, 
-  storeInfo?: { address: string; phone: string }
+  storeInfo?: { name?: string; address: string; phone: string }
 ): string[] => {
   const lines: string[] = [];
   
   // Header (will be printed centered with special formatting)
-  lines.push('@@CENTER@@TOKO BESI 88@@DOUBLE@@');
+  const storeName = sanitizeReceiptText(storeInfo?.name || 'TOKO BESI 88');
+  lines.push(`@@CENTER@@${storeName}@@DOUBLE@@`);
   
   const address = sanitizeReceiptText(storeInfo?.address || receipt.storeInfo?.address || 'Jl. Raya No. 88');
   const phone = sanitizeReceiptText(storeInfo?.phone || receipt.storeInfo?.phone || '(021) 1234-5678');

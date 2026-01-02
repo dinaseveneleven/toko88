@@ -70,7 +70,7 @@ const processLine = (line: string, bytes: number[]): void => {
 };
 
 // Build complete receipt as byte array (Customer Invoice)
-export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { address: string; phone: string }): Uint8Array => {
+export const buildReceiptBytes = (receipt: ReceiptData, storeInfo?: { name?: string; address: string; phone: string }): Uint8Array => {
   const bytes: number[] = [];
   
   // Initialize printer and set code page

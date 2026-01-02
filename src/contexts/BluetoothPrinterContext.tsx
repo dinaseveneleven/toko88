@@ -23,8 +23,8 @@ interface BluetoothPrinterContextType {
   hasSavedPrinter: boolean;
   connectPrinter: () => Promise<boolean>;
   disconnectPrinter: () => void;
-  printReceipt: (receipt: ReceiptData, storeInfo?: { address: string; phone: string }, printWorkerCopy?: boolean) => Promise<boolean>;
-  printInvoiceOnly: (receipt: ReceiptData, storeInfo?: { address: string; phone: string }) => Promise<boolean>;
+  printReceipt: (receipt: ReceiptData, storeInfo?: { name?: string; address: string; phone: string }, printWorkerCopy?: boolean) => Promise<boolean>;
+  printInvoiceOnly: (receipt: ReceiptData, storeInfo?: { name?: string; address: string; phone: string }) => Promise<boolean>;
   printCarbonCopyOnly: (receipt: ReceiptData) => Promise<boolean>;
 }
 
@@ -476,7 +476,7 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
 
   const printReceipt = useCallback(async (
     receipt: ReceiptData, 
-    storeInfo?: { address: string; phone: string },
+    storeInfo?: { name?: string; address: string; phone: string },
     printWorkerCopy: boolean = true
   ): Promise<boolean> => {
     if (!state.isConnected) {
@@ -539,7 +539,7 @@ export function BluetoothPrinterProvider({ children }: { children: ReactNode }) 
 
   const printInvoiceOnly = useCallback(async (
     receipt: ReceiptData, 
-    storeInfo?: { address: string; phone: string }
+    storeInfo?: { name?: string; address: string; phone: string }
   ): Promise<boolean> => {
     if (!state.isConnected) {
       toast({
