@@ -12,13 +12,13 @@ import { BluetoothPrinterButton } from '@/components/pos/BluetoothPrinterButton'
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
+import { useTripleTap } from '@/hooks/useTripleTap';
 import { supabase } from '@/integrations/supabase/client';
 import { Package, LogOut, Shield, RefreshCw, History, Maximize, Minimize } from 'lucide-react';
 import logo88 from '@/assets/logo-88.png';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useFullscreen } from '@/hooks/useFullscreen';
-
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -37,6 +37,21 @@ const Index = () => {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pricingMode, setPricingMode] = useState<'retail' | 'grosir'>('retail');
+
+  // Triple-tap gesture to toggle pricing mode
+  const { handleTap: handleLogoTap } = useTripleTap({
+    onTripleTap: () => {
+      const newMode = pricingMode === 'retail' ? 'grosir' : 'retail';
+      setPricingMode(newMode);
+      toast({
+        title: newMode === 'grosir' ? 'Mode Grosir Aktif' : 'Mode Eceran Aktif',
+        description: newMode === 'grosir' 
+          ? 'Tap 3x logo untuk kembali ke mode eceran' 
+          : 'Harga eceran ditampilkan',
+      });
+    },
+  });
 
   // Pull-to-refresh state
   const [pullStartY, setPullStartY] = useState(0);
@@ -125,7 +140,10 @@ const Index = () => {
     });
   }, [products, search, selectedCategory]);
 
-  const handleAddToCart = (product: Product, priceType: 'retail' | 'bulk', quantity: number = 1) => {
+  const handleAddToCart = (product: Product, quantity: number = 1) => {
+    // Determine priceType from current pricingMode
+    const priceType: 'retail' | 'bulk' = pricingMode === 'grosir' ? 'bulk' : 'retail';
+    
     setCart((prev) => {
       const existingIndex = prev.findIndex(
         (item) => item.product.id === product.id && item.priceType === priceType
@@ -340,13 +358,32 @@ const Index = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="container max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
           <div className="flex items-center justify-between gap-2">
-            {/* Logo - smaller on mobile */}
+            {/* Logo - smaller on mobile, triple-tap to toggle mode */}
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-              <img src={logo88} alt="Toko 88" className="h-8 sm:h-12 w-auto rounded-lg sm:rounded-xl" />
+              <img 
+                src={logo88} 
+                alt="Toko 88" 
+                className="h-8 sm:h-12 w-auto rounded-lg sm:rounded-xl cursor-pointer select-none" 
+                onClick={handleLogoTap}
+                onTouchEnd={handleLogoTap}
+              />
               <div className="hidden sm:block">
-                <h1 className="font-bold text-xl tracking-tight">TOKO 88</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-bold text-xl tracking-tight">TOKO 88</h1>
+                  {pricingMode === 'grosir' && (
+                    <span className="text-[10px] font-semibold bg-pos-bulk/20 text-pos-bulk px-2 py-0.5 rounded-full animate-pulse">
+                      GROSIR
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">Point of Sale System</p>
               </div>
+              {/* Mobile mode indicator */}
+              {pricingMode === 'grosir' && (
+                <span className="sm:hidden text-[10px] font-semibold bg-pos-bulk/20 text-pos-bulk px-2 py-0.5 rounded-full animate-pulse">
+                  GROSIR
+                </span>
+              )}
             </div>
 
             {/* Navigation - icon only on mobile */}
@@ -448,6 +485,7 @@ const Index = () => {
                 <ProductCard
                   key={product.id}
                   product={product}
+                  pricingMode={pricingMode}
                   onAdd={handleAddToCart}
                 />
               ))}
