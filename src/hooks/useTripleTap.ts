@@ -5,7 +5,7 @@ interface UseTripleTapOptions {
   timeWindow?: number; // ms between taps
 }
 
-export function useTripleTap({ onTripleTap, timeWindow = 500 }: UseTripleTapOptions) {
+export function useTripleTap({ onTripleTap, timeWindow = 1000 }: UseTripleTapOptions) {
   const tapTimestamps = useRef<number[]>([]);
 
   const handleTap = useCallback(() => {
