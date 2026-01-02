@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 
 interface ProductCardProps {
   product: Product;
-  onAdd: (product: Product, priceType: 'retail' | 'bulk', quantity: number) => void;
+  pricingMode: 'retail' | 'grosir';
+  onAdd: (product: Product, quantity: number) => void;
 }
 
 const formatRupiah = (num: number) => {
@@ -17,11 +18,16 @@ const formatRupiah = (num: number) => {
   }).format(num);
 };
 
-export function ProductCard({ product, onAdd }: ProductCardProps) {
+export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
   const [quantity, setQuantity] = useState(1);
   const [inputValue, setInputValue] = useState('1');
   const isOutOfStock = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock <= 10;
+
+  const isGrosir = pricingMode === 'grosir';
+  const displayPrice = isGrosir ? product.bulkPrice : product.retailPrice;
+  const priceLabel = isGrosir ? 'Grosir' : 'Eceran';
+  const accentColor = isGrosir ? 'pos-bulk' : 'pos-retail';
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => {
@@ -54,7 +60,6 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
   };
 
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Move cursor to end of input for better mobile/tablet UX
     const input = e.target;
     const length = input.value.length;
     setTimeout(() => {
@@ -62,8 +67,8 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
     }, 0);
   };
 
-  const handleAdd = (priceType: 'retail' | 'bulk') => {
-    onAdd(product, priceType, quantity);
+  const handleAdd = () => {
+    onAdd(product, quantity);
     setQuantity(1);
     setInputValue('1');
   };
@@ -90,22 +95,17 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-0.5 sm:gap-1 md:gap-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">Eceran</span>
-          <span className="font-mono text-xs sm:text-sm md:text-lg text-pos-retail font-semibold">
-            {formatRupiah(product.retailPrice)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] sm:text-xs md:text-sm text-muted-foreground">Grosir</span>
-          <span className="font-mono text-xs sm:text-sm md:text-lg text-pos-bulk font-semibold">
-            {formatRupiah(product.bulkPrice)}
-          </span>
-        </div>
+      {/* Single price display based on mode */}
+      <div className="flex items-center justify-between">
+        <span className={`text-[10px] sm:text-xs md:text-sm text-${accentColor} font-medium`}>
+          {priceLabel}
+        </span>
+        <span className={`font-mono text-sm sm:text-base md:text-xl text-${accentColor} font-bold`}>
+          {formatRupiah(displayPrice)}
+        </span>
       </div>
 
-      {/* Quantity selector - touch-friendly sizes */}
+      {/* Quantity selector */}
       {!isOutOfStock && (
         <div className="flex items-center justify-center gap-1 sm:gap-2 md:gap-3">
           <Button
@@ -144,25 +144,16 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
         </div>
       )}
 
-      {/* Add buttons - touch-friendly with min heights */}
-      <div className="flex gap-1 sm:gap-2 md:gap-3 mt-auto">
+      {/* Single add button */}
+      <div className="mt-auto">
         <button
           type="button"
-          onClick={() => handleAdd('retail')}
+          onClick={handleAdd}
           disabled={isOutOfStock}
-          className="flex-1 flex items-center justify-center gap-0.5 sm:gap-1 md:gap-2 py-2 sm:py-2 md:py-3 min-h-[40px] md:min-h-[48px] rounded-lg bg-pos-retail/10 hover:bg-pos-retail/20 active:bg-pos-retail/30 text-pos-retail text-[10px] sm:text-xs md:text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          className={`w-full flex items-center justify-center gap-1 sm:gap-2 py-2 sm:py-2.5 md:py-3 min-h-[40px] md:min-h-[48px] rounded-lg bg-${accentColor}/10 hover:bg-${accentColor}/20 active:bg-${accentColor}/30 text-${accentColor} text-xs sm:text-sm md:text-base font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed`}
         >
-          <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4" />
-          Eceran
-        </button>
-        <button
-          type="button"
-          onClick={() => handleAdd('bulk')}
-          disabled={isOutOfStock}
-          className="flex-1 flex items-center justify-center gap-0.5 sm:gap-1 md:gap-2 py-2 sm:py-2 md:py-3 min-h-[40px] md:min-h-[48px] rounded-lg bg-pos-bulk/10 hover:bg-pos-bulk/20 active:bg-pos-bulk/30 text-pos-bulk text-[10px] sm:text-xs md:text-sm font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4" />
-          Grosir
+          <Plus className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+          Tambah
         </button>
       </div>
     </div>
