@@ -27,7 +27,14 @@ export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
   const isGrosir = pricingMode === 'grosir';
   const displayPrice = isGrosir ? product.bulkPrice : product.retailPrice;
   const priceLabel = isGrosir ? 'Grosir' : 'Eceran';
-  const accentColor = isGrosir ? 'pos-bulk' : 'pos-retail';
+  
+  // Use full class names for Tailwind to detect them at build time
+  const priceClasses = isGrosir 
+    ? 'text-pos-bulk' 
+    : 'text-pos-retail';
+  const buttonClasses = isGrosir 
+    ? 'bg-pos-bulk/20 hover:bg-pos-bulk/30 active:bg-pos-bulk/40 text-pos-bulk border border-pos-bulk/50' 
+    : 'bg-pos-retail/10 hover:bg-pos-retail/20 active:bg-pos-retail/30 text-pos-retail';
 
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => {
@@ -97,10 +104,10 @@ export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
 
       {/* Single price display based on mode */}
       <div className="flex items-center justify-between">
-        <span className={`text-[10px] sm:text-xs md:text-sm text-${accentColor} font-medium`}>
+        <span className={`text-[10px] sm:text-xs md:text-sm ${priceClasses} font-medium`}>
           {priceLabel}
         </span>
-        <span className={`font-mono text-sm sm:text-base md:text-xl text-${accentColor} font-bold`}>
+        <span className={`font-mono text-sm sm:text-base md:text-xl ${priceClasses} font-bold`}>
           {formatRupiah(displayPrice)}
         </span>
       </div>
@@ -150,7 +157,7 @@ export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
           type="button"
           onClick={handleAdd}
           disabled={isOutOfStock}
-          className={`w-full flex items-center justify-center gap-1 sm:gap-2 py-2 sm:py-2.5 md:py-3 min-h-[40px] md:min-h-[48px] rounded-lg bg-${accentColor}/10 hover:bg-${accentColor}/20 active:bg-${accentColor}/30 text-${accentColor} text-xs sm:text-sm md:text-base font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed`}
+          className={`w-full flex items-center justify-center gap-1 sm:gap-2 py-2 sm:py-2.5 md:py-3 min-h-[40px] md:min-h-[48px] rounded-lg ${buttonClasses} text-xs sm:text-sm md:text-base font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed`}
         >
           <Plus className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
           Tambah
