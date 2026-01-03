@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle, Loader2, Trash2, Wrench } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Save, RefreshCw, Edit2, Check, X, Search, AlertTriangle, PlusCircle, Loader2, Trash2, Wrench, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -8,6 +8,7 @@ import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
 import { AddProductModal } from '@/components/inventory/AddProductModal';
 import { VariantStockEditor } from '@/components/inventory/VariantStockEditor';
+import { VariantManagerModal } from '@/components/inventory/VariantManagerModal';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import {
   AlertDialog,
@@ -51,6 +52,8 @@ export default function Inventory() {
     addProduct,
     deleteProduct,
     repairPriceFormat,
+    addVariant,
+    deleteVariant,
     loading: isLoading,
     error: sheetsError,
   } = useGoogleSheets();
@@ -69,6 +72,7 @@ export default function Inventory() {
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isRepairingFormat, setIsRepairingFormat] = useState(false);
+  const [variantManagerProduct, setVariantManagerProduct] = useState<Product | null>(null);
   // Debounce timeouts for stock input typing
   const stockDebounceRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -758,14 +762,25 @@ export default function Inventory() {
                           </Button>
                         </>
                       ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => startEditing(product.id)}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary hover:text-primary"
+                            onClick={() => setVariantManagerProduct(product)}
+                            title="Kelola Varian"
+                          >
+                            <Layers className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => startEditing(product.id)}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
 
@@ -880,14 +895,25 @@ export default function Inventory() {
                           </span>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => isEditing ? confirmEditing() : startEditing(product.id)}
-                      >
-                        {isEditing ? <Check className="w-3 h-3 text-green-600" /> : <Edit2 className="w-3 h-3" />}
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-primary"
+                          onClick={() => setVariantManagerProduct(product)}
+                          title="Kelola Varian"
+                        >
+                          <Layers className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => isEditing ? confirmEditing() : startEditing(product.id)}
+                        >
+                          {isEditing ? <Check className="w-3 h-3 text-green-600" /> : <Edit2 className="w-3 h-3" />}
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Bulk price and delete only shown when editing */}
@@ -991,6 +1017,18 @@ export default function Inventory() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Variant Manager Modal */}
+      {variantManagerProduct && (
+        <VariantManagerModal
+          open={!!variantManagerProduct}
+          onOpenChange={(open) => !open && setVariantManagerProduct(null)}
+          product={variantManagerProduct}
+          onAddVariant={addVariant}
+          onDeleteVariant={deleteVariant}
+          onSuccess={loadProducts}
+        />
+      )}
     </div>
   );
 }

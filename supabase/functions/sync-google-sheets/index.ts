@@ -40,7 +40,7 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS);
 
 // Input validation schemas
-const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'deleteProduct', 'repairPriceFormat', 'updateVariantStock'] as const;
+const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'deleteProduct', 'repairPriceFormat', 'updateVariantStock', 'addVariant', 'deleteVariant'] as const;
 type ValidAction = typeof VALID_ACTIONS[number];
 
 function isValidAction(action: string): action is ValidAction {
@@ -492,7 +492,7 @@ serve(async (req) => {
     }
 
     // Actions that require authentication
-    const authRequiredActions = ['addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'updateVariantStock'];
+    const authRequiredActions = ['addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'updateVariantStock', 'addVariant', 'deleteVariant'];
     
     let user = null;
     
@@ -850,6 +850,164 @@ serve(async (req) => {
       await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Variant stock updated for ${variantUpdates.length} variants`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Action: Add a new variant to an existing product
+    if (action === "addVariant") {
+      const { productId, variantCode, variantName, stock } = data || {};
+
+      if (!productId || typeof productId !== 'string') {
+        return new Response(
+          JSON.stringify({ error: 'Invalid product ID' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const validatedProductId = validateString(productId, 'Product ID', 50);
+      const validatedVariantCode = validateString(variantCode, 'Variant Code', 50);
+      const validatedVariantName = validateString(variantName || variantCode, 'Variant Name', 100);
+      const validatedStock = validateStock(stock ?? 0);
+
+      // Get existing products to find the product data
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+
+      // Find the product (any row with matching ID)
+      let productData: any[] | null = null;
+      const normalizedRequestId = normalizeProductIdForMatch(validatedProductId);
+
+      for (const row of rows) {
+        const rowId = String(row[0] ?? '').trim();
+        if (normalizeProductIdForMatch(rowId) === normalizedRequestId) {
+          productData = row;
+          break;
+        }
+      }
+
+      if (!productData) {
+        return new Response(
+          JSON.stringify({ error: 'Product not found' }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if variant already exists
+      for (const row of rows) {
+        const rowId = String(row[0] ?? '').trim();
+        const existingVariantCode = String(row[7] ?? '').trim();
+        if (normalizeProductIdForMatch(rowId) === normalizedRequestId && 
+            existingVariantCode.toUpperCase() === validatedVariantCode.toUpperCase()) {
+          return new Response(
+            JSON.stringify({ error: 'Variant with this code already exists' }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      // Create new variant row with same product info
+      const newVariantRow = [
+        productData[0], // ID
+        productData[1], // Name
+        parseRupiah(productData[2]), // RetailPrice
+        parseRupiah(productData[3]), // BulkPrice
+        parseRupiah(productData[4]), // PurchasePrice
+        validatedStock, // Stock for this variant
+        productData[6] || '', // Category
+        sanitizeForSheets(validatedVariantCode), // VariantCode
+        sanitizeForSheets(validatedVariantName), // VariantName
+      ];
+
+      await appendSheetData(accessToken, sheetId, "Products!A:I", [newVariantRow]);
+      await ensureProductsCurrencyFormat(accessToken, sheetId);
+
+      console.log(`[${requestId}] Variant ${validatedVariantCode} added to product ${validatedProductId}`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Action: Delete a variant from a product
+    if (action === "deleteVariant") {
+      const { productId, variantCode } = data || {};
+
+      if (!productId || typeof productId !== 'string') {
+        return new Response(
+          JSON.stringify({ error: 'Invalid product ID' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!variantCode || typeof variantCode !== 'string') {
+        return new Response(
+          JSON.stringify({ error: 'Invalid variant code' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const validatedProductId = validateString(productId, 'Product ID', 50);
+      const validatedVariantCode = validateString(variantCode, 'Variant Code', 50);
+
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const normalizedRequestId = normalizeProductIdForMatch(validatedProductId);
+
+      // Find the row index of the variant to delete
+      let rowIndexToDelete = -1;
+      for (let i = 0; i < rows.length; i++) {
+        const rowId = String(rows[i][0] ?? '').trim();
+        const existingVariantCode = String(rows[i][7] ?? '').trim();
+        
+        if (normalizeProductIdForMatch(rowId) === normalizedRequestId && 
+            existingVariantCode.toUpperCase() === validatedVariantCode.toUpperCase()) {
+          rowIndexToDelete = i;
+          break;
+        }
+      }
+
+      if (rowIndexToDelete === -1) {
+        return new Response(
+          JSON.stringify({ error: 'Variant not found' }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get the numeric sheet ID
+      const numericSheetId = await getSheetNumericId(accessToken, sheetId, 'Products');
+
+      // Delete the row (row index + 1 for header row, 0-based for API)
+      const sheetRowIndex = rowIndexToDelete + 1;
+      
+      const deleteUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`;
+      const deleteResponse = await fetch(deleteUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requests: [{
+            deleteDimension: {
+              range: {
+                sheetId: numericSheetId,
+                dimension: "ROWS",
+                startIndex: sheetRowIndex,
+                endIndex: sheetRowIndex + 1
+              }
+            }
+          }]
+        }),
+      });
+
+      if (!deleteResponse.ok) {
+        const errorData = await deleteResponse.text();
+        console.error(`[${requestId}] Failed to delete variant row:`, errorData);
+        throw new Error("Failed to delete variant");
+      }
+
+      console.log(`[${requestId}] Variant ${validatedVariantCode} deleted from product ${validatedProductId}`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
