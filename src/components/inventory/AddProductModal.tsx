@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AddProductModalProps {
   open: boolean;
@@ -30,6 +31,7 @@ export function AddProductModal({
 }: AddProductModalProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bulkPricePercentage, setBulkPricePercentage] = useState(98);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -37,8 +39,31 @@ export function AddProductModal({
     purchasePrice: '',
     retailPrice: '',
     bulkPrice: '',
-    stock: '0',
+    stock: '',
   });
+
+  // Fetch bulk price percentage from settings
+  useEffect(() => {
+    const fetchBulkPricePercentage = async () => {
+      try {
+        const { data } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'bulk_price_percentage')
+          .single();
+        
+        if (data?.value) {
+          setBulkPricePercentage(parseInt(data.value, 10) || 98);
+        }
+      } catch {
+        // Use default 98%
+      }
+    };
+    
+    if (open) {
+      fetchBulkPricePercentage();
+    }
+  }, [open]);
 
   const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -51,12 +76,12 @@ export function AddProductModal({
       purchasePrice: '',
       retailPrice: '',
       bulkPrice: '',
-      stock: '0',
+      stock: '',
     });
   };
 
   const handleSubmit = async () => {
-    // Validation
+    // Validation - only name, category, and retail price are required
     if (!formData.name.trim()) {
       toast({ title: "Error", description: "Nama produk harus diisi", variant: "destructive" });
       return;
@@ -65,17 +90,17 @@ export function AddProductModal({
       toast({ title: "Error", description: "Kategori harus diisi", variant: "destructive" });
       return;
     }
-    if (!formData.purchasePrice || parseInt(formData.purchasePrice) <= 0) {
-      toast({ title: "Error", description: "Harga modal harus lebih dari 0", variant: "destructive" });
-      return;
-    }
     if (!formData.retailPrice || parseInt(formData.retailPrice) <= 0) {
       toast({ title: "Error", description: "Harga eceran harus lebih dari 0", variant: "destructive" });
       return;
     }
-    if (!formData.bulkPrice || parseInt(formData.bulkPrice) <= 0) {
-      toast({ title: "Error", description: "Harga grosir harus lebih dari 0", variant: "destructive" });
-      return;
+
+    const retailPrice = parseInt(formData.retailPrice) || 0;
+    
+    // Calculate bulk price if not provided
+    let bulkPrice = parseInt(formData.bulkPrice) || 0;
+    if (bulkPrice === 0) {
+      bulkPrice = Math.round(retailPrice * bulkPricePercentage / 100);
     }
 
     setIsSubmitting(true);
@@ -84,8 +109,8 @@ export function AddProductModal({
       name: formData.name.trim(),
       category: formData.category.trim(),
       purchasePrice: parseInt(formData.purchasePrice) || 0,
-      retailPrice: parseInt(formData.retailPrice) || 0,
-      bulkPrice: parseInt(formData.bulkPrice) || 0,
+      retailPrice: retailPrice,
+      bulkPrice: bulkPrice,
       stock: parseInt(formData.stock) || 0,
     });
 
@@ -105,6 +130,10 @@ export function AddProductModal({
     resetForm();
     onOpenChange(false);
   };
+
+  // Calculate auto bulk price for display hint
+  const retailPriceNum = parseInt(formData.retailPrice) || 0;
+  const autoBulkPrice = retailPriceNum > 0 ? Math.round(retailPriceNum * bulkPricePercentage / 100) : 0;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -142,16 +171,17 @@ export function AddProductModal({
             </datalist>
           </div>
 
-          {/* Purchase Price */}
+          {/* Purchase Price - Optional */}
           <div className="space-y-2">
-            <Label htmlFor="purchasePrice">Harga Modal (Rp) *</Label>
+            <Label htmlFor="purchasePrice" className="text-muted-foreground">Harga Modal (Rp)</Label>
             <Input
               id="purchasePrice"
               type="number"
-              placeholder="0"
+              placeholder="Opsional"
               min={0}
               value={formData.purchasePrice}
               onChange={(e) => handleChange('purchasePrice', e.target.value)}
+              className="placeholder:text-muted-foreground/50"
             />
           </div>
 
@@ -168,22 +198,28 @@ export function AddProductModal({
             />
           </div>
 
-          {/* Bulk Price */}
+          {/* Bulk Price - Optional with auto calculation hint */}
           <div className="space-y-2">
-            <Label htmlFor="bulkPrice">Harga Grosir (Rp) *</Label>
+            <Label htmlFor="bulkPrice" className="text-muted-foreground">Harga Grosir (Rp)</Label>
             <Input
               id="bulkPrice"
               type="number"
-              placeholder="0"
+              placeholder={autoBulkPrice > 0 ? `Auto: ${autoBulkPrice.toLocaleString('id-ID')} (${bulkPricePercentage}%)` : 'Opsional'}
               min={0}
               value={formData.bulkPrice}
               onChange={(e) => handleChange('bulkPrice', e.target.value)}
+              className="placeholder:text-muted-foreground/50"
             />
+            {retailPriceNum > 0 && !formData.bulkPrice && (
+              <p className="text-xs text-muted-foreground">
+                Otomatis: {autoBulkPrice.toLocaleString('id-ID')} ({bulkPricePercentage}% dari eceran)
+              </p>
+            )}
           </div>
 
-          {/* Initial Stock */}
+          {/* Initial Stock - Optional with transparent placeholder */}
           <div className="space-y-2">
-            <Label htmlFor="stock">Stok Awal</Label>
+            <Label htmlFor="stock" className="text-muted-foreground">Stok Awal</Label>
             <Input
               id="stock"
               type="number"
@@ -191,6 +227,7 @@ export function AddProductModal({
               min={0}
               value={formData.stock}
               onChange={(e) => handleChange('stock', e.target.value)}
+              className="placeholder:text-muted-foreground/30"
             />
           </div>
         </div>
