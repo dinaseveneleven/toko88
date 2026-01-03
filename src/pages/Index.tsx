@@ -162,8 +162,15 @@ const Index = () => {
 
 
   const filteredProducts = useMemo(() => {
+    const searchLower = search.toLowerCase();
     return products.filter((product) => {
-      const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
+      const matchesName = product.name.toLowerCase().includes(searchLower);
+      // Also search in variant names and codes
+      const matchesVariant = product.variants?.some(
+        v => v.name.toLowerCase().includes(searchLower) || 
+             v.code.toLowerCase().includes(searchLower)
+      ) || false;
+      const matchesSearch = matchesName || matchesVariant;
       const matchesCategory = !selectedCategory || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
