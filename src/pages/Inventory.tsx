@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
 import { AddProductModal } from '@/components/inventory/AddProductModal';
+import { VariantStockEditor } from '@/components/inventory/VariantStockEditor';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import {
   AlertDialog,
@@ -46,6 +47,7 @@ export default function Inventory() {
     fetchProducts,
     updateInventory,
     updateStock,
+    updateVariantStock,
     addProduct,
     deleteProduct,
     repairPriceFormat,
@@ -63,6 +65,7 @@ export default function Inventory() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [savingStockIds, setSavingStockIds] = useState<Set<string>>(new Set());
+  const [savingVariantKeys, setSavingVariantKeys] = useState<Set<string>>(new Set());
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [isRepairingFormat, setIsRepairingFormat] = useState(false);
@@ -296,6 +299,53 @@ export default function Inventory() {
     }));
     saveStockNow(productId, newStock);
   }, [editedProducts, saveStockNow]);
+
+  // Handle variant stock update
+  const handleUpdateVariantStock = useCallback(async (productId: string, variantCode: string, stock: number) => {
+    const variantKey = `${productId}|${variantCode}`;
+    
+    setSavingVariantKeys(prev => new Set(prev).add(variantKey));
+    
+    try {
+      const success = await updateVariantStock([{ productId, variantCode, stock }]);
+      
+      if (success) {
+        // Update local product state
+        setProducts(prev => prev.map(p => {
+          if (p.id === productId && p.variants) {
+            const updatedVariants = p.variants.map(v => 
+              v.code === variantCode ? { ...v, stock } : v
+            );
+            const totalStock = updatedVariants.reduce((sum, v) => sum + v.stock, 0);
+            return { ...p, variants: updatedVariants, stock: totalStock };
+          }
+          return p;
+        }));
+        
+        // Broadcast update
+        broadcastProductsUpdated({ productId, stock });
+      } else {
+        toast({
+          title: 'Gagal',
+          description: sheetsError ?? 'Gagal update stok varian',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('[Inventory] Variant stock update error:', err);
+      toast({
+        title: 'Gagal',
+        description: 'Gagal update stok varian',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingVariantKeys(prev => {
+        const next = new Set(prev);
+        next.delete(variantKey);
+        return next;
+      });
+    }
+  }, [updateVariantStock, broadcastProductsUpdated, toast, sheetsError]);
 
   const startEditing = (productId: string) => {
     setEditingProductId(productId);
@@ -718,6 +768,19 @@ export default function Inventory() {
                         </Button>
                       )}
                     </div>
+
+                    {/* Variant Stock Editor - Desktop */}
+                    {product.variants && product.variants.length > 0 && (
+                      <div className="col-span-7 mt-2">
+                        <VariantStockEditor
+                          productId={product.id}
+                          productName={product.name}
+                          variants={product.variants}
+                          onUpdateVariantStock={handleUpdateVariantStock}
+                          savingVariantKeys={savingVariantKeys}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Mobile Layout */}
@@ -867,6 +930,17 @@ export default function Inventory() {
                           </Button>
                         </div>
                       </div>
+                    )}
+
+                    {/* Variant Stock Editor - Mobile */}
+                    {product.variants && product.variants.length > 0 && (
+                      <VariantStockEditor
+                        productId={product.id}
+                        productName={product.name}
+                        variants={product.variants}
+                        onUpdateVariantStock={handleUpdateVariantStock}
+                        savingVariantKeys={savingVariantKeys}
+                      />
                     )}
                   </div>
                 </div>
