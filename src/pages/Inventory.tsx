@@ -60,6 +60,17 @@ export default function Inventory() {
   // Debounce timeouts for stock input typing
   const stockDebounceRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
+  // Broadcast to other pages/tabs (POS) that product data has changed
+  const broadcastProductsUpdated = useCallback((payload: { productId: string; stock: number }) => {
+    const message = { ...payload, ts: Date.now() };
+    try {
+      localStorage.setItem('pos:products_updated', JSON.stringify(message));
+    } catch {
+      // ignore storage errors
+    }
+    window.dispatchEvent(new CustomEvent('pos:products_updated', { detail: message }));
+  }, []);
+
   // Per-product stock save queue to prevent request races overwriting newer values
   // (e.g. debounce + blur + rapid typing causing multiple updateStock calls)
   const stockSaveStateRef = useRef<Record<string, { inFlight: boolean; pending?: number }>>({});
@@ -162,6 +173,9 @@ export default function Inventory() {
           [productId]: { ...prev[productId], stock: target },
         }));
 
+        // Tell POS to refresh products
+        broadcastProductsUpdated({ productId, stock: target });
+
         break;
       }
     } catch (err) {
@@ -191,7 +205,7 @@ export default function Inventory() {
         return next;
       });
     }
-  }, [updateStock, products, toast]);
+  }, [updateStock, products, toast, broadcastProductsUpdated]);
 
   const handleFieldChange = (productId: string, field: keyof EditedProduct, value: number) => {
     const safeValue = Number.isFinite(value) ? value : 0;

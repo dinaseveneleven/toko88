@@ -71,6 +71,27 @@ const Index = () => {
     loadProducts();
   }, [loadProducts]);
 
+  // Refresh products when Inventory updates stock (same tab + other tabs)
+  useEffect(() => {
+    const handleCustom = () => {
+      loadProducts();
+    };
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'pos:products_updated') {
+        loadProducts();
+      }
+    };
+
+    window.addEventListener('pos:products_updated', handleCustom as EventListener);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      window.removeEventListener('pos:products_updated', handleCustom as EventListener);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [loadProducts]);
+
   // Auto-fullscreen on tablet/phone (touch devices under 1280px) - only once per session
   useEffect(() => {
     const hasAutoFullscreened = sessionStorage.getItem('auto-fullscreen-done');
