@@ -303,6 +303,70 @@ export function useGoogleSheets() {
     []
   );
 
+  const addVariant = useCallback(
+    async (productId: string, variantCode: string, variantName: string, stock: number): Promise<boolean> => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+          body: {
+            action: 'addVariant',
+            data: { productId, variantCode, variantName, stock },
+          },
+        });
+
+        if (fnError) {
+          const details = await extractFunctionErrorDetails(fnError);
+          throw new Error(details.message);
+        }
+        if (data?.error) throw new Error(data.error);
+
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to add variant';
+        setError(message);
+        console.error('Error adding variant:', err);
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const deleteVariant = useCallback(
+    async (productId: string, variantCode: string): Promise<boolean> => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+          body: {
+            action: 'deleteVariant',
+            data: { productId, variantCode },
+          },
+        });
+
+        if (fnError) {
+          const details = await extractFunctionErrorDetails(fnError);
+          throw new Error(details.message);
+        }
+        if (data?.error) throw new Error(data.error);
+
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to delete variant';
+        setError(message);
+        console.error('Error deleting variant:', err);
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   return {
     loading,
     error,
@@ -314,5 +378,7 @@ export function useGoogleSheets() {
     deleteProduct,
     repairPriceFormat,
     updateVariantStock,
+    addVariant,
+    deleteVariant,
   };
 }
