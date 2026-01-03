@@ -57,10 +57,12 @@ export function useGoogleSheets() {
   }, []);
 
   const updateStock = useCallback(async (stockUpdates: { id: string; stock: number }[]): Promise<boolean> => {
+    console.log('[useGoogleSheets] updateStock called with:', stockUpdates);
     setLoading(true);
     setError(null);
 
     try {
+      console.log('[useGoogleSheets] Invoking sync-google-sheets with action: updateStock');
       const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
         body: { 
           action: 'updateStock',
@@ -68,14 +70,17 @@ export function useGoogleSheets() {
         }
       });
 
+      console.log('[useGoogleSheets] Response:', { data, fnError });
+
       if (fnError) throw new Error(fnError.message);
       if (data.error) throw new Error(data.error);
 
+      console.log('[useGoogleSheets] updateStock success');
       return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update stock';
       setError(message);
-      console.error('Error updating stock:', err);
+      console.error('[useGoogleSheets] Error updating stock:', err);
       return false;
     } finally {
       setLoading(false);
