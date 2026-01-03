@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Product, CartItem, ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
 import { ProductCard } from '@/components/pos/ProductCard';
+import { ProductGridSkeleton } from '@/components/pos/ProductCardSkeleton';
 import { CartPanel } from '@/components/pos/CartPanel';
 import { CheckoutModal } from '@/components/pos/CheckoutModal';
 import { ReceiptDisplay } from '@/components/pos/ReceiptDisplay';
@@ -23,7 +24,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAuthenticated, isAdmin, logout } = useAuth();
-  const { fetchProducts, saveTransaction, updateStock, error: sheetsError } = useGoogleSheets();
+  const { fetchProducts, getCachedProducts, saveTransaction, updateStock, error: sheetsError } = useGoogleSheets();
   const { isFullscreen, isSupported, toggleFullscreen } = useFullscreen();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -64,6 +65,14 @@ const Index = () => {
     }
     setInitialLoadDone(true);
   }, [fetchProducts]);
+
+  // Load cached products immediately for instant display
+  useEffect(() => {
+    const cached = getCachedProducts();
+    if (cached && cached.length > 0) {
+      setProducts(cached);
+    }
+  }, [getCachedProducts]);
 
   // Auto-load products from Google Sheets on mount
   useEffect(() => {
@@ -553,17 +562,21 @@ const Index = () => {
 
             {/* Responsive product grid: 2 cols mobile, 2 cols tablet (bigger cards), 3 cols xl desktop */}
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-2 sm:gap-4 md:gap-5">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  pricingMode={pricingMode}
-                  onAdd={handleAddToCart}
-                />
-              ))}
+              {!initialLoadDone && products.length === 0 ? (
+                <ProductGridSkeleton count={6} />
+              ) : (
+                filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    pricingMode={pricingMode}
+                    onAdd={handleAddToCart}
+                  />
+                ))
+              )}
             </div>
 
-            {filteredProducts.length === 0 && (
+            {initialLoadDone && filteredProducts.length === 0 && products.length > 0 && (
               <div className="text-center py-8 sm:py-12 text-muted-foreground">
                 <p className="text-base sm:text-lg">Produk tidak ditemukan</p>
                 <p className="text-xs sm:text-sm">Coba kata kunci lain</p>

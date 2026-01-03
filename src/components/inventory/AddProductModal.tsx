@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAppSettings } from '@/hooks/useAppSettings';
 
 interface AddProductModalProps {
   open: boolean;
@@ -30,8 +30,10 @@ export function AddProductModal({
   addProduct 
 }: AddProductModalProps) {
   const { toast } = useToast();
+  const { settings } = useAppSettings();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [bulkPricePercentage, setBulkPricePercentage] = useState(98);
+  
+  const bulkPricePercentage = parseInt(settings?.bulk_price_percentage || '98', 10);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -41,29 +43,6 @@ export function AddProductModal({
     bulkPrice: '',
     stock: '',
   });
-
-  // Fetch bulk price percentage from settings
-  useEffect(() => {
-    const fetchBulkPricePercentage = async () => {
-      try {
-        const { data } = await supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'bulk_price_percentage')
-          .single();
-        
-        if (data?.value) {
-          setBulkPricePercentage(parseInt(data.value, 10) || 98);
-        }
-      } catch {
-        // Use default 98%
-      }
-    };
-    
-    if (open) {
-      fetchBulkPricePercentage();
-    }
-  }, [open]);
 
   const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));

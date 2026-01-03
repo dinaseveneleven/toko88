@@ -1,11 +1,11 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { ReceiptData, ReceiptDeliveryMethod } from '@/types/pos';
 import { ThermalReceiptPreview } from './ThermalReceiptPreview';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Download, Printer, Check, MessageCircle, AlertTriangle, Bluetooth, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAppSettings } from '@/hooks/useAppSettings';
 import { useBluetoothPrinter } from '@/hooks/useBluetoothPrinter';
 
 interface ReceiptDisplayProps {
@@ -31,42 +31,31 @@ const paymentMethodLabels: Record<string, string> = {
 
 export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: ReceiptDisplayProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
-  const [publicBaseUrl, setPublicBaseUrl] = useState<string | null>(null);
-  const [storeInfo, setStoreInfo] = useState<{ name: string; address: string; phone: string } | null>(null);
+  const { settings } = useAppSettings();
   const [invoicePrinted, setInvoicePrinted] = useState(false);
   const [carbonCopyPrinted, setCarbonCopyPrinted] = useState(false);
   const [showWorkerCopy, setShowWorkerCopy] = useState(false);
   
   const { printReceipt, printInvoiceOnly, printCarbonCopyOnly, isPrinting, isConnected, connectPrinter, isConnecting } = useBluetoothPrinter();
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      const { data } = await supabase
-        .from('app_settings')
-        .select('key, value');
-      
-      const settings = data?.reduce((acc, item) => {
-        acc[item.key] = item.value || '';
-        return acc;
-      }, {} as Record<string, string>) || {};
-      
-      setPublicBaseUrl(settings['public_invoice_base_url'] || null);
-      setStoreInfo({
-        name: settings['store_name'] || 'TOKO BESI 88',
-        address: settings['store_address'] || 'Jl. Raya No. 88, Jakarta',
-        phone: settings['store_phone'] || '(021) 1234-5678',
-      });
-    };
-    
-    if (open) {
-      fetchSettings();
+  // Reset print states when modal opens
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
       setInvoicePrinted(false);
       setCarbonCopyPrinted(false);
       setShowWorkerCopy(false);
+      onClose();
     }
-  }, [open]);
+  };
 
   if (!receipt) return null;
+
+  const publicBaseUrl = settings?.public_invoice_base_url || null;
+  const storeInfo = settings ? {
+    name: settings.store_name || 'TOKO BESI 88',
+    address: settings.store_address || 'Jl. Raya No. 88, Jakarta',
+    phone: settings.store_phone || '(021) 1234-5678',
+  } : null;
 
   // Use public URL if set, otherwise fallback to current origin
   const isPreviewUrl = window.location.origin.includes('lovable.dev');
@@ -151,7 +140,7 @@ export function ReceiptDisplay({ open, onClose, receipt, deliveryMethod }: Recei
   const qrData = `${baseUrl}/invoice/${receipt.id}`;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg bg-card border-border max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
