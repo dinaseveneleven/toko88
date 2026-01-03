@@ -40,7 +40,7 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS);
 
 // Input validation schemas
-const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'deleteProduct', 'repairPriceFormat'] as const;
+const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'deleteProduct', 'repairPriceFormat', 'updateVariantStock'] as const;
 type ValidAction = typeof VALID_ACTIONS[number];
 
 function isValidAction(action: string): action is ValidAction {
@@ -249,6 +249,16 @@ async function getSheetNumericId(accessToken: string, sheetId: string, title: st
   return numericId;
 }
 
+// Check if a sheet exists
+async function sheetExists(accessToken: string, sheetId: string, title: string): Promise<boolean> {
+  try {
+    await getSheetNumericId(accessToken, sheetId, title);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function ensureProductsCurrencyFormat(accessToken: string, sheetId: string): Promise<void> {
   const numericSheetId = await getSheetNumericId(accessToken, sheetId, 'Products');
 
@@ -346,6 +356,48 @@ function normalizeProductIdForMatch(id: string): string {
   return trimmed.toUpperCase();
 }
 
+// Fetch variants from the Variants sheet
+async function fetchVariants(accessToken: string, sheetId: string): Promise<Map<string, { code: string; name: string; stock: number }[]>> {
+  const variantsMap = new Map<string, { code: string; name: string; stock: number }[]>();
+  
+  // Check if Variants sheet exists
+  const exists = await sheetExists(accessToken, sheetId, 'Variants');
+  if (!exists) {
+    console.log('Variants sheet does not exist, skipping variants fetch');
+    return variantsMap;
+  }
+
+  try {
+    // Variants sheet format: Product ID | Variant Code | Variant Name | Stock
+    const rows = await getSheetData(accessToken, sheetId, "Variants!A2:D");
+    
+    for (const row of rows) {
+      const productId = String(row[0] ?? '').trim();
+      const variantCode = String(row[1] ?? '').trim();
+      const variantName = String(row[2] ?? '').trim();
+      const stock = parseInt(String(row[3]).replace(/[^\d]/g, '')) || 0;
+      
+      if (!productId || !variantCode) continue;
+      
+      const normalizedProductId = normalizeProductIdForMatch(productId);
+      
+      if (!variantsMap.has(normalizedProductId)) {
+        variantsMap.set(normalizedProductId, []);
+      }
+      
+      variantsMap.get(normalizedProductId)!.push({
+        code: variantCode,
+        name: variantName || variantCode,
+        stock,
+      });
+    }
+  } catch (err) {
+    console.warn('Failed to fetch variants:', err);
+  }
+  
+  return variantsMap;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -369,7 +421,7 @@ serve(async (req) => {
     }
 
     // Actions that require authentication
-    const authRequiredActions = ['addTransaction', 'updateStock', 'updateInventory', 'addProduct'];
+    const authRequiredActions = ['addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'updateVariantStock'];
     
     let user = null;
     
@@ -454,6 +506,9 @@ serve(async (req) => {
       
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
       
+      // Fetch variants
+      const variantsMap = await fetchVariants(accessToken, sheetId);
+      
       // Track products that need bulk price update
       const productsToUpdate: { index: number; bulkPrice: number }[] = [];
       
@@ -467,14 +522,27 @@ serve(async (req) => {
           productsToUpdate.push({ index, bulkPrice });
         }
         
+        const productId = sanitizeForSheets(row[0]) || String(index + 1);
+        const normalizedId = normalizeProductIdForMatch(productId);
+        
+        // Get variants for this product
+        const productVariants = variantsMap.get(normalizedId);
+        
+        // Calculate total stock from variants if they exist
+        let stock = parseInt(String(row[5]).replace(/[^\d]/g, '')) || 0;
+        if (productVariants && productVariants.length > 0) {
+          stock = productVariants.reduce((sum, v) => sum + v.stock, 0);
+        }
+        
         return {
-          id: sanitizeForSheets(row[0]) || String(index + 1),
+          id: productId,
           name: sanitizeForSheets(row[1]) || "",
           retailPrice,
           bulkPrice,
           purchasePrice: parseRupiah(row[4]),
-          stock: parseInt(String(row[5]).replace(/[^\d]/g, '')) || 0,
+          stock,
           category: sanitizeForSheets(row[6]) || "Lainnya",
+          ...(productVariants && productVariants.length > 0 ? { variants: productVariants } : {}),
         };
       });
 
@@ -554,10 +622,11 @@ serve(async (req) => {
         }
       }
 
-      // Format items for the sheet (sanitized)
-      const itemsSummary = receipt.items.map((item: any) => 
-        `${sanitizeForSheets(item.product.name)} x${item.quantity} (${item.priceType === 'retail' ? 'Eceran' : 'Grosir'})`
-      ).join("; ");
+      // Format items for the sheet (sanitized) - include variant info
+      const itemsSummary = receipt.items.map((item: any) => {
+        const variantInfo = item.variantName ? ` [${item.variantName}]` : '';
+        return `${sanitizeForSheets(item.product.name)}${variantInfo} x${item.quantity} (${item.priceType === 'retail' ? 'Eceran' : 'Grosir'})`;
+      }).join("; ");
 
       const row = [
         sanitizeForSheets(receipt.id),
@@ -639,6 +708,83 @@ serve(async (req) => {
       await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Stock updated for ${stockUpdates.length} products`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // New action: Update variant stock
+    if (action === "updateVariantStock") {
+      const { variantUpdates } = data || {};
+
+      if (!variantUpdates || !Array.isArray(variantUpdates)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid variant stock update data' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check if Variants sheet exists
+      const exists = await sheetExists(accessToken, sheetId, 'Variants');
+      if (!exists) {
+        return new Response(
+          JSON.stringify({ error: 'Variants sheet does not exist. Please create it first.' }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate updates
+      for (const update of variantUpdates) {
+        validateString(update.productId, 'Product ID', 50);
+        validateString(update.variantCode, 'Variant Code', 50);
+        validateStock(update.stock);
+      }
+
+      const rows = await getSheetData(accessToken, sheetId, "Variants!A2:D");
+
+      // Create a map for quick lookup: "normalizedProductId|variantCode" -> update
+      const updatesByKey = new Map<string, { productId: string; variantCode: string; stock: number }>();
+      for (const u of variantUpdates) {
+        const key = `${normalizeProductIdForMatch(String(u.productId))}|${String(u.variantCode).toUpperCase()}`;
+        updatesByKey.set(key, { productId: String(u.productId), variantCode: String(u.variantCode), stock: u.stock });
+      }
+
+      const appliedKeys = new Set<string>();
+
+      const updatedRows = rows.map((row) => {
+        const productId = String(row[0] ?? '').trim();
+        const variantCode = String(row[1] ?? '').trim();
+        const key = `${normalizeProductIdForMatch(productId)}|${variantCode.toUpperCase()}`;
+        const update = updatesByKey.get(key);
+
+        if (update) {
+          appliedKeys.add(key);
+          return [row[0], row[1], row[2], update.stock];
+        }
+
+        return row;
+      });
+
+      const notFoundUpdates = variantUpdates.filter((u) => {
+        const key = `${normalizeProductIdForMatch(String(u.productId))}|${String(u.variantCode).toUpperCase()}`;
+        return !appliedKeys.has(key);
+      });
+
+      if (notFoundUpdates.length > 0) {
+        console.log(`[${requestId}] updateVariantStock: Variants not found: ${JSON.stringify(notFoundUpdates)}`);
+        return new Response(
+          JSON.stringify({
+            error: 'Some variants were not found in Google Sheets',
+            notFoundVariants: notFoundUpdates.map(u => ({ productId: u.productId, variantCode: u.variantCode })),
+          }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      await updateSheetData(accessToken, sheetId, "Variants!A2:D", updatedRows);
+
+      console.log(`[${requestId}] Variant stock updated for ${variantUpdates.length} variants`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
