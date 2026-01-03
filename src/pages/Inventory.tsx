@@ -113,18 +113,19 @@ export default function Inventory() {
     }
   };
 
-  // Auto-save stock to backend
+  // Auto-save stock to backend - use ref to avoid stale closures
   const saveStockNow = useCallback(async (productId: string, newStock: number) => {
     const safeStock = Math.max(0, Number.isFinite(newStock) ? newStock : 0);
     
-    // Get previous value for rollback (from editedProducts, not products array)
-    const prevStock = editedProducts[productId]?.stock ?? 0;
+    console.log('[Inventory] saveStockNow called:', { productId, newStock, safeStock });
     
     // Mark as saving
     setSavingStockIds(prev => new Set(prev).add(productId));
     
     try {
+      console.log('[Inventory] Calling updateStock API...');
       const success = await updateStock([{ id: productId, stock: safeStock }]);
+      console.log('[Inventory] updateStock result:', success);
       
       if (!success) {
         throw new Error('Failed to update stock');
@@ -132,11 +133,22 @@ export default function Inventory() {
       
       // On success, sync the products array (base value) to match
       setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: safeStock } : p));
-    } catch (err) {
-      // Rollback editedProducts on failure
+      
+      // Also update editedProducts to keep them in sync
       setEditedProducts(prev => ({
         ...prev,
-        [productId]: { ...prev[productId], stock: prevStock }
+        [productId]: { ...prev[productId], stock: safeStock }
+      }));
+    } catch (err) {
+      console.error('[Inventory] Stock update error:', err);
+      
+      // Rollback editedProducts on failure - get current value from products
+      const product = products.find(p => p.id === productId);
+      const rollbackStock = product?.stock ?? 0;
+      
+      setEditedProducts(prev => ({
+        ...prev,
+        [productId]: { ...prev[productId], stock: rollbackStock }
       }));
       
       toast({
@@ -151,7 +163,7 @@ export default function Inventory() {
         return next;
       });
     }
-  }, [editedProducts, updateStock, toast]);
+  }, [updateStock, products, toast]);
 
   const handleFieldChange = (productId: string, field: keyof EditedProduct, value: number) => {
     const safeValue = Number.isFinite(value) ? value : 0;
