@@ -60,6 +60,10 @@ export default function Inventory() {
   // Debounce timeouts for stock input typing
   const stockDebounceRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
+  // Per-product stock save queue to prevent request races overwriting newer values
+  // (e.g. debounce + blur + rapid typing causing multiple updateStock calls)
+  const stockSaveStateRef = useRef<Record<string, { inFlight: boolean; pending?: number }>>({});
+
   // Get unique categories from products
   const categories = useMemo(() => {
     const cats = [...new Set(products.map(p => p.category))];
@@ -113,50 +117,74 @@ export default function Inventory() {
     }
   };
 
-  // Auto-save stock to backend - use ref to avoid stale closures
+  // Auto-save stock to backend (serialized per product to prevent out-of-order overwrites)
   const saveStockNow = useCallback(async (productId: string, newStock: number) => {
     const safeStock = Math.max(0, Number.isFinite(newStock) ? newStock : 0);
-    
-    console.log('[Inventory] saveStockNow called:', { productId, newStock, safeStock });
-    
+
+    const state = stockSaveStateRef.current[productId] ?? { inFlight: false };
+    stockSaveStateRef.current[productId] = state;
+
+    // If a save is already in progress for this product, just record the latest desired value.
+    if (state.inFlight) {
+      state.pending = safeStock;
+      return;
+    }
+
+    state.inFlight = true;
+
     // Mark as saving
     setSavingStockIds(prev => new Set(prev).add(productId));
-    
+
+    let target = safeStock;
+
     try {
-      console.log('[Inventory] Calling updateStock API...');
-      const success = await updateStock([{ id: productId, stock: safeStock }]);
-      console.log('[Inventory] updateStock result:', success);
-      
-      if (!success) {
-        throw new Error('Failed to update stock');
+      // Loop in case user changed stock again while request was in flight
+      // so the last value always wins (and is the one persisted to Sheets).
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const success = await updateStock([{ id: productId, stock: target }]);
+
+        if (!success) {
+          throw new Error('Failed to update stock');
+        }
+
+        // If another value arrived during the request, send one more update with latest.
+        if (typeof state.pending === 'number' && state.pending !== target) {
+          target = state.pending;
+          state.pending = undefined;
+          continue;
+        }
+
+        // On success, sync local state to the last persisted value
+        setProducts(prev => prev.map(p => (p.id === productId ? { ...p, stock: target } : p)));
+        setEditedProducts(prev => ({
+          ...prev,
+          [productId]: { ...prev[productId], stock: target },
+        }));
+
+        break;
       }
-      
-      // On success, sync the products array (base value) to match
-      setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: safeStock } : p));
-      
-      // Also update editedProducts to keep them in sync
-      setEditedProducts(prev => ({
-        ...prev,
-        [productId]: { ...prev[productId], stock: safeStock }
-      }));
     } catch (err) {
       console.error('[Inventory] Stock update error:', err);
-      
-      // Rollback editedProducts on failure - get current value from products
+
+      // Rollback editedProducts on failure - use current products state as source of truth
       const product = products.find(p => p.id === productId);
       const rollbackStock = product?.stock ?? 0;
-      
+
       setEditedProducts(prev => ({
         ...prev,
-        [productId]: { ...prev[productId], stock: rollbackStock }
+        [productId]: { ...prev[productId], stock: rollbackStock },
       }));
-      
+
       toast({
-        title: "Gagal",
-        description: "Gagal update stok",
-        variant: "destructive",
+        title: 'Gagal',
+        description: 'Gagal update stok',
+        variant: 'destructive',
       });
     } finally {
+      state.inFlight = false;
+      state.pending = undefined;
+
       setSavingStockIds(prev => {
         const next = new Set(prev);
         next.delete(productId);
