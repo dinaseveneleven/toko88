@@ -313,18 +313,18 @@ function parseRupiah(value: string | number): number {
   if (!value) {
     return 0;
   }
-  
+
   const original = String(value);
-  
+
   let cleaned = original
     .replace(/Rp\.?/gi, '')
     .replace(/IDR/gi, '')
     .replace(/\s/g, '')
     .trim();
-  
+
   const hasDecimalComma = /\d,\d{1,2}$/.test(cleaned);
   const hasDecimalDot = /\d\.\d{1,2}$/.test(cleaned);
-  
+
   if (hasDecimalComma) {
     cleaned = cleaned.replace(/\./g, '').replace(',', '.');
   } else if (hasDecimalDot) {
@@ -332,8 +332,18 @@ function parseRupiah(value: string | number): number {
   } else {
     cleaned = cleaned.replace(/[.,]/g, '');
   }
-  
+
   return parseFloat(cleaned) || 0;
+}
+
+// Normalize product IDs for matching between app and Sheets.
+// Accepts formats like "P001", "p105", "105", "0007" and normalizes to digits ("1", "105", "7").
+// If it doesn't look numeric, returns trimmed uppercase string.
+function normalizeProductIdForMatch(id: string): string {
+  const trimmed = String(id ?? '').trim();
+  const match = trimmed.match(/^P?0*(\d+)$/i);
+  if (match) return String(parseInt(match[1], 10));
+  return trimmed.toUpperCase();
 }
 
 serve(async (req) => {
@@ -573,7 +583,7 @@ serve(async (req) => {
 
     if (action === "updateStock") {
       const { stockUpdates } = data || {};
-      
+
       if (!stockUpdates || !Array.isArray(stockUpdates)) {
         return new Response(
           JSON.stringify({ error: 'Invalid stock update data' }),
@@ -588,16 +598,42 @@ serve(async (req) => {
       }
 
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
-      
+
+      const updatesByKey = new Map<string, { id: string; stock: number }>();
+      for (const u of stockUpdates) {
+        updatesByKey.set(normalizeProductIdForMatch(String(u.id)), { id: String(u.id), stock: u.stock });
+      }
+
+      const appliedKeys = new Set<string>();
+
       const updatedRows = rows.map((row) => {
-        const productId = String(row[0] ?? '').trim();
-        const update = stockUpdates.find((u: { id: string; stock: number }) => String(u.id).trim() === productId);
+        const rowId = String(row[0] ?? '').trim();
+        const rowKey = normalizeProductIdForMatch(rowId);
+        const update = updatesByKey.get(rowKey);
         const normalized = normalizeProductsRow(row);
+
         if (update) {
           normalized[5] = update.stock;
+          appliedKeys.add(rowKey);
         }
+
         return normalized;
       });
+
+      const notFoundIds = stockUpdates
+        .filter((u) => !appliedKeys.has(normalizeProductIdForMatch(String(u.id))))
+        .map((u) => String(u.id));
+
+      if (notFoundIds.length > 0) {
+        console.log(`[${requestId}] updateStock: IDs not found in sheet: ${notFoundIds.join(', ')}`);
+        return new Response(
+          JSON.stringify({
+            error: 'Some products were not found in Google Sheets (ID mismatch)',
+            notFoundIds,
+          }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
       await ensureProductsCurrencyFormat(accessToken, sheetId);
@@ -611,7 +647,7 @@ serve(async (req) => {
 
     if (action === "updateInventory") {
       const { inventoryUpdates } = data || {};
-      
+
       if (!inventoryUpdates || !Array.isArray(inventoryUpdates)) {
         return new Response(
           JSON.stringify({ error: 'Invalid inventory update data' }),
@@ -637,13 +673,22 @@ serve(async (req) => {
       }
 
       const rows = await getSheetData(accessToken, sheetId, "Products!A2:G");
-      
+
+      const updatesByKey = new Map<string, any>();
+      for (const u of inventoryUpdates) {
+        updatesByKey.set(normalizeProductIdForMatch(String(u.id)), u);
+      }
+
+      const appliedKeys = new Set<string>();
+
       const updatedRows = rows.map((row) => {
-        const productId = String(row[0] ?? '').trim();
-        const update = inventoryUpdates.find((u: any) => String(u.id ?? '').trim() === productId);
+        const rowId = String(row[0] ?? '').trim();
+        const rowKey = normalizeProductIdForMatch(rowId);
+        const update = updatesByKey.get(rowKey);
         const normalized = normalizeProductsRow(row);
 
         if (update) {
+          appliedKeys.add(rowKey);
           // Use explicit checks for 0 values - they should be saved, not treated as falsy
           const newRetailPrice = typeof update.retailPrice === 'number' ? update.retailPrice : normalized[2];
           const newBulkPrice = typeof update.bulkPrice === 'number' ? update.bulkPrice : normalized[3];
@@ -658,6 +703,21 @@ serve(async (req) => {
 
         return normalized;
       });
+
+      const notFoundIds = inventoryUpdates
+        .filter((u) => !appliedKeys.has(normalizeProductIdForMatch(String(u.id))))
+        .map((u) => String(u.id));
+
+      if (notFoundIds.length > 0) {
+        console.log(`[${requestId}] updateInventory: IDs not found in sheet: ${notFoundIds.join(', ')}`);
+        return new Response(
+          JSON.stringify({
+            error: 'Some products were not found in Google Sheets (ID mismatch)',
+            notFoundIds,
+          }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       await updateSheetData(accessToken, sheetId, "Products!A2:G", updatedRows);
       await ensureProductsCurrencyFormat(accessToken, sheetId);
