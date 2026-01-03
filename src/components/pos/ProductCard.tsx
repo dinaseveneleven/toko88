@@ -120,9 +120,19 @@ export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
       }`}
     >
       <div className="flex items-start justify-between gap-1 sm:gap-2 md:gap-3">
-        <h3 className="font-semibold text-foreground text-xs sm:text-sm md:text-base leading-tight line-clamp-2">
-          {product.name}
-        </h3>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-foreground text-xs sm:text-sm md:text-base leading-tight line-clamp-2">
+            {product.name}
+          </h3>
+          {/* Variant badge */}
+          {hasVariants && (
+            <div className="flex items-center gap-1 mt-1">
+              <span className="inline-flex items-center gap-0.5 text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                {product.variants!.length} varian
+              </span>
+            </div>
+          )}
+        </div>
         <div className={`flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs md:text-sm px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 md:py-1.5 rounded-full flex-shrink-0 ${
           allVariantsOutOfStock || (isOutOfStock && !hasVariants)
             ? 'bg-destructive/20 text-destructive' 
