@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef } from 'react';
+import { useState, useEffect, forwardRef } from 'react';
 import { CartItem } from '@/types/pos';
 import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,13 +8,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 // Separate component for quantity input to manage local state
 interface QuantityInputProps {
   item: CartItem;
-  onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number) => void;
+  onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number, variantCode?: string) => void;
 }
 
 const QuantityInput = forwardRef<HTMLInputElement, QuantityInputProps>(
   ({ item, onSetQuantity }, ref) => {
     const [localValue, setLocalValue] = useState<string>(String(item.quantity));
     const [isFocused, setIsFocused] = useState(false);
+    
+    // Get max stock for variant or product
+    const maxStock = item.variantCode && item.product.variants
+      ? (item.product.variants.find(v => v.code === item.variantCode)?.stock ?? item.product.stock)
+      : item.product.stock;
 
     // Only sync when not focused and external quantity changes
     useEffect(() => {
@@ -31,8 +36,8 @@ const QuantityInput = forwardRef<HTMLInputElement, QuantityInputProps>(
       setIsFocused(false);
       const parsed = parseInt(localValue);
       if (!isNaN(parsed) && parsed >= 1) {
-        const clamped = Math.min(parsed, item.product.stock);
-        onSetQuantity(item.product.id, item.priceType, clamped);
+        const clamped = Math.min(parsed, maxStock);
+        onSetQuantity(item.product.id, item.priceType, clamped, item.variantCode);
         setLocalValue(String(clamped));
       } else {
         // Revert to original quantity if invalid
@@ -64,7 +69,7 @@ const QuantityInput = forwardRef<HTMLInputElement, QuantityInputProps>(
         onFocus={handleFocus}
         className="w-16 h-7 text-left font-mono text-sm px-2"
         min={1}
-        max={item.product.stock}
+        max={maxStock}
       />
     );
   }
@@ -74,10 +79,10 @@ QuantityInput.displayName = 'QuantityInput';
 
 interface CartPanelProps {
   items: CartItem[];
-  onUpdateQuantity: (productId: string, priceType: 'retail' | 'bulk', delta: number) => void;
-  onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number) => void;
-  onSetDiscount: (productId: string, priceType: 'retail' | 'bulk', discount: number) => void;
-  onRemove: (productId: string, priceType: 'retail' | 'bulk') => void;
+  onUpdateQuantity: (productId: string, priceType: 'retail' | 'bulk', delta: number, variantCode?: string) => void;
+  onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number, variantCode?: string) => void;
+  onSetDiscount: (productId: string, priceType: 'retail' | 'bulk', discount: number, variantCode?: string) => void;
+  onRemove: (productId: string, priceType: 'retail' | 'bulk', variantCode?: string) => void;
   onClear: () => void;
   onCheckout: () => void;
 }
@@ -99,6 +104,15 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
   }, 0);
 
   const totalItems = items.length;
+
+  // Get max stock for an item (variant or product)
+  const getMaxStock = (item: CartItem) => {
+    if (item.variantCode && item.product.variants) {
+      const variant = item.product.variants.find(v => v.code === item.variantCode);
+      return variant?.stock ?? item.product.stock;
+    }
+    return item.product.stock;
+  };
 
   return (
     <div className="h-full flex flex-col bg-pos-cart rounded-2xl border border-border">
@@ -138,15 +152,24 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
             const discount = item.discount || 0;
             const originalTotal = price * item.quantity;
             const itemTotal = Math.max(0, originalTotal - discount);
+            const maxStock = getMaxStock(item);
+            
+            // Generate unique key for cart item (includes variant)
+            const itemKey = `${item.product.id}-${item.priceType}${item.variantCode ? `-${item.variantCode}` : ''}`;
             
             return (
               <div 
-                key={`${item.product.id}-${item.priceType}`}
+                key={itemKey}
                 className="bg-secondary/50 rounded-xl p-3 animate-fade-in"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm truncate">{item.product.name}</h4>
+                    <h4 className="font-medium text-sm truncate">
+                      {item.product.name}
+                      {item.variantName && (
+                        <span className="text-muted-foreground ml-1">[{item.variantName}]</span>
+                      )}
+                    </h4>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       item.priceType === 'retail' 
                         ? 'bg-pos-retail/20 text-pos-retail' 
@@ -156,7 +179,7 @@ export function CartPanel({ items, onUpdateQuantity, onSetQuantity, onSetDiscoun
                     </span>
                   </div>
                   <button
-                    onClick={() => onRemove(item.product.id, item.priceType)}
+                    onClick={() => onRemove(item.product.id, item.priceType, item.variantCode)}
                     className="p-1.5 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -172,7 +195,7 @@ type="number"
                     value={discount || ''}
                     onChange={(e) => {
                       const val = Math.min(Math.max(0, parseInt(e.target.value) || 0), originalTotal);
-                      onSetDiscount(item.product.id, item.priceType, val);
+                      onSetDiscount(item.product.id, item.priceType, val, item.variantCode);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -189,15 +212,15 @@ type="number"
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => onUpdateQuantity(item.product.id, item.priceType, -1)}
+                      onClick={() => onUpdateQuantity(item.product.id, item.priceType, -1, item.variantCode)}
                       className="w-7 h-7 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors"
                     >
                       <Minus className="w-3 h-3" />
                     </button>
                     <QuantityInput item={item} onSetQuantity={onSetQuantity} />
                     <button
-                      onClick={() => onUpdateQuantity(item.product.id, item.priceType, 1)}
-                      disabled={item.quantity >= item.product.stock}
+                      onClick={() => onUpdateQuantity(item.product.id, item.priceType, 1, item.variantCode)}
+                      disabled={item.quantity >= maxStock}
                       className="w-7 h-7 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-30"
                     >
                       <Plus className="w-3 h-3" />

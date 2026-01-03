@@ -271,6 +271,38 @@ export function useGoogleSheets() {
     }
   }, []);
 
+  const updateVariantStock = useCallback(
+    async (variantUpdates: { productId: string; variantCode: string; stock: number }[]): Promise<boolean> => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+          body: {
+            action: 'updateVariantStock',
+            data: { variantUpdates },
+          },
+        });
+
+        if (fnError) {
+          const details = await extractFunctionErrorDetails(fnError);
+          throw new Error(details.message);
+        }
+        if (data?.error) throw new Error(data.error);
+
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to update variant stock';
+        setError(message);
+        console.error('Error updating variant stock:', err);
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   return {
     loading,
     error,
@@ -281,5 +313,6 @@ export function useGoogleSheets() {
     addProduct,
     deleteProduct,
     repairPriceFormat,
+    updateVariantStock,
   };
 }

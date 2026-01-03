@@ -169,18 +169,30 @@ const Index = () => {
     });
   }, [products, search, selectedCategory]);
 
-  const handleAddToCart = (product: Product, quantity: number = 1) => {
+  const handleAddToCart = (product: Product, quantity: number = 1, variantCode?: string, variantName?: string) => {
     // Determine priceType from current pricingMode
     const priceType: 'retail' | 'bulk' = pricingMode === 'grosir' ? 'bulk' : 'retail';
     
+    // Get available stock for this variant or product
+    let availableStock = product.stock;
+    if (variantCode && product.variants) {
+      const variant = product.variants.find(v => v.code === variantCode);
+      if (variant) {
+        availableStock = variant.stock;
+      }
+    }
+    
     setCart((prev) => {
+      // For variant products, match by product id + priceType + variantCode
       const existingIndex = prev.findIndex(
-        (item) => item.product.id === product.id && item.priceType === priceType
+        (item) => item.product.id === product.id && 
+                  item.priceType === priceType && 
+                  item.variantCode === variantCode
       );
 
       if (existingIndex >= 0) {
         const updated = [...prev];
-        const newQuantity = Math.min(updated[existingIndex].quantity + quantity, product.stock);
+        const newQuantity = Math.min(updated[existingIndex].quantity + quantity, availableStock);
         updated[existingIndex] = {
           ...updated[existingIndex],
           quantity: newQuantity,
@@ -188,23 +200,39 @@ const Index = () => {
         return updated;
       }
 
-      return [...prev, { product, quantity: Math.min(quantity, product.stock), priceType, discount: 0 }];
+      return [...prev, { 
+        product, 
+        quantity: Math.min(quantity, availableStock), 
+        priceType, 
+        discount: 0,
+        variantCode,
+        variantName,
+      }];
     });
 
+    const variantInfo = variantName ? ` [${variantName}]` : '';
     toast({
       title: 'Ditambahkan ke keranjang',
-      description: `${quantity}x ${product.name} (${priceType === 'retail' ? 'Eceran' : 'Grosir'})`,
+      description: `${quantity}x ${product.name}${variantInfo} (${priceType === 'retail' ? 'Eceran' : 'Grosir'})`,
     });
   };
 
-  const handleUpdateQuantity = (productId: string, priceType: 'retail' | 'bulk', delta: number) => {
+  const handleUpdateQuantity = (productId: string, priceType: 'retail' | 'bulk', delta: number, variantCode?: string) => {
     setCart((prev) => {
       return prev
         .map((item) => {
-          if (item.product.id === productId && item.priceType === priceType) {
+          if (item.product.id === productId && item.priceType === priceType && item.variantCode === variantCode) {
             const newQty = item.quantity + delta;
             if (newQty <= 0) return null;
-            if (newQty > item.product.stock) return item;
+            
+            // Get available stock for variant or product
+            let maxStock = item.product.stock;
+            if (variantCode && item.product.variants) {
+              const variant = item.product.variants.find(v => v.code === variantCode);
+              if (variant) maxStock = variant.stock;
+            }
+            
+            if (newQty > maxStock) return item;
             return { ...item, quantity: newQty };
           }
           return item;
@@ -213,13 +241,21 @@ const Index = () => {
     });
   };
 
-  const handleSetQuantity = (productId: string, priceType: 'retail' | 'bulk', quantity: number) => {
+  const handleSetQuantity = (productId: string, priceType: 'retail' | 'bulk', quantity: number, variantCode?: string) => {
     setCart((prev) => {
       return prev
         .map((item) => {
-          if (item.product.id === productId && item.priceType === priceType) {
+          if (item.product.id === productId && item.priceType === priceType && item.variantCode === variantCode) {
             if (quantity <= 0) return null;
-            const newQty = Math.min(quantity, item.product.stock);
+            
+            // Get available stock for variant or product
+            let maxStock = item.product.stock;
+            if (variantCode && item.product.variants) {
+              const variant = item.product.variants.find(v => v.code === variantCode);
+              if (variant) maxStock = variant.stock;
+            }
+            
+            const newQty = Math.min(quantity, maxStock);
             return { ...item, quantity: newQty };
           }
           return item;
@@ -228,10 +264,10 @@ const Index = () => {
     });
   };
 
-  const handleSetItemDiscount = (productId: string, priceType: 'retail' | 'bulk', discount: number) => {
+  const handleSetItemDiscount = (productId: string, priceType: 'retail' | 'bulk', discount: number, variantCode?: string) => {
     setCart((prev) => {
       return prev.map((item) => {
-        if (item.product.id === productId && item.priceType === priceType) {
+        if (item.product.id === productId && item.priceType === priceType && item.variantCode === variantCode) {
           const price = priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
           const maxDiscount = price * item.quantity;
           return { ...item, discount: Math.min(maxDiscount, Math.max(0, discount)) };
@@ -241,9 +277,9 @@ const Index = () => {
     });
   };
 
-  const handleRemoveFromCart = (productId: string, priceType: 'retail' | 'bulk') => {
+  const handleRemoveFromCart = (productId: string, priceType: 'retail' | 'bulk', variantCode?: string) => {
     setCart((prev) => prev.filter(
-      (item) => !(item.product.id === productId && item.priceType === priceType)
+      (item) => !(item.product.id === productId && item.priceType === priceType && item.variantCode === variantCode)
     ));
   };
 

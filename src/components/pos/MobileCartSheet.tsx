@@ -1,5 +1,5 @@
 import { CartItem } from '@/types/pos';
-import { Minus, Plus, Trash2, ShoppingCart, X } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,10 +13,10 @@ interface MobileCartSheetProps {
   open: boolean;
   onClose: () => void;
   items: CartItem[];
-  onUpdateQuantity: (productId: string, priceType: 'retail' | 'bulk', delta: number) => void;
-  onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number) => void;
-  onSetDiscount: (productId: string, priceType: 'retail' | 'bulk', discount: number) => void;
-  onRemove: (productId: string, priceType: 'retail' | 'bulk') => void;
+  onUpdateQuantity: (productId: string, priceType: 'retail' | 'bulk', delta: number, variantCode?: string) => void;
+  onSetQuantity: (productId: string, priceType: 'retail' | 'bulk', quantity: number, variantCode?: string) => void;
+  onSetDiscount: (productId: string, priceType: 'retail' | 'bulk', discount: number, variantCode?: string) => void;
+  onRemove: (productId: string, priceType: 'retail' | 'bulk', variantCode?: string) => void;
   onClear: () => void;
   onCheckout: () => void;
 }
@@ -48,6 +48,15 @@ export function MobileCartSheet({
   }, 0);
 
   const totalItems = items.length;
+
+  // Get max stock for an item (variant or product)
+  const getMaxStock = (item: CartItem) => {
+    if (item.variantCode && item.product.variants) {
+      const variant = item.product.variants.find(v => v.code === item.variantCode);
+      return variant?.stock ?? item.product.stock;
+    }
+    return item.product.stock;
+  };
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
@@ -88,15 +97,24 @@ export function MobileCartSheet({
                 const discount = item.discount || 0;
                 const originalTotal = price * item.quantity;
                 const itemTotal = Math.max(0, originalTotal - discount);
+                const maxStock = getMaxStock(item);
+                
+                // Generate unique key for cart item (includes variant)
+                const itemKey = `${item.product.id}-${item.priceType}${item.variantCode ? `-${item.variantCode}` : ''}`;
                 
                 return (
                   <div 
-                    key={`${item.product.id}-${item.priceType}`}
+                    key={itemKey}
                     className="bg-secondary/50 rounded-xl p-3 animate-fade-in"
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm truncate">{item.product.name}</h4>
+                        <h4 className="font-medium text-sm truncate">
+                          {item.product.name}
+                          {item.variantName && (
+                            <span className="text-muted-foreground ml-1">[{item.variantName}]</span>
+                          )}
+                        </h4>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
                           item.priceType === 'retail' 
                             ? 'bg-pos-retail/20 text-pos-retail' 
@@ -106,7 +124,7 @@ export function MobileCartSheet({
                         </span>
                       </div>
                       <button
-                        onClick={() => onRemove(item.product.id, item.priceType)}
+                        onClick={() => onRemove(item.product.id, item.priceType, item.variantCode)}
                         className="p-1.5 rounded-lg hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -122,7 +140,7 @@ export function MobileCartSheet({
                         value={discount || ''}
                         onChange={(e) => {
                           const val = Math.min(Math.max(0, parseInt(e.target.value) || 0), originalTotal);
-                          onSetDiscount(item.product.id, item.priceType, val);
+                          onSetDiscount(item.product.id, item.priceType, val, item.variantCode);
                         }}
                         placeholder="0"
                         className="w-24 h-6 text-right font-mono text-xs px-1"
@@ -134,7 +152,7 @@ export function MobileCartSheet({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => onUpdateQuantity(item.product.id, item.priceType, -1)}
+                          onClick={() => onUpdateQuantity(item.product.id, item.priceType, -1, item.variantCode)}
                           className="w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors min-h-[32px]"
                         >
                           <Minus className="w-3 h-3" />
@@ -144,15 +162,15 @@ export function MobileCartSheet({
                           value={item.quantity}
                           onChange={(e) => {
                             const val = parseInt(e.target.value) || 0;
-                            onSetQuantity(item.product.id, item.priceType, val);
+                            onSetQuantity(item.product.id, item.priceType, val, item.variantCode);
                           }}
                           className="w-16 h-8 text-center font-mono text-sm px-1"
                           min={1}
-                          max={item.product.stock}
+                          max={maxStock}
                         />
                         <button
-                          onClick={() => onUpdateQuantity(item.product.id, item.priceType, 1)}
-                          disabled={item.quantity >= item.product.stock}
+                          onClick={() => onUpdateQuantity(item.product.id, item.priceType, 1, item.variantCode)}
+                          disabled={item.quantity >= maxStock}
                           className="w-8 h-8 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-colors disabled:opacity-30 min-h-[32px]"
                         >
                           <Plus className="w-3 h-3" />

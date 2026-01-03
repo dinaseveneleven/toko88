@@ -107,9 +107,12 @@ export const buildInvoiceLines = (
     const itemDiscount = Number(item.discount) || 0;
     totalItemDiscount += itemDiscount;
     
-    // Line 1: Item name only (left-aligned, BOLD)
-    const nameStr = sanitizeReceiptText(item.product?.name || 'Item');
-    lines.push('@@BOLD@@' + nameStr);
+    // Line 1: Item name (with variant if exists)
+    let productDisplayName = sanitizeReceiptText(item.product?.name || 'Item');
+    if (item.variantName) {
+      productDisplayName += ` [${sanitizeReceiptText(item.variantName)}]`;
+    }
+    lines.push('@@BOLD@@' + productDisplayName);
     
     // Line 2: "  2x @3.500" on left, subtotal on right (subtotal BOLD)
     const qtyPriceStr = `  ${quantity}x @${formatRupiah(retailPrice)}`;
@@ -210,7 +213,11 @@ export const buildWorkerCopyLines = (receipt: ReceiptData): string[] => {
   const ITEM_NAME_W = W - ITEM_QTY_W; // Remaining space for name
   
   for (const item of receipt.items) {
-    const productName = sanitizeReceiptText(item.product?.name || 'Item');
+    let productName = sanitizeReceiptText(item.product?.name || 'Item');
+    // Add variant name if exists
+    if (item.variantName) {
+      productName += ` [${sanitizeReceiptText(item.variantName)}]`;
+    }
     const qtyStr = `${Number(item.quantity) || 1}x`;
     
     // If name is too long, wrap to multiple lines
