@@ -2,6 +2,41 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Product, ReceiptData } from '@/types/pos';
 
+type InvokeFnError = any;
+
+async function extractFunctionErrorDetails(fnError: InvokeFnError): Promise<{
+  message: string;
+  notFoundIds?: string[];
+}> {
+  const baseMessage =
+    (fnError && typeof fnError.message === 'string' && fnError.message) ||
+    'Edge Function error';
+
+  try {
+    const ctxJson = fnError?.context?.json;
+    if (typeof ctxJson === 'function') {
+      const body = await ctxJson();
+      const notFoundIds = Array.isArray(body?.notFoundIds)
+        ? body.notFoundIds.map((x: unknown) => String(x))
+        : undefined;
+      const message = typeof body?.error === 'string' ? body.error : baseMessage;
+      return { message, notFoundIds };
+    }
+
+    const ctxText = fnError?.context?.text;
+    if (typeof ctxText === 'function') {
+      const text = await ctxText();
+      if (typeof text === 'string' && text.trim().length > 0) {
+        return { message: text };
+      }
+    }
+  } catch {
+    // ignore parsing errors
+  }
+
+  return { message: baseMessage };
+}
+
 export function useGoogleSheets() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -9,14 +44,17 @@ export function useGoogleSheets() {
   const fetchProducts = useCallback(async (): Promise<Product[]> => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
-        body: { action: 'getProducts' }
+        body: { action: 'getProducts' },
       });
 
-      if (fnError) throw new Error(fnError.message);
-      if (data.error) throw new Error(data.error);
+      if (fnError) {
+        const details = await extractFunctionErrorDetails(fnError);
+        throw new Error(details.message);
+      }
+      if (data?.error) throw new Error(data.error);
 
       // Bulk price default is now calculated in the edge function
       return data.products || [];
@@ -36,14 +74,17 @@ export function useGoogleSheets() {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
-        body: { 
+        body: {
           action: 'addTransaction',
-          data: { receipt }
-        }
+          data: { receipt },
+        },
       });
 
-      if (fnError) throw new Error(fnError.message);
-      if (data.error) throw new Error(data.error);
+      if (fnError) {
+        const details = await extractFunctionErrorDetails(fnError);
+        throw new Error(details.message);
+      }
+      if (data?.error) throw new Error(data.error);
 
       return true;
     } catch (err) {
@@ -64,16 +105,22 @@ export function useGoogleSheets() {
     try {
       console.log('[useGoogleSheets] Invoking sync-google-sheets with action: updateStock');
       const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
-        body: { 
+        body: {
           action: 'updateStock',
-          data: { stockUpdates }
-        }
+          data: { stockUpdates },
+        },
       });
 
       console.log('[useGoogleSheets] Response:', { data, fnError });
 
-      if (fnError) throw new Error(fnError.message);
-      if (data.error) throw new Error(data.error);
+      if (fnError) {
+        const details = await extractFunctionErrorDetails(fnError);
+        const suffix = details.notFoundIds?.length
+          ? ` (ID tidak ditemukan: ${details.notFoundIds.join(', ')})`
+          : '';
+        throw new Error(`${details.message}${suffix}`);
+      }
+      if (data?.error) throw new Error(data.error);
 
       console.log('[useGoogleSheets] updateStock success');
       return true;
@@ -87,70 +134,87 @@ export function useGoogleSheets() {
     }
   }, []);
 
-  const updateInventory = useCallback(async (inventoryUpdates: { 
-    id: string; 
-    retailPrice?: number;
-    bulkPrice?: number;
-    purchasePrice?: number;
-    stock?: number;
-  }[]): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
+  const updateInventory = useCallback(
+    async (
+      inventoryUpdates: {
+        id: string;
+        retailPrice?: number;
+        bulkPrice?: number;
+        purchasePrice?: number;
+        stock?: number;
+      }[]
+    ): Promise<boolean> => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
-        body: { 
-          action: 'updateInventory',
-          data: { inventoryUpdates }
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+          body: {
+            action: 'updateInventory',
+            data: { inventoryUpdates },
+          },
+        });
+
+        if (fnError) {
+          const details = await extractFunctionErrorDetails(fnError);
+          const suffix = details.notFoundIds?.length
+            ? ` (ID tidak ditemukan: ${details.notFoundIds.join(', ')})`
+            : '';
+          throw new Error(`${details.message}${suffix}`);
         }
-      });
+        if (data?.error) throw new Error(data.error);
 
-      if (fnError) throw new Error(fnError.message);
-      if (data.error) throw new Error(data.error);
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to update inventory';
+        setError(message);
+        console.error('Error updating inventory:', err);
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update inventory';
-      setError(message);
-      console.error('Error updating inventory:', err);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const addProduct = useCallback(
+    async (product: {
+      name: string;
+      category: string;
+      purchasePrice: number;
+      retailPrice: number;
+      bulkPrice: number;
+      stock: number;
+    }): Promise<boolean> => {
+      setLoading(true);
+      setError(null);
 
-  const addProduct = useCallback(async (product: {
-    name: string;
-    category: string;
-    purchasePrice: number;
-    retailPrice: number;
-    bulkPrice: number;
-    stock: number;
-  }): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
+          body: {
+            action: 'addProduct',
+            data: { product },
+          },
+        });
 
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
-        body: { 
-          action: 'addProduct',
-          data: { product }
+        if (fnError) {
+          const details = await extractFunctionErrorDetails(fnError);
+          throw new Error(details.message);
         }
-      });
+        if (data?.error) throw new Error(data.error);
 
-      if (fnError) throw new Error(fnError.message);
-      if (data.error) throw new Error(data.error);
-
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add product';
-      setError(message);
-      console.error('Error adding product:', err);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to add product';
+        setError(message);
+        console.error('Error adding product:', err);
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   const deleteProduct = useCallback(async (productId: string): Promise<boolean> => {
     setLoading(true);
@@ -158,14 +222,17 @@ export function useGoogleSheets() {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
-        body: { 
+        body: {
           action: 'deleteProduct',
-          data: { productId }
-        }
+          data: { productId },
+        },
       });
 
-      if (fnError) throw new Error(fnError.message);
-      if (data.error) throw new Error(data.error);
+      if (fnError) {
+        const details = await extractFunctionErrorDetails(fnError);
+        throw new Error(details.message);
+      }
+      if (data?.error) throw new Error(data.error);
 
       return true;
     } catch (err) {
@@ -184,11 +251,14 @@ export function useGoogleSheets() {
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('sync-google-sheets', {
-        body: { action: 'repairPriceFormat' }
+        body: { action: 'repairPriceFormat' },
       });
 
-      if (fnError) throw new Error(fnError.message);
-      if (data.error) throw new Error(data.error);
+      if (fnError) {
+        const details = await extractFunctionErrorDetails(fnError);
+        throw new Error(details.message);
+      }
+      if (data?.error) throw new Error(data.error);
 
       return true;
     } catch (err) {

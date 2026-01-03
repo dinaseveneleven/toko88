@@ -23,9 +23,8 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAuthenticated, isAdmin, logout } = useAuth();
-  const { fetchProducts, saveTransaction, updateStock } = useGoogleSheets();
+  const { fetchProducts, saveTransaction, updateStock, error: sheetsError } = useGoogleSheets();
   const { isFullscreen, isSupported, toggleFullscreen } = useFullscreen();
-  
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -310,7 +309,7 @@ const Index = () => {
       console.error('Failed to update stock');
       toast({
         title: 'Peringatan',
-        description: 'Stok gagal diperbarui di Google Sheets',
+        description: sheetsError ?? 'Stok gagal diperbarui di Google Sheets',
         variant: 'destructive',
       });
     }
