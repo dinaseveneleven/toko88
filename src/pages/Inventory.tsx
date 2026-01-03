@@ -42,9 +42,18 @@ interface EditedProduct {
 export default function Inventory() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { fetchProducts, updateInventory, updateStock, addProduct, deleteProduct, repairPriceFormat, loading: isLoading } = useGoogleSheets();
+  const {
+    fetchProducts,
+    updateInventory,
+    updateStock,
+    addProduct,
+    deleteProduct,
+    repairPriceFormat,
+    loading: isLoading,
+    error: sheetsError,
+  } = useGoogleSheets();
   const { isAuthenticated } = useAuth();
-  
+
   const [products, setProducts] = useState<Product[]>([]);
   const [editedProducts, setEditedProducts] = useState<Record<string, EditedProduct>>({});
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -76,8 +85,14 @@ export default function Inventory() {
   const stockSaveStateRef = useRef<Record<string, { inFlight: boolean; pending?: number }>>({});
 
   // Get unique categories from products
-  const categories = useMemo(() => {
-    const cats = [...new Set(products.map(p => p.category))];
+  const categories = useMemo<string[]>(() => {
+    const cats = Array.from(
+      new Set(
+        products
+          .map((p) => p.category)
+          .filter((c): c is string => typeof c === 'string' && c.length > 0)
+      )
+    );
     return cats.sort();
   }, [products]);
 
@@ -192,7 +207,7 @@ export default function Inventory() {
 
       toast({
         title: 'Gagal',
-        description: 'Gagal update stok',
+        description: sheetsError ?? 'Gagal update stok',
         variant: 'destructive',
       });
     } finally {
