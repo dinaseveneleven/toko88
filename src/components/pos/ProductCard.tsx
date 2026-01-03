@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, memo, useCallback } from 'react';
 import { Product, ProductVariant } from '@/types/pos';
 import { Plus, Package, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ const formatRupiah = (num: number) => {
   }).format(num);
 };
 
-export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
+const ProductCardComponent = ({ product, pricingMode, onAdd }: ProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
   const [inputValue, setInputValue] = useState('1');
   const [selectedVariantCode, setSelectedVariantCode] = useState<string | null>(null);
@@ -58,25 +58,25 @@ export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
     ? 'bg-pos-bulk/20 hover:bg-pos-bulk/30 active:bg-pos-bulk/40 text-pos-bulk border border-pos-bulk/50' 
     : 'bg-pos-retail/10 hover:bg-pos-retail/20 active:bg-pos-retail/30 text-pos-retail';
 
-  const handleQuantityChange = (delta: number) => {
+  const handleQuantityChange = useCallback((delta: number) => {
     setQuantity((prev) => {
       const newQty = prev + delta;
       if (newQty < 1) return 1;
       if (newQty > availableStock) return availableStock;
-      setInputValue(String(newQty));
-      return newQty;
+      setInputValue(String(newQty < 1 ? 1 : (newQty > availableStock ? availableStock : newQty)));
+      return newQty < 1 ? 1 : (newQty > availableStock ? availableStock : newQty);
     });
-  };
+  }, [availableStock]);
 
-  const handleInputChange = (value: string) => {
+  const handleInputChange = useCallback((value: string) => {
     setInputValue(value);
     const num = parseInt(value);
     if (!isNaN(num) && num >= 1 && num <= availableStock) {
       setQuantity(num);
     }
-  };
+  }, [availableStock]);
 
-  const handleInputBlur = () => {
+  const handleInputBlur = useCallback(() => {
     if (inputValue === '' || parseInt(inputValue) < 1) {
       setQuantity(1);
       setInputValue('1');
@@ -86,17 +86,17 @@ export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
     } else {
       setInputValue(String(quantity));
     }
-  };
+  }, [inputValue, availableStock, quantity]);
 
-  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+  const handleInputFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
     const input = e.target;
     const length = input.value.length;
     setTimeout(() => {
       input.setSelectionRange(length, length);
     }, 0);
-  };
+  }, []);
 
-  const handleAdd = () => {
+  const handleAdd = useCallback(() => {
     if (hasVariants && selectedVariant) {
       onAdd(product, quantity, selectedVariant.code, selectedVariant.name);
     } else {
@@ -108,7 +108,7 @@ export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
     if (hasVariants) {
       setSelectedVariantCode(null);
     }
-  };
+  }, [hasVariants, selectedVariant, onAdd, product, quantity]);
 
   // Determine if add button should be disabled
   const isAddDisabled = allVariantsOutOfStock || (hasVariants && !selectedVariantCode) || isOutOfStock;
@@ -220,4 +220,17 @@ export function ProductCard({ product, pricingMode, onAdd }: ProductCardProps) {
       </div>
     </div>
   );
-}
+};
+
+// Memoize to prevent unnecessary re-renders when other products in the grid change
+export const ProductCard = memo(ProductCardComponent, (prevProps, nextProps) => {
+  // Only re-render if product data, pricing mode, or the callback changes
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.stock === nextProps.product.stock &&
+    prevProps.product.retailPrice === nextProps.product.retailPrice &&
+    prevProps.product.bulkPrice === nextProps.product.bulkPrice &&
+    prevProps.pricingMode === nextProps.pricingMode &&
+    JSON.stringify(prevProps.product.variants) === JSON.stringify(nextProps.product.variants)
+  );
+});

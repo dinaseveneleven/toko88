@@ -41,6 +41,35 @@ export function useGoogleSheets() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Get cached products for instant display
+  const getCachedProducts = useCallback((): Product[] | null => {
+    try {
+      const cached = localStorage.getItem('pos:products_cache');
+      if (cached) {
+        const { products, timestamp } = JSON.parse(cached);
+        // Cache valid for 5 minutes
+        if (Date.now() - timestamp < 5 * 60 * 1000) {
+          return products;
+        }
+      }
+    } catch {
+      // Ignore cache errors
+    }
+    return null;
+  }, []);
+
+  // Save products to cache
+  const cacheProducts = useCallback((products: Product[]) => {
+    try {
+      localStorage.setItem('pos:products_cache', JSON.stringify({
+        products,
+        timestamp: Date.now()
+      }));
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
   const fetchProducts = useCallback(async (): Promise<Product[]> => {
     setLoading(true);
     setError(null);
@@ -56,17 +85,20 @@ export function useGoogleSheets() {
       }
       if (data?.error) throw new Error(data.error);
 
-      // Bulk price default is now calculated in the edge function
-      return data.products || [];
+      const products = data.products || [];
+      // Cache the fresh products
+      cacheProducts(products);
+      return products;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch products';
       setError(message);
       console.error('Error fetching products:', err);
-      return [];
+      // Return cached products on error
+      return getCachedProducts() || [];
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cacheProducts, getCachedProducts]);
 
   const saveTransaction = useCallback(async (receipt: ReceiptData): Promise<boolean> => {
     setLoading(true);
@@ -371,6 +403,7 @@ export function useGoogleSheets() {
     loading,
     error,
     fetchProducts,
+    getCachedProducts,
     saveTransaction,
     updateStock,
     updateInventory,
