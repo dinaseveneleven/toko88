@@ -27,6 +27,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
   const [inputValue, setInputValue] = useState('1');
   const [selectedVariantCode, setSelectedVariantCode] = useState<string | null>(null);
   const [isPressed, setIsPressed] = useState(false);
+  const [doubleTapFlash, setDoubleTapFlash] = useState(false);
   const lastTapTimeRef = useRef<{ plus: number; minus: number }>({ plus: 0, minus: 0 });
   
   const variants = product.variants || [];
@@ -68,6 +69,11 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
     return isGrosir ? product.bulkPrice : product.retailPrice;
   }, [selectedVariant, isGrosir, product.bulkPrice, product.retailPrice]);
 
+  const triggerFlash = useCallback(() => {
+    setDoubleTapFlash(true);
+    setTimeout(() => setDoubleTapFlash(false), 300);
+  }, []);
+
   const handleQuantityChange = useCallback((delta: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setQuantity((prev) => {
@@ -78,20 +84,32 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
   }, [availableStock]);
 
   const handleButtonClick = useCallback((type: 'plus' | 'minus', e: React.MouseEvent) => {
+    e.stopPropagation();
     const now = Date.now();
     const lastTap = lastTapTimeRef.current[type];
     const isDoubleTap = now - lastTap < DOUBLE_TAP_DELAY;
     lastTapTimeRef.current[type] = now;
     
-    const delta = type === 'plus' ? 1 : -1;
-    
     if (isGrosir && isDoubleTap) {
-      // On double tap, first tap already added 1, so add (DOZEN - 1) more to total DOZEN
-      handleQuantityChange(delta * (DOZEN - 1), e);
+      triggerFlash();
+      setQuantity((prev) => {
+        let target: number;
+        if (type === 'plus') {
+          const next = Math.ceil(prev / DOZEN) * DOZEN;
+          target = next <= prev ? next + DOZEN : next;
+          target = Math.min(target, availableStock);
+        } else {
+          const prevDozen = Math.floor((prev - 1) / DOZEN) * DOZEN;
+          target = Math.max(1, prevDozen || 1);
+        }
+        setInputValue(String(target));
+        return target;
+      });
     } else {
+      const delta = type === 'plus' ? 1 : -1;
       handleQuantityChange(delta, e);
     }
-  }, [handleQuantityChange, isGrosir]);
+  }, [handleQuantityChange, isGrosir, availableStock, triggerFlash]);
 
   const handleInputChange = useCallback((value: string) => {
     setInputValue(value);
@@ -217,14 +235,11 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       {selectedVariantCode && !isOutOfStock && (
         <div 
           onClick={(e) => e.stopPropagation()}
-          className="flex flex-col items-center gap-1.5 sm:gap-2"
-        >
-          {isGrosir && (
-            <span className="text-[9px] sm:text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-              2x tap = ±12
-            </span>
+          className={cn(
+            "flex items-center justify-center gap-2 sm:gap-3 px-2 py-1 rounded-xl transition-all duration-300",
+            doubleTapFlash && "bg-amber-500/30 ring-2 ring-amber-500/50"
           )}
-          <div className="flex items-center justify-center gap-2 sm:gap-3">
+        >
           <button
             type="button"
             onClick={(e) => handleButtonClick('minus', e)}
@@ -275,7 +290,6 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
           >
             <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-foreground" />
           </button>
-          </div>
         </div>
       )}
     </div>
