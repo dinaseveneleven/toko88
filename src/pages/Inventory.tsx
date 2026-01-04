@@ -882,6 +882,13 @@ export default function Inventory() {
                           variants={product.variants}
                           product={product}
                           onUpdateVariantStock={handleUpdateVariantStock}
+                          onUpdateVariantInventory={(productId, variantCode, stock, retailPrice, bulkPrice) => 
+                            handleUpdateVariantInventory(productId, variantCode, { 
+                              stock, 
+                              retailPrice: retailPrice === undefined ? '' : retailPrice, 
+                              bulkPrice: bulkPrice === undefined ? '' : bulkPrice 
+                            })
+                          }
                           savingVariantKeys={savingVariantKeys}
                           highlightedVariantCodes={matchingVariants.get(product.id) || []}
                         />
@@ -1057,6 +1064,13 @@ export default function Inventory() {
                         variants={product.variants}
                         product={product}
                         onUpdateVariantStock={handleUpdateVariantStock}
+                        onUpdateVariantInventory={(productId, variantCode, stock, retailPrice, bulkPrice) => 
+                          handleUpdateVariantInventory(productId, variantCode, { 
+                            stock, 
+                            retailPrice: retailPrice === undefined ? '' : retailPrice, 
+                            bulkPrice: bulkPrice === undefined ? '' : bulkPrice 
+                          })
+                        }
                         savingVariantKeys={savingVariantKeys}
                         highlightedVariantCodes={matchingVariants.get(product.id) || []}
                       />

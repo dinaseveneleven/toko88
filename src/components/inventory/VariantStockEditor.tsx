@@ -20,6 +20,7 @@ interface VariantStockEditorProps {
   variants: ProductVariant[];
   product: Product;
   onUpdateVariantStock: (productId: string, variantCode: string, stock: number) => Promise<void>;
+  onUpdateVariantInventory?: (productId: string, variantCode: string, stock: number, retailPrice?: number, bulkPrice?: number) => Promise<void> | Promise<boolean>;
   savingVariantKeys: Set<string>;
   highlightedVariantCodes?: string[]; // Variant codes to highlight (from search)
 }
@@ -32,12 +33,15 @@ export function VariantStockEditor({
   variants,
   product,
   onUpdateVariantStock,
+  onUpdateVariantInventory,
   savingVariantKeys,
   highlightedVariantCodes = [],
 }: VariantStockEditorProps) {
   // Auto-expand if there are highlighted variants
   const [isExpanded, setIsExpanded] = useState(highlightedVariantCodes.length > 0);
   const [editedStocks, setEditedStocks] = useState<Record<string, number>>({});
+  const [editedRetailPrices, setEditedRetailPrices] = useState<Record<string, number | undefined>>({});
+  const [editedBulkPrices, setEditedBulkPrices] = useState<Record<string, number | undefined>>({});
   const debounceRefs = useRef<Record<string, NodeJS.Timeout>>({});
 
   // Auto-expand when highlighted variants change
@@ -47,13 +51,19 @@ export function VariantStockEditor({
     }
   }, [highlightedVariantCodes]);
 
-  // Initialize edited stocks from variants
+  // Initialize edited values from variants
   useEffect(() => {
     const stocks: Record<string, number> = {};
+    const retailPrices: Record<string, number | undefined> = {};
+    const bulkPrices: Record<string, number | undefined> = {};
     variants.forEach((v) => {
       stocks[v.code] = v.stock;
+      retailPrices[v.code] = v.retailPrice;
+      bulkPrices[v.code] = v.bulkPrice;
     });
     setEditedStocks(stocks);
+    setEditedRetailPrices(retailPrices);
+    setEditedBulkPrices(bulkPrices);
   }, [variants]);
 
   // Cleanup debounce timeouts on unmount
@@ -62,6 +72,21 @@ export function VariantStockEditor({
       Object.values(debounceRefs.current).forEach(clearTimeout);
     };
   }, []);
+
+  const saveVariant = useCallback(
+    (variantCode: string) => {
+      const stock = editedStocks[variantCode] ?? 0;
+      const retailPrice = editedRetailPrices[variantCode];
+      const bulkPrice = editedBulkPrices[variantCode];
+      
+      if (onUpdateVariantInventory) {
+        onUpdateVariantInventory(productId, variantCode, stock, retailPrice, bulkPrice);
+      } else {
+        onUpdateVariantStock(productId, variantCode, stock);
+      }
+    },
+    [productId, editedStocks, editedRetailPrices, editedBulkPrices, onUpdateVariantInventory, onUpdateVariantStock]
+  );
 
   const handleStockChange = useCallback(
     (variantCode: string, value: string) => {
@@ -77,28 +102,63 @@ export function VariantStockEditor({
 
       // Set new debounce
       debounceRefs.current[variantCode] = setTimeout(() => {
-        onUpdateVariantStock(productId, variantCode, safeValue);
+        saveVariant(variantCode);
       }, DEBOUNCE_MS);
     },
-    [productId, onUpdateVariantStock]
+    [saveVariant]
+  );
+
+  const handlePriceChange = useCallback(
+    (variantCode: string, type: 'retail' | 'bulk', value: string) => {
+      const parsed = parseInt(value, 10);
+      const safeValue = isNaN(parsed) || value === '' ? undefined : Math.max(0, parsed);
+
+      if (type === 'retail') {
+        setEditedRetailPrices((prev) => ({ ...prev, [variantCode]: safeValue }));
+      } else {
+        setEditedBulkPrices((prev) => ({ ...prev, [variantCode]: safeValue }));
+      }
+
+      // Clear previous debounce
+      const debounceKey = `${variantCode}_${type}`;
+      if (debounceRefs.current[debounceKey]) {
+        clearTimeout(debounceRefs.current[debounceKey]);
+      }
+
+      // Set new debounce
+      debounceRefs.current[debounceKey] = setTimeout(() => {
+        saveVariant(variantCode);
+      }, DEBOUNCE_MS);
+    },
+    [saveVariant]
   );
 
   const handleBlur = useCallback(
-    (variantCode: string) => {
+    (variantCode: string, type: 'stock' | 'retail' | 'bulk' = 'stock') => {
       // Clear debounce and save immediately
-      if (debounceRefs.current[variantCode]) {
-        clearTimeout(debounceRefs.current[variantCode]);
-        delete debounceRefs.current[variantCode];
+      const debounceKey = type === 'stock' ? variantCode : `${variantCode}_${type}`;
+      if (debounceRefs.current[debounceKey]) {
+        clearTimeout(debounceRefs.current[debounceKey]);
+        delete debounceRefs.current[debounceKey];
       }
+
+      const originalVariant = variants.find((v) => v.code === variantCode);
+      if (!originalVariant) return;
 
       const currentStock = editedStocks[variantCode] ?? 0;
-      const originalVariant = variants.find((v) => v.code === variantCode);
+      const currentRetail = editedRetailPrices[variantCode];
+      const currentBulk = editedBulkPrices[variantCode];
+      
+      const hasChanges = 
+        currentStock !== originalVariant.stock ||
+        currentRetail !== originalVariant.retailPrice ||
+        currentBulk !== originalVariant.bulkPrice;
 
-      if (originalVariant && currentStock !== originalVariant.stock) {
-        onUpdateVariantStock(productId, variantCode, currentStock);
+      if (hasChanges) {
+        saveVariant(variantCode);
       }
     },
-    [productId, variants, editedStocks, onUpdateVariantStock]
+    [variants, editedStocks, editedRetailPrices, editedBulkPrices, saveVariant]
   );
 
   const handleIncrement = useCallback(
@@ -106,9 +166,14 @@ export function VariantStockEditor({
       const current = editedStocks[variantCode] ?? 0;
       const newStock = current + 1;
       setEditedStocks((prev) => ({ ...prev, [variantCode]: newStock }));
-      onUpdateVariantStock(productId, variantCode, newStock);
+      
+      if (onUpdateVariantInventory) {
+        onUpdateVariantInventory(productId, variantCode, newStock, editedRetailPrices[variantCode], editedBulkPrices[variantCode]);
+      } else {
+        onUpdateVariantStock(productId, variantCode, newStock);
+      }
     },
-    [productId, editedStocks, onUpdateVariantStock]
+    [productId, editedStocks, editedRetailPrices, editedBulkPrices, onUpdateVariantInventory, onUpdateVariantStock]
   );
 
   const handleDecrement = useCallback(
@@ -116,9 +181,14 @@ export function VariantStockEditor({
       const current = editedStocks[variantCode] ?? 0;
       const newStock = Math.max(0, current - 1);
       setEditedStocks((prev) => ({ ...prev, [variantCode]: newStock }));
-      onUpdateVariantStock(productId, variantCode, newStock);
+      
+      if (onUpdateVariantInventory) {
+        onUpdateVariantInventory(productId, variantCode, newStock, editedRetailPrices[variantCode], editedBulkPrices[variantCode]);
+      } else {
+        onUpdateVariantStock(productId, variantCode, newStock);
+      }
     },
-    [productId, editedStocks, onUpdateVariantStock]
+    [productId, editedStocks, editedRetailPrices, editedBulkPrices, onUpdateVariantInventory, onUpdateVariantStock]
   );
 
   const totalStock = variants.reduce((sum, v) => sum + (editedStocks[v.code] ?? v.stock), 0);
@@ -191,7 +261,7 @@ export function VariantStockEditor({
                         value={currentStock === 0 ? '' : currentStock}
                         placeholder="0"
                         onChange={(e) => handleStockChange(variant.code, e.target.value)}
-                        onBlur={() => handleBlur(variant.code)}
+                        onBlur={() => handleBlur(variant.code, 'stock')}
                         className={cn(
                           "w-14 text-center font-mono text-sm h-7 pr-4 placeholder:text-muted-foreground/40",
                           isOutOfStock ? 'text-destructive' : isLowStock ? 'text-yellow-600 dark:text-yellow-500' : ''
@@ -216,20 +286,34 @@ export function VariantStockEditor({
                   </div>
                 </div>
                 
-                {/* Price display */}
-                <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
-                  <span>
-                    Eceran: <span className={cn("font-mono", variant.retailPrice ? "text-foreground" : "")}>
-                      {formatRupiah(retailPrice)}
-                      {!variant.retailPrice && <span className="text-muted-foreground/60 ml-1">(default)</span>}
-                    </span>
-                  </span>
-                  <span>
-                    Grosir: <span className={cn("font-mono", variant.bulkPrice ? "text-foreground" : "")}>
-                      {formatRupiah(bulkPrice)}
-                      {!variant.bulkPrice && <span className="text-muted-foreground/60 ml-1">(default)</span>}
-                    </span>
-                  </span>
+                {/* Price editors */}
+                <div className="flex gap-3 mt-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">Eceran:</span>
+                    <Input
+                      type="number"
+                      value={editedRetailPrices[variant.code] ?? ''}
+                      placeholder={product.retailPrice.toString()}
+                      onChange={(e) => handlePriceChange(variant.code, 'retail', e.target.value)}
+                      onBlur={() => handleBlur(variant.code, 'retail')}
+                      className="w-24 font-mono text-xs h-7 placeholder:text-muted-foreground/40"
+                      min={0}
+                      disabled={isSaving}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">Grosir:</span>
+                    <Input
+                      type="number"
+                      value={editedBulkPrices[variant.code] ?? ''}
+                      placeholder={product.bulkPrice.toString()}
+                      onChange={(e) => handlePriceChange(variant.code, 'bulk', e.target.value)}
+                      onBlur={() => handleBlur(variant.code, 'bulk')}
+                      className="w-24 font-mono text-xs h-7 placeholder:text-muted-foreground/40"
+                      min={0}
+                      disabled={isSaving}
+                    />
+                  </div>
                 </div>
               </div>
             );
