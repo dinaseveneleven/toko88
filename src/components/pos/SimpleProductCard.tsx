@@ -89,7 +89,7 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
       onTouchEnd={() => setIsPressed(false)}
       className={cn(
         "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 cursor-pointer select-none min-h-[140px] sm:min-h-[180px]",
-        "transition-all duration-200 ease-out",
+        "transition-all duration-200 ease-out min-h-[180px] sm:min-h-[240px]",
         isOutOfStock && "opacity-50 cursor-not-allowed",
         isPressed && !isOutOfStock && "scale-[0.97] bg-primary/5"
       )}
