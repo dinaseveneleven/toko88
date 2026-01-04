@@ -68,15 +68,14 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
     return isGrosir ? product.bulkPrice : product.retailPrice;
   }, [selectedVariant, isGrosir, product.bulkPrice, product.retailPrice]);
 
-  const handleQuantityChange = useCallback((delta: number, e: React.MouseEvent, isDoubleTap = false) => {
+  const handleQuantityChange = useCallback((delta: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    const increment = isGrosir && isDoubleTap ? delta * DOZEN : delta;
     setQuantity((prev) => {
-      const newQty = Math.max(1, Math.min(prev + increment, availableStock));
+      const newQty = Math.max(1, Math.min(prev + delta, availableStock));
       setInputValue(String(newQty));
       return newQty;
     });
-  }, [availableStock, isGrosir]);
+  }, [availableStock]);
 
   const handleButtonClick = useCallback((type: 'plus' | 'minus', e: React.MouseEvent) => {
     const now = Date.now();
@@ -85,8 +84,14 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
     lastTapTimeRef.current[type] = now;
     
     const delta = type === 'plus' ? 1 : -1;
-    handleQuantityChange(delta, e, isDoubleTap);
-  }, [handleQuantityChange]);
+    
+    if (isGrosir && isDoubleTap) {
+      // On double tap, first tap already added 1, so add (DOZEN - 1) more to total DOZEN
+      handleQuantityChange(delta * (DOZEN - 1), e);
+    } else {
+      handleQuantityChange(delta, e);
+    }
+  }, [handleQuantityChange, isGrosir]);
 
   const handleInputChange = useCallback((value: string) => {
     setInputValue(value);
@@ -212,8 +217,14 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       {selectedVariantCode && !isOutOfStock && (
         <div 
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center justify-center gap-2 sm:gap-3"
+          className="flex flex-col items-center gap-1.5 sm:gap-2"
         >
+          {isGrosir && (
+            <span className="text-[9px] sm:text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+              2x tap = ±12
+            </span>
+          )}
+          <div className="flex items-center justify-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={(e) => handleButtonClick('minus', e)}
@@ -264,6 +275,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
           >
             <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-foreground" />
           </button>
+          </div>
         </div>
       )}
     </div>
