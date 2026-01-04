@@ -9,6 +9,7 @@ interface ProductCardProps {
   product: Product;
   pricingMode: 'retail' | 'grosir';
   onAdd: (product: Product, quantity: number, variantCode?: string, variantName?: string) => void;
+  searchQuery?: string;
 }
 
 const formatRupiah = (num: number) => {
@@ -19,12 +20,31 @@ const formatRupiah = (num: number) => {
   }).format(num);
 };
 
-const ProductCardComponent = ({ product, pricingMode, onAdd }: ProductCardProps) => {
+const ProductCardComponent = ({ product, pricingMode, onAdd, searchQuery = '' }: ProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
   const [inputValue, setInputValue] = useState('1');
   const [selectedVariantCode, setSelectedVariantCode] = useState<string | null>(null);
   
   const hasVariants = product.variants && product.variants.length > 0;
+
+  // Auto-select variant when search matches variant code/name
+  useMemo(() => {
+    if (!hasVariants || !searchQuery) {
+      return;
+    }
+    const searchLower = searchQuery.toLowerCase().trim();
+    if (!searchLower) return;
+    
+    // Find a matching variant
+    const matchingVariant = product.variants?.find(
+      v => v.code.toLowerCase().includes(searchLower) || 
+           v.name.toLowerCase().includes(searchLower)
+    );
+    
+    if (matchingVariant && matchingVariant.code !== selectedVariantCode) {
+      setSelectedVariantCode(matchingVariant.code);
+    }
+  }, [hasVariants, searchQuery, product.variants, selectedVariantCode]);
   
   // Get the selected variant
   const selectedVariant = useMemo(() => {
@@ -237,13 +257,14 @@ const ProductCardComponent = ({ product, pricingMode, onAdd }: ProductCardProps)
 
 // Memoize to prevent unnecessary re-renders when other products in the grid change
 export const ProductCard = memo(ProductCardComponent, (prevProps, nextProps) => {
-  // Only re-render if product data, pricing mode, or the callback changes
+  // Only re-render if product data, pricing mode, search query, or the callback changes
   return (
     prevProps.product.id === nextProps.product.id &&
     prevProps.product.stock === nextProps.product.stock &&
     prevProps.product.retailPrice === nextProps.product.retailPrice &&
     prevProps.product.bulkPrice === nextProps.product.bulkPrice &&
     prevProps.pricingMode === nextProps.pricingMode &&
+    prevProps.searchQuery === nextProps.searchQuery &&
     JSON.stringify(prevProps.product.variants) === JSON.stringify(nextProps.product.variants)
   );
 });

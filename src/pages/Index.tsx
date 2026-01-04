@@ -582,6 +582,7 @@ const Index = () => {
                     product={product}
                     pricingMode={pricingMode}
                     onAdd={handleAddToCart}
+                    searchQuery={search}
                   />
                 ))
               )}
