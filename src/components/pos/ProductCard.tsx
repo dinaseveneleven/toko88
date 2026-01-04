@@ -10,7 +10,8 @@ interface ProductCardProps {
 }
 
 export const ProductCard = ({ product, pricingMode, onAdd, searchQuery }: ProductCardProps) => {
-  const hasVariants = product.variants && product.variants.length > 0;
+  // Strict check: only true if variants array exists AND has at least one item
+  const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
 
   if (hasVariants) {
     return (
