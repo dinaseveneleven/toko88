@@ -24,7 +24,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAuthenticated, isAdmin, logout } = useAuth();
-  const { fetchProducts, getCachedProducts, saveTransaction, updateStock, error: sheetsError } = useGoogleSheets();
+  const { fetchProducts, getCachedProducts, clearCache, saveTransaction, updateStock, error: sheetsError } = useGoogleSheets();
   const { isFullscreen, isSupported, toggleFullscreen } = useFullscreen();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -58,13 +58,16 @@ const Index = () => {
   const [pullDistance, setPullDistance] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
 
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (forceRefresh = false) => {
+    if (forceRefresh) {
+      clearCache();
+    }
     const sheetProducts = await fetchProducts();
     if (sheetProducts.length > 0) {
       setProducts(sheetProducts);
     }
     setInitialLoadDone(true);
-  }, [fetchProducts]);
+  }, [fetchProducts, clearCache]);
 
   // Load cached products immediately for instant display
   useEffect(() => {
@@ -154,10 +157,10 @@ const Index = () => {
   const handleTouchEnd = async () => {
     if (pullDistance > 80) {
       setIsRefreshing(true);
-      await loadProducts();
+      await loadProducts(true); // Force refresh, bypass cache
       toast({
         title: 'Produk diperbarui',
-        description: 'Data produk telah dimuat ulang',
+        description: 'Data produk telah dimuat ulang dari Google Sheets',
       });
       setIsRefreshing(false);
     }
@@ -568,7 +571,20 @@ const Index = () => {
             <div className="sticky top-[57px] sm:top-[73px] z-30 bg-background pt-2 pb-3 -mx-2 px-2 sm:-mx-4 sm:px-4 border-b border-border/50">
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <div className="flex-1">
-                  <SearchBar value={search} onChange={setSearch} />
+                  <SearchBar 
+                    value={search} 
+                    onChange={setSearch} 
+                    onRefresh={async () => {
+                      setIsRefreshing(true);
+                      await loadProducts(true);
+                      toast({
+                        title: 'Produk diperbarui',
+                        description: 'Data produk telah dimuat ulang dari Google Sheets',
+                      });
+                      setIsRefreshing(false);
+                    }}
+                    isRefreshing={isRefreshing}
+                  />
                 </div>
                 <CategoryFilter
                   categories={categories}
