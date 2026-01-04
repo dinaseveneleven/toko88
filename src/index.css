@@ -55,8 +55,8 @@
     --pos-glow: 142 76% 36%;
     --pos-cart-bg: 0 0% 100%;
     --pos-item-hover: 220 14% 95%;
-    --pos-price-retail: 152 82% 38%;
-    --pos-price-bulk: 262 83% 45%;
+    --pos-price-retail: 220 20% 10%;
+    --pos-price-bulk: 220 20% 10%;
     --pos-stock-low: 38 92% 45%;
     --pos-stock-out: 0 72% 51%;
   }
@@ -109,8 +109,8 @@
     --pos-glow: 142 76% 46%;
     --pos-cart-bg: 220 18% 12%;
     --pos-item-hover: 220 16% 18%;
-    --pos-price-retail: 142 76% 46%;
-    --pos-price-bulk: 199 89% 48%;
+    --pos-price-retail: 210 100% 60%;
+    --pos-price-bulk: 210 100% 60%;
     --pos-stock-low: 38 92% 50%;
     --pos-stock-out: 0 72% 51%;
   }

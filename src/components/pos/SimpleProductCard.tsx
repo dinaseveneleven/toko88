@@ -90,8 +90,6 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
       className={cn(
         "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 cursor-pointer select-none",
         "transition-all duration-200 ease-out min-h-[140px] sm:min-h-[220px] md:min-h-[260px]",
-        "border-l-4",
-        isGrosir ? "border-l-pos-bulk" : "border-l-pos-retail",
         isOutOfStock && "opacity-50 cursor-not-allowed",
         isPressed && !isOutOfStock && "scale-[0.97]"
       )}
@@ -116,12 +114,9 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
         </div>
       </div>
 
-      {/* Price - Centered with color accent */}
+      {/* Price - Centered */}
       <div className="flex-1 flex items-center justify-center">
-        <span className={cn(
-          "font-mono text-xl sm:text-2xl md:text-3xl font-bold",
-          isGrosir ? "text-pos-bulk" : "text-pos-retail"
-        )}>
+        <span className="font-mono text-xl sm:text-2xl md:text-3xl font-bold text-pos-retail">
           {formatRupiah(displayPrice)}
         </span>
       </div>
