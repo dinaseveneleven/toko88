@@ -55,32 +55,36 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            "w-full h-9 justify-between text-xs font-normal",
+            "w-full h-auto min-h-9 py-1.5 px-2 justify-between text-xs font-normal",
             "bg-secondary/50 border-border/50 hover:bg-secondary/80",
             !selectedVariant && "text-muted-foreground"
           )}
         >
           {selectedVariant ? (
-            <span className="flex items-center gap-2 truncate w-full">
-              <span className="truncate flex-1 text-left">{selectedVariant.name}</span>
-              <span className="font-mono text-[10px] text-primary shrink-0">
-                {formatRupiah(selectedPrice || 0)}
+            <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0 mr-1">
+              <span className="font-medium text-foreground truncate w-full text-left">
+                {selectedVariant.name}
               </span>
-              <span className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded-full shrink-0",
-                selectedVariant.stock === 0 
-                  ? "bg-destructive/20 text-destructive"
-                  : selectedVariant.stock <= 5
-                    ? "bg-warning/20 text-warning"
-                    : "bg-muted text-muted-foreground"
-              )}>
-                {selectedVariant.stock}
-              </span>
-            </span>
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="font-mono text-primary">
+                  {formatRupiah(selectedPrice || 0)}
+                </span>
+                <span className={cn(
+                  "px-1.5 py-0.5 rounded-full",
+                  selectedVariant.stock === 0 
+                    ? "bg-destructive/20 text-destructive"
+                    : selectedVariant.stock <= 5
+                      ? "bg-warning/20 text-warning"
+                      : "bg-muted text-muted-foreground"
+                )}>
+                  Stok: {selectedVariant.stock}
+                </span>
+              </div>
+            </div>
           ) : (
             <span>Pilih varian...</span>
           )}
-          <ChevronDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent 
