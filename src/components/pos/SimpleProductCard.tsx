@@ -1,6 +1,6 @@
 import { useState, memo, useCallback } from 'react';
 import { Product } from '@/types/pos';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SimpleProductCardProps {
@@ -20,6 +20,7 @@ const formatRupiah = (num: number) => {
 const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
   const [inputValue, setInputValue] = useState('1');
+  const [isPressed, setIsPressed] = useState(false);
   
   const availableStock = product.stock;
   const isOutOfStock = availableStock === 0;
@@ -27,7 +28,8 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
   const isGrosir = pricingMode === 'grosir';
   const displayPrice = isGrosir ? product.bulkPrice : product.retailPrice;
 
-  const handleQuantityChange = useCallback((delta: number) => {
+  const handleQuantityChange = useCallback((delta: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     setQuantity((prev) => {
       const newQty = Math.max(1, Math.min(prev + delta, availableStock));
       setInputValue(String(newQty));
@@ -57,33 +59,62 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
   }, [inputValue, availableStock, quantity]);
 
   const handleInputFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    e.stopPropagation();
     e.target.select();
   }, []);
 
+  const handleInputClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+  }, []);
+
   const handleAdd = useCallback(() => {
+    if (isOutOfStock) return;
     onAdd(product, quantity);
     setQuantity(1);
     setInputValue('1');
-  }, [onAdd, product, quantity]);
+  }, [onAdd, product, quantity, isOutOfStock]);
+
+  const handleCardClick = useCallback(() => {
+    if (isOutOfStock) return;
+    handleAdd();
+  }, [isOutOfStock, handleAdd]);
 
   return (
     <div 
+      onClick={handleCardClick}
+      onMouseDown={() => !isOutOfStock && setIsPressed(true)}
+      onMouseUp={() => setIsPressed(false)}
+      onMouseLeave={() => setIsPressed(false)}
+      onTouchStart={() => !isOutOfStock && setIsPressed(true)}
+      onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "group relative h-full rounded-2xl overflow-hidden",
+        "group relative h-full rounded-2xl overflow-hidden cursor-pointer select-none",
         "bg-card/80 backdrop-blur-sm",
         "border border-border/40",
         "hover:border-border/80 hover:shadow-lg hover:shadow-black/5",
-        "active:scale-[0.98]",
-        "transition-all duration-300 ease-out",
+        "transition-all duration-200 ease-out",
         "flex flex-col",
-        isOutOfStock && "opacity-50"
+        isOutOfStock && "opacity-50 cursor-not-allowed",
+        isPressed && !isOutOfStock && "scale-[0.97] shadow-inner bg-primary/5"
       )}
     >
+      {/* Quick Add Indicator */}
+      {!isOutOfStock && (
+        <div className={cn(
+          "absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center",
+          "bg-primary/10 text-primary",
+          "opacity-0 group-hover:opacity-100",
+          "transition-opacity duration-200"
+        )}>
+          <ShoppingCart className="w-3.5 h-3.5" />
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 p-3 sm:p-4 flex flex-col gap-3">
         {/* Header */}
         <div className="space-y-1.5">
-          <h3 className="font-semibold text-foreground text-sm sm:text-base leading-snug line-clamp-2">
+          <h3 className="font-semibold text-foreground text-sm sm:text-base leading-snug line-clamp-2 pr-8">
             {product.name}
           </h3>
           <span className={cn(
@@ -114,17 +145,20 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
           </span>
         </div>
 
-        {/* Quantity Selector */}
+        {/* Quantity Selector - Interactive Zone */}
         {!isOutOfStock && (
-          <div className="flex items-center justify-center gap-2 py-1">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-center gap-2 py-1 mt-auto"
+          >
             <button
               type="button"
-              onClick={() => handleQuantityChange(-1)}
+              onClick={(e) => handleQuantityChange(-1, e)}
               disabled={quantity <= 1}
               className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center",
+                "w-10 h-10 rounded-xl flex items-center justify-center",
                 "bg-secondary/60 hover:bg-secondary",
-                "active:scale-95",
+                "active:scale-95 active:bg-secondary",
                 "transition-all duration-150",
                 "disabled:opacity-30 disabled:cursor-not-allowed"
               )}
@@ -138,9 +172,10 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
               onChange={(e) => handleInputChange(e.target.value)}
               onBlur={handleInputBlur}
               onFocus={handleInputFocus}
+              onClick={handleInputClick}
               onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
               className={cn(
-                "w-14 h-9 text-center text-sm font-mono font-medium",
+                "w-14 h-10 text-center text-sm font-mono font-medium",
                 "bg-secondary/40 border border-border/50 rounded-xl",
                 "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
                 "transition-all duration-150",
@@ -152,12 +187,12 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
             
             <button
               type="button"
-              onClick={() => handleQuantityChange(1)}
+              onClick={(e) => handleQuantityChange(1, e)}
               disabled={quantity >= availableStock}
               className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center",
+                "w-10 h-10 rounded-xl flex items-center justify-center",
                 "bg-secondary/60 hover:bg-secondary",
-                "active:scale-95",
+                "active:scale-95 active:bg-secondary",
                 "transition-all duration-150",
                 "disabled:opacity-30 disabled:cursor-not-allowed"
               )}
@@ -166,28 +201,6 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
             </button>
           </div>
         )}
-      </div>
-
-      {/* Add Button */}
-      <div className="p-3 sm:p-4 pt-0">
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={isOutOfStock}
-          className={cn(
-            "w-full flex items-center justify-center gap-2 py-2.5 rounded-xl",
-            "font-medium text-sm",
-            "active:scale-[0.97]",
-            "transition-all duration-200 ease-out",
-            "disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100",
-            isGrosir 
-              ? "bg-pos-bulk/15 text-pos-bulk hover:bg-pos-bulk/25 border border-pos-bulk/30" 
-              : "bg-pos-retail/10 text-pos-retail hover:bg-pos-retail/20"
-          )}
-        >
-          <Plus className="w-4 h-4" />
-          <span>Tambah</span>
-        </button>
       </div>
     </div>
   );
