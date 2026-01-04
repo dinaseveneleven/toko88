@@ -1,37 +1,54 @@
-import { Search, X } from 'lucide-react';
+import { Search, X, RefreshCw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface SearchBarProps {
   value: string;
   onChange: (value: string) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
-export function SearchBar({ value, onChange }: SearchBarProps) {
+export function SearchBar({ value, onChange, onRefresh, isRefreshing }: SearchBarProps) {
   return (
-    <div className="relative">
-      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-      <Input
-        type="text"
-        inputMode="search"
-        enterKeyHint="search"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        placeholder="Cari produk..."
-        className="pl-12 pr-10 h-12 bg-secondary/50 border-border text-base"
-      />
-      {value && (
-        <button
-          onClick={() => onChange('')}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+    <div className="relative flex gap-2">
+      <div className="relative flex-1">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <Input
+          type="text"
+          inputMode="search"
+          enterKeyHint="search"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              (e.target as HTMLInputElement).blur();
+            }
+          }}
+          placeholder="Cari produk..."
+          className="pl-12 pr-10 h-12 bg-secondary/50 border-border text-base"
+        />
+        {value && (
+          <button
+            onClick={() => onChange('')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      {onRefresh && (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="h-12 w-12 shrink-0"
+          title="Refresh data dari Google Sheets"
         >
-          <X className="w-4 h-4" />
-        </button>
+          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+        </Button>
       )}
     </div>
   );

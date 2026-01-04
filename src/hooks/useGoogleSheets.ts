@@ -41,6 +41,15 @@ export function useGoogleSheets() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Clear cache to force fresh fetch
+  const clearCache = useCallback(() => {
+    try {
+      localStorage.removeItem('pos:products_cache');
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
   // Get cached products for instant display
   const getCachedProducts = useCallback((): Product[] | null => {
     try {
@@ -436,6 +445,7 @@ export function useGoogleSheets() {
     error,
     fetchProducts,
     getCachedProducts,
+    clearCache,
     saveTransaction,
     updateStock,
     updateInventory,
