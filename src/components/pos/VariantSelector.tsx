@@ -35,7 +35,6 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
     setOpen(false);
   };
 
-  // Get price for a variant (uses variant price if set, otherwise product price)
   const getVariantPrice = (variant: ProductVariant) => {
     if (priceType === 'bulk') {
       return variant.bulkPrice ?? product.bulkPrice;
@@ -50,43 +49,41 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
           type="button"
           disabled={disabled}
           className={cn(
-            "w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg",
-            "bg-secondary/30 hover:bg-secondary/50 transition-colors",
-            "text-xs sm:text-sm text-left",
-            disabled && "opacity-50 cursor-not-allowed"
+            "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl",
+            "bg-secondary/40 backdrop-blur-sm",
+            "border border-border/50",
+            "hover:bg-secondary/60 hover:border-border",
+            "active:scale-[0.98]",
+            "transition-all duration-200 ease-out",
+            "text-sm text-left",
+            "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
+            disabled && "opacity-40 cursor-not-allowed"
           )}
         >
           <span
             className={cn(
-              "truncate flex-1 min-w-0",
+              "truncate flex-1 min-w-0 font-medium",
               selectedVariant ? "text-foreground" : "text-muted-foreground"
             )}
           >
-            {selectedVariant ? selectedVariant.name : "Pilih varian..."}
+            {selectedVariant ? selectedVariant.name : "Pilih Varian"}
           </span>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {selectedVariant && (
-              <span className="hidden sm:inline font-mono text-xs text-muted-foreground">
-                {formatRupiah(getVariantPrice(selectedVariant))}
-              </span>
-            )}
-            {selectedVariant && (
-              <span className="hidden sm:inline text-xs text-muted-foreground tabular-nums">
-                {selectedVariant.stock}
-              </span>
-            )}
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          </div>
+          <ChevronDown 
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform duration-200",
+              open && "rotate-180"
+            )} 
+          />
         </button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] p-1.5 bg-card border-border shadow-xl z-50" 
+        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] p-1.5 bg-card/95 backdrop-blur-xl border-border/60 shadow-2xl rounded-xl z-50" 
         align="start"
-        sideOffset={4}
+        sideOffset={6}
       >
-        <div className="max-h-[200px] overflow-y-auto space-y-0.5">
-          {variants.map((variant) => {
+        <div className="max-h-[240px] overflow-y-auto space-y-1 scrollbar-hide">
+          {variants.map((variant, index) => {
             const isSelected = variant.code === selectedCode;
             const isOutOfStock = variant.stock === 0;
             const variantPrice = getVariantPrice(variant);
@@ -96,38 +93,50 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
                 key={variant.code}
                 onClick={() => !isOutOfStock && handleSelect(variant.code)}
                 disabled={isOutOfStock}
+                style={{ animationDelay: `${index * 30}ms` }}
                 className={cn(
-                  "w-full rounded-md transition-colors",
-                  "hover:bg-secondary/50",
-                  isSelected && "bg-secondary",
-                  isOutOfStock && "opacity-40 cursor-not-allowed"
+                  "w-full rounded-lg transition-all duration-150 ease-out animate-fade-in",
+                  "hover:bg-primary/5 active:scale-[0.98]",
+                  isSelected && "bg-primary/10",
+                  isOutOfStock && "opacity-35 cursor-not-allowed"
                 )}
               >
-                <div className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                  {/* Left: Checkbox + Name */}
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div
                       className={cn(
-                        "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                        isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+                        "w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-150",
+                        isSelected 
+                          ? "border-primary bg-primary scale-110" 
+                          : "border-muted-foreground/30 bg-transparent"
                       )}
                     >
-                      {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                      {isSelected && (
+                        <Check className="w-2.5 h-2.5 text-primary-foreground animate-scale-in" />
+                      )}
                     </div>
-                    <span className="text-xs sm:text-sm truncate text-foreground">{variant.name}</span>
+                    <span className={cn(
+                      "text-sm truncate transition-colors",
+                      isSelected ? "text-foreground font-medium" : "text-muted-foreground"
+                    )}>
+                      {variant.name}
+                    </span>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 pl-6 sm:pl-0">
-                    <span className="font-mono text-[11px] sm:text-xs text-muted-foreground">
+                  {/* Right: Price + Stock */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="font-mono text-xs text-muted-foreground/80">
                       {formatRupiah(variantPrice)}
                     </span>
                     <span
                       className={cn(
-                        "text-[11px] sm:text-xs tabular-nums min-w-[24px] text-right",
+                        "text-xs tabular-nums font-medium min-w-[20px] text-right px-1.5 py-0.5 rounded-md",
                         isOutOfStock
-                          ? "text-destructive"
+                          ? "text-destructive bg-destructive/10"
                           : variant.stock <= 5
-                            ? "text-warning"
-                            : "text-muted-foreground"
+                            ? "text-warning bg-warning/10"
+                            : "text-muted-foreground bg-secondary/50"
                       )}
                     >
                       {variant.stock}
