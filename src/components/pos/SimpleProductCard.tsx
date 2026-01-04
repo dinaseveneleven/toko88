@@ -88,28 +88,28 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
       onTouchStart={() => !isOutOfStock && setIsPressed(true)}
       onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "pos-card h-full p-4 sm:p-5 md:p-6 flex flex-col gap-4 sm:gap-5 cursor-pointer select-none",
-        "transition-all duration-200 ease-out min-h-[200px] sm:min-h-[260px]",
+        "pos-card h-full p-3 sm:p-4 md:p-5 flex flex-col gap-3 sm:gap-4 cursor-pointer select-none",
+        "transition-all duration-200 ease-out min-h-[140px] sm:min-h-[180px] md:min-h-[220px]",
         isOutOfStock && "opacity-50 cursor-not-allowed",
         isPressed && !isOutOfStock && "scale-[0.97] bg-primary/5"
       )}
     >
       {/* Header: Name + Stock */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground text-sm sm:text-base md:text-lg leading-snug line-clamp-2">
+          <h3 className="font-semibold text-foreground text-xs sm:text-sm md:text-base leading-snug line-clamp-2">
             {product.name}
           </h3>
         </div>
         <div className={cn(
-          "flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-3 py-1.5 rounded-full flex-shrink-0",
+          "flex items-center gap-1 text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 rounded-full flex-shrink-0",
           isOutOfStock
             ? "bg-destructive/20 text-destructive"
             : isLowStock
               ? "bg-warning/20 text-warning"
               : "bg-secondary text-muted-foreground"
         )}>
-          <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <Package className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           <span className="font-medium">{product.stock}</span>
         </div>
       </div>
@@ -117,13 +117,13 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
       {/* Price */}
       <div className="flex items-center justify-between mt-auto">
         <span className={cn(
-          "text-xs sm:text-sm font-medium",
+          "text-[10px] sm:text-xs font-medium",
           isGrosir ? "text-pos-bulk" : "text-pos-retail"
         )}>
           {isGrosir ? 'Grosir' : 'Eceran'}
         </span>
         <span className={cn(
-          "font-mono text-lg sm:text-xl md:text-2xl font-bold",
+          "font-mono text-sm sm:text-lg md:text-xl font-bold",
           isGrosir ? "text-pos-bulk" : "text-pos-retail"
         )}>
           {formatRupiah(displayPrice)}
@@ -134,21 +134,21 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
       {!isOutOfStock && (
         <div 
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center justify-center gap-2 sm:gap-3 mt-auto"
+          className="flex items-center justify-center gap-2 sm:gap-3"
         >
           <button
             type="button"
             onClick={(e) => handleQuantityChange(-1, e)}
             disabled={quantity <= 1}
             className={cn(
-              "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center",
+              "h-8 w-8 sm:h-10 sm:w-10 md:h-11 md:w-11 rounded-lg sm:rounded-xl flex items-center justify-center",
               "bg-secondary/60 hover:bg-secondary border border-border/50",
               "active:scale-95",
               "transition-all duration-150",
               "disabled:opacity-30 disabled:cursor-not-allowed"
             )}
           >
-            <Minus className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
+            <Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-foreground" />
           </button>
           
           <input
@@ -160,8 +160,8 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
             onClick={handleInputClick}
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             className={cn(
-              "w-16 sm:w-20 h-10 sm:h-12 text-center text-sm sm:text-base font-mono font-medium",
-              "bg-transparent border border-border/50 rounded-xl",
+              "w-12 sm:w-16 h-8 sm:h-10 md:h-11 text-center text-xs sm:text-sm font-mono font-medium",
+              "bg-transparent border border-border/50 rounded-lg sm:rounded-xl",
               "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
               "transition-all duration-150",
               "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -175,14 +175,14 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
             onClick={(e) => handleQuantityChange(1, e)}
             disabled={quantity >= availableStock}
             className={cn(
-              "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center",
+              "h-8 w-8 sm:h-10 sm:w-10 md:h-11 md:w-11 rounded-lg sm:rounded-xl flex items-center justify-center",
               "bg-secondary/60 hover:bg-secondary border border-border/50",
               "active:scale-95",
               "transition-all duration-150",
               "disabled:opacity-30 disabled:cursor-not-allowed"
             )}
           >
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-foreground" />
           </button>
         </div>
       )}
