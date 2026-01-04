@@ -174,11 +174,18 @@ const Index = () => {
     const searchLower = search.toLowerCase();
     return products.filter((product) => {
       const matchesName = product.name.toLowerCase().includes(searchLower);
-      // Also search in variant names and codes
-      const matchesVariant = product.variants?.some(
-        v => v.name.toLowerCase().includes(searchLower) || 
-             v.code.toLowerCase().includes(searchLower)
-      ) || false;
+
+      // Also search in variant names and codes (ignore empty/placeholder variants)
+      const matchesVariant =
+        (Array.isArray(product.variants)
+          ? product.variants.some((v) => {
+              const code = typeof v?.code === 'string' ? v.code.trim().toLowerCase() : '';
+              const name = typeof v?.name === 'string' ? v.name.trim().toLowerCase() : '';
+              if (!code && !name) return false;
+              return code.includes(searchLower) || name.includes(searchLower);
+            })
+          : false) || false;
+
       const matchesSearch = matchesName || matchesVariant;
       const matchesCategory = !selectedCategory || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
