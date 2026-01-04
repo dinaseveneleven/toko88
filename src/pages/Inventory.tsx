@@ -54,6 +54,7 @@ export default function Inventory() {
     repairPriceFormat,
     addVariant,
     deleteVariant,
+    updateVariantInventory,
     loading: isLoading,
     error: sheetsError,
   } = useGoogleSheets();
@@ -104,12 +105,35 @@ export default function Inventory() {
   }, [products]);
 
   // Filter products based on search and category
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+  // Also track which variant matches for highlighting
+  const { filteredProducts, matchingVariants } = useMemo(() => {
+    const searchLower = searchQuery.toLowerCase().trim();
+    const variantMatches = new Map<string, string[]>(); // productId -> matching variant codes
+    
+    const filtered = products.filter(product => {
+      const matchesProductName = product.name.toLowerCase().includes(searchLower);
+      
+      // Check variant matches
+      const matchingCodes: string[] = [];
+      if (product.variants && searchLower) {
+        product.variants.forEach(v => {
+          if (v.code.toLowerCase().includes(searchLower) || 
+              v.name.toLowerCase().includes(searchLower)) {
+            matchingCodes.push(v.code);
+          }
+        });
+      }
+      
+      if (matchingCodes.length > 0) {
+        variantMatches.set(product.id, matchingCodes);
+      }
+      
+      const matchesSearch = matchesProductName || matchingCodes.length > 0;
       const matchesCategory = selectedCategory === null || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
+    
+    return { filteredProducts: filtered, matchingVariants: variantMatches };
   }, [products, searchQuery, selectedCategory]);
 
   // Load products when authenticated
@@ -350,6 +374,62 @@ export default function Inventory() {
       });
     }
   }, [updateVariantStock, broadcastProductsUpdated, toast, sheetsError]);
+
+  // Handle variant inventory update (price changes)
+  const handleUpdateVariantInventory = useCallback(async (productId: string, variantCode: string, updates: { stock?: number; retailPrice?: number | ''; bulkPrice?: number | '' }) => {
+    const variantKey = `${productId}|${variantCode}`;
+    
+    setSavingVariantKeys(prev => new Set(prev).add(variantKey));
+    
+    try {
+      const success = await updateVariantInventory([{ productId, variantCode, ...updates }]);
+      
+      if (success) {
+        // Update local product state
+        setProducts(prev => prev.map(p => {
+          if (p.id === productId && p.variants) {
+            const updatedVariants = p.variants.map(v => {
+              if (v.code === variantCode) {
+                return {
+                  ...v,
+                  ...(updates.stock !== undefined ? { stock: updates.stock } : {}),
+                  ...(updates.retailPrice !== undefined ? { retailPrice: updates.retailPrice === '' ? undefined : updates.retailPrice } : {}),
+                  ...(updates.bulkPrice !== undefined ? { bulkPrice: updates.bulkPrice === '' ? undefined : updates.bulkPrice } : {}),
+                };
+              }
+              return v;
+            });
+            const totalStock = updatedVariants.reduce((sum, v) => sum + v.stock, 0);
+            return { ...p, variants: updatedVariants, stock: totalStock };
+          }
+          return p;
+        }));
+        
+        return true;
+      } else {
+        toast({
+          title: 'Gagal',
+          description: sheetsError ?? 'Gagal update varian',
+          variant: 'destructive',
+        });
+        return false;
+      }
+    } catch (err) {
+      console.error('[Inventory] Variant inventory update error:', err);
+      toast({
+        title: 'Gagal',
+        description: 'Gagal update varian',
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setSavingVariantKeys(prev => {
+        const next = new Set(prev);
+        next.delete(variantKey);
+        return next;
+      });
+    }
+  }, [updateVariantInventory, toast, sheetsError]);
 
   const startEditing = (productId: string) => {
     setEditingProductId(productId);
@@ -800,8 +880,10 @@ export default function Inventory() {
                           productId={product.id}
                           productName={product.name}
                           variants={product.variants}
+                          product={product}
                           onUpdateVariantStock={handleUpdateVariantStock}
                           savingVariantKeys={savingVariantKeys}
+                          highlightedVariantCodes={matchingVariants.get(product.id) || []}
                         />
                       </div>
                     )}
@@ -973,8 +1055,10 @@ export default function Inventory() {
                         productId={product.id}
                         productName={product.name}
                         variants={product.variants}
+                        product={product}
                         onUpdateVariantStock={handleUpdateVariantStock}
                         savingVariantKeys={savingVariantKeys}
+                        highlightedVariantCodes={matchingVariants.get(product.id) || []}
                       />
                     )}
                   </div>
@@ -1035,6 +1119,7 @@ export default function Inventory() {
           product={variantManagerProduct}
           onAddVariant={addVariant}
           onDeleteVariant={deleteVariant}
+          onUpdateVariant={handleUpdateVariantInventory}
           onSuccess={loadProducts}
         />
       )}

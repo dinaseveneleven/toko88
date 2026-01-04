@@ -47,7 +47,18 @@ const ProductCardComponent = ({ product, pricingMode, onAdd }: ProductCardProps)
   const allVariantsOutOfStock = hasVariants && product.variants!.every(v => v.stock === 0);
 
   const isGrosir = pricingMode === 'grosir';
-  const displayPrice = isGrosir ? product.bulkPrice : product.retailPrice;
+  
+  // Calculate display price - use variant-specific price if available
+  const displayPrice = useMemo(() => {
+    if (selectedVariant) {
+      if (isGrosir) {
+        return selectedVariant.bulkPrice ?? product.bulkPrice;
+      }
+      return selectedVariant.retailPrice ?? product.retailPrice;
+    }
+    return isGrosir ? product.bulkPrice : product.retailPrice;
+  }, [selectedVariant, isGrosir, product.bulkPrice, product.retailPrice]);
+  
   const priceLabel = isGrosir ? 'Grosir' : 'Eceran';
   
   // Use full class names for Tailwind to detect them at build time
@@ -163,6 +174,8 @@ const ProductCardComponent = ({ product, pricingMode, onAdd }: ProductCardProps)
             selectedCode={selectedVariantCode}
             onSelect={setSelectedVariantCode}
             disabled={allVariantsOutOfStock}
+            product={product}
+            priceType={isGrosir ? 'bulk' : 'retail'}
           />
         </div>
       )}

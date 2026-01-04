@@ -407,8 +407,19 @@ const Index = () => {
   };
 
   // Calculate cart totals for floating button (with item discounts in Rp)
+  // Uses variant-specific prices when available
   const cartTotal = cart.reduce((sum, item) => {
-    const price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
+    let price: number;
+    if (item.variantCode && item.product.variants) {
+      const variant = item.product.variants.find(v => v.code === item.variantCode);
+      if (item.priceType === 'retail') {
+        price = variant?.retailPrice ?? item.product.retailPrice;
+      } else {
+        price = variant?.bulkPrice ?? item.product.bulkPrice;
+      }
+    } else {
+      price = item.priceType === 'retail' ? item.product.retailPrice : item.product.bulkPrice;
+    }
     const discount = item.discount || 0;
     const discountedTotal = (price * item.quantity) - discount;
     return sum + Math.max(0, discountedTotal);
