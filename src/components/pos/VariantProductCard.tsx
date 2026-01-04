@@ -147,15 +147,15 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
           <h3 className="font-semibold text-foreground text-xs sm:text-base md:text-lg leading-snug line-clamp-2">
             {product.name}
           </h3>
-          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mt-1 sm:mt-1.5">
-            <span className="inline-flex items-center text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
+            <span className="inline-flex items-center text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 font-semibold">
               {product.category}
             </span>
-            <span className="inline-flex items-center text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+            <span className="inline-flex items-center text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 font-semibold">
               {variants.length} varian
             </span>
             {isGrosir && (
-              <span className="inline-flex items-center text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/15 text-primary font-medium">
+              <span className="inline-flex items-center text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold">
                 Grosir
               </span>
             )}
