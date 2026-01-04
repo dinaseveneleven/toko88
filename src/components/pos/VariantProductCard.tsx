@@ -1,6 +1,6 @@
 import { useState, useMemo, memo, useCallback } from 'react';
 import { Product } from '@/types/pos';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, ShoppingCart } from 'lucide-react';
 import { VariantSelector } from './VariantSelector';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +23,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
   const [quantity, setQuantity] = useState(1);
   const [inputValue, setInputValue] = useState('1');
   const [selectedVariantCode, setSelectedVariantCode] = useState<string | null>(null);
+  const [isPressed, setIsPressed] = useState(false);
   
   const variants = product.variants || [];
 
@@ -63,7 +64,8 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
     return isGrosir ? product.bulkPrice : product.retailPrice;
   }, [selectedVariant, isGrosir, product.bulkPrice, product.retailPrice]);
 
-  const handleQuantityChange = useCallback((delta: number) => {
+  const handleQuantityChange = useCallback((delta: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     setQuantity((prev) => {
       const newQty = Math.max(1, Math.min(prev + delta, availableStock));
       setInputValue(String(newQty));
@@ -93,41 +95,76 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
   }, [inputValue, availableStock, quantity]);
 
   const handleInputFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+    e.stopPropagation();
     e.target.select();
+  }, []);
+
+  const handleInputClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
   }, []);
 
   const handleAdd = useCallback(() => {
     if (selectedVariant) {
       onAdd(product, quantity, selectedVariant.code, selectedVariant.name);
+      setQuantity(1);
+      setInputValue('1');
+      setSelectedVariantCode(null);
     }
-    setQuantity(1);
-    setInputValue('1');
-    setSelectedVariantCode(null);
   }, [selectedVariant, onAdd, product, quantity]);
 
+  const handleCardClick = useCallback(() => {
+    if (allVariantsOutOfStock) return;
+    
+    // If variant selected and in stock, add to cart
+    if (selectedVariant && !isOutOfStock) {
+      handleAdd();
+    }
+    // If no variant selected, we don't do anything - user must use the variant selector
+  }, [allVariantsOutOfStock, selectedVariant, isOutOfStock, handleAdd]);
+
+  const canQuickAdd = selectedVariant && !isOutOfStock;
   const isAddDisabled = allVariantsOutOfStock || !selectedVariantCode || isOutOfStock;
 
   return (
     <div 
+      onClick={handleCardClick}
+      onMouseDown={() => canQuickAdd && setIsPressed(true)}
+      onMouseUp={() => setIsPressed(false)}
+      onMouseLeave={() => setIsPressed(false)}
+      onTouchStart={() => canQuickAdd && setIsPressed(true)}
+      onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "group relative h-full rounded-2xl overflow-hidden",
+        "group relative h-full rounded-2xl overflow-hidden select-none",
         "bg-card/80 backdrop-blur-sm",
         "border border-border/40",
         "hover:border-border/80 hover:shadow-lg hover:shadow-black/5",
-        "active:scale-[0.98]",
-        "transition-all duration-300 ease-out",
+        "transition-all duration-200 ease-out",
         "flex flex-col",
-        allVariantsOutOfStock && "opacity-50"
+        canQuickAdd && "cursor-pointer",
+        allVariantsOutOfStock && "opacity-50",
+        isPressed && canQuickAdd && "scale-[0.97] shadow-inner bg-primary/5"
       )}
     >
+      {/* Quick Add Indicator */}
+      {canQuickAdd && (
+        <div className={cn(
+          "absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center",
+          "bg-primary/10 text-primary",
+          "opacity-0 group-hover:opacity-100",
+          "transition-opacity duration-200"
+        )}>
+          <ShoppingCart className="w-3.5 h-3.5" />
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 p-3 sm:p-4 flex flex-col gap-3">
         {/* Header */}
         <div className="space-y-1">
-          <h3 className="font-semibold text-foreground text-sm sm:text-base leading-snug line-clamp-2">
+          <h3 className="font-semibold text-foreground text-sm sm:text-base leading-snug line-clamp-2 pr-8">
             {product.name}
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
               {variants.length} varian
             </span>
@@ -162,32 +199,37 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
           </span>
         </div>
 
-        {/* Variant Selector */}
-        <VariantSelector
-          variants={variants}
-          selectedCode={selectedVariantCode}
-          onSelect={setSelectedVariantCode}
-          disabled={allVariantsOutOfStock}
-          product={product}
-          priceType={isGrosir ? 'bulk' : 'retail'}
-        />
+        {/* Variant Selector - Interactive Zone */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <VariantSelector
+            variants={variants}
+            selectedCode={selectedVariantCode}
+            onSelect={setSelectedVariantCode}
+            disabled={allVariantsOutOfStock}
+            product={product}
+            priceType={isGrosir ? 'bulk' : 'retail'}
+          />
+        </div>
 
-        {/* Quantity Selector - Animated */}
+        {/* Quantity Selector - Animated & Interactive */}
         <div className={cn(
           "overflow-hidden transition-all duration-300 ease-out",
           selectedVariantCode && !isOutOfStock 
             ? "max-h-20 opacity-100" 
             : "max-h-0 opacity-0"
         )}>
-          <div className="flex items-center justify-center gap-2 py-1">
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center justify-center gap-2 py-1"
+          >
             <button
               type="button"
-              onClick={() => handleQuantityChange(-1)}
+              onClick={(e) => handleQuantityChange(-1, e)}
               disabled={quantity <= 1}
               className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center",
+                "w-10 h-10 rounded-xl flex items-center justify-center",
                 "bg-secondary/60 hover:bg-secondary",
-                "active:scale-95",
+                "active:scale-95 active:bg-secondary",
                 "transition-all duration-150",
                 "disabled:opacity-30 disabled:cursor-not-allowed"
               )}
@@ -201,9 +243,10 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
               onChange={(e) => handleInputChange(e.target.value)}
               onBlur={handleInputBlur}
               onFocus={handleInputFocus}
+              onClick={handleInputClick}
               onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
               className={cn(
-                "w-14 h-9 text-center text-sm font-mono font-medium",
+                "w-14 h-10 text-center text-sm font-mono font-medium",
                 "bg-secondary/40 border border-border/50 rounded-xl",
                 "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
                 "transition-all duration-150",
@@ -215,12 +258,12 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
             
             <button
               type="button"
-              onClick={() => handleQuantityChange(1)}
+              onClick={(e) => handleQuantityChange(1, e)}
               disabled={quantity >= availableStock}
               className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center",
+                "w-10 h-10 rounded-xl flex items-center justify-center",
                 "bg-secondary/60 hover:bg-secondary",
-                "active:scale-95",
+                "active:scale-95 active:bg-secondary",
                 "transition-all duration-150",
                 "disabled:opacity-30 disabled:cursor-not-allowed"
               )}
@@ -229,28 +272,6 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Add Button */}
-      <div className="p-3 sm:p-4 pt-0">
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={isAddDisabled}
-          className={cn(
-            "w-full flex items-center justify-center gap-2 py-2.5 rounded-xl",
-            "font-medium text-sm",
-            "active:scale-[0.97]",
-            "transition-all duration-200 ease-out",
-            "disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100",
-            isGrosir 
-              ? "bg-pos-bulk/15 text-pos-bulk hover:bg-pos-bulk/25 border border-pos-bulk/30" 
-              : "bg-pos-retail/10 text-pos-retail hover:bg-pos-retail/20"
-          )}
-        >
-          <Plus className="w-4 h-4" />
-          <span>{!selectedVariantCode ? 'Pilih Varian' : 'Tambah'}</span>
-        </button>
       </div>
     </div>
   );
