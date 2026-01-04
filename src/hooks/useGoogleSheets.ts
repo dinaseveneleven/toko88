@@ -94,7 +94,27 @@ export function useGoogleSheets() {
       }
       if (data?.error) throw new Error(data.error);
 
-      const products = data.products || [];
+      const rawProducts = data.products || [];
+      // Normalize products: strip empty/placeholder variants so non-variant products don't get variant UI
+      const products = rawProducts.map((p: Product) => {
+        if (!Array.isArray(p.variants) || p.variants.length === 0) {
+          // No variants - ensure variants is undefined
+          const { variants, ...rest } = p;
+          return rest;
+        }
+        // Filter out empty/placeholder variants
+        const realVariants = p.variants.filter((v) => {
+          const code = typeof v?.code === 'string' ? v.code.trim() : '';
+          const name = typeof v?.name === 'string' ? v.name.trim() : '';
+          return code.length > 0 || name.length > 0;
+        });
+        if (realVariants.length === 0) {
+          // All variants were empty - treat as non-variant product
+          const { variants, ...rest } = p;
+          return rest;
+        }
+        return { ...p, variants: realVariants };
+      });
       // Cache the fresh products
       cacheProducts(products);
       return products;
