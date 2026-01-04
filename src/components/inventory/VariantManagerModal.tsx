@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Trash2, Package } from 'lucide-react';
+import { Loader2, Plus, Trash2, Package, Edit2, Check, X } from 'lucide-react';
 import { Product, ProductVariant } from '@/types/pos';
 import {
   AlertDialog,
@@ -23,12 +23,22 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+const formatRupiah = (amount: number): string => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
 interface VariantManagerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: Product;
-  onAddVariant: (productId: string, variantCode: string, variantName: string, stock: number) => Promise<boolean>;
+  onAddVariant: (productId: string, variantCode: string, variantName: string, stock: number, retailPrice?: number, bulkPrice?: number) => Promise<boolean>;
   onDeleteVariant: (productId: string, variantCode: string) => Promise<boolean>;
+  onUpdateVariant?: (productId: string, variantCode: string, updates: { stock?: number; retailPrice?: number | ''; bulkPrice?: number | '' }) => Promise<boolean>;
   onSuccess: () => void;
 }
 
@@ -38,21 +48,27 @@ export function VariantManagerModal({
   product,
   onAddVariant,
   onDeleteVariant,
+  onUpdateVariant,
   onSuccess,
 }: VariantManagerModalProps) {
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
   const [deletingCode, setDeletingCode] = useState<string | null>(null);
   const [variantToDelete, setVariantToDelete] = useState<ProductVariant | null>(null);
+  const [editingVariantCode, setEditingVariantCode] = useState<string | null>(null);
+  const [editedVariant, setEditedVariant] = useState<{ retailPrice: string; bulkPrice: string }>({ retailPrice: '', bulkPrice: '' });
+  const [savingVariantCode, setSavingVariantCode] = useState<string | null>(null);
 
   const [newVariant, setNewVariant] = useState({
     code: '',
     name: '',
     stock: '0',
+    retailPrice: '',
+    bulkPrice: '',
   });
 
   const resetForm = () => {
-    setNewVariant({ code: '', name: '', stock: '0' });
+    setNewVariant({ code: '', name: '', stock: '0', retailPrice: '', bulkPrice: '' });
   };
 
   const handleAddVariant = async () => {
@@ -72,11 +88,16 @@ export function VariantManagerModal({
 
     setIsAdding(true);
 
+    const retailPrice = newVariant.retailPrice ? parseInt(newVariant.retailPrice) : undefined;
+    const bulkPrice = newVariant.bulkPrice ? parseInt(newVariant.bulkPrice) : undefined;
+
     const success = await onAddVariant(
       product.id,
       newVariant.code.trim(),
       newVariant.name.trim() || newVariant.code.trim(),
-      parseInt(newVariant.stock) || 0
+      parseInt(newVariant.stock) || 0,
+      retailPrice,
+      bulkPrice
     );
 
     setIsAdding(false);
@@ -108,8 +129,46 @@ export function VariantManagerModal({
     }
   };
 
+  const startEditingVariant = (variant: ProductVariant) => {
+    setEditingVariantCode(variant.code);
+    setEditedVariant({
+      retailPrice: variant.retailPrice?.toString() || '',
+      bulkPrice: variant.bulkPrice?.toString() || '',
+    });
+  };
+
+  const cancelEditingVariant = () => {
+    setEditingVariantCode(null);
+    setEditedVariant({ retailPrice: '', bulkPrice: '' });
+  };
+
+  const saveEditedVariant = async (variant: ProductVariant) => {
+    if (!onUpdateVariant) return;
+    
+    setSavingVariantCode(variant.code);
+    
+    const retailPrice = editedVariant.retailPrice ? parseInt(editedVariant.retailPrice) : '';
+    const bulkPrice = editedVariant.bulkPrice ? parseInt(editedVariant.bulkPrice) : '';
+    
+    const success = await onUpdateVariant(product.id, variant.code, {
+      retailPrice,
+      bulkPrice,
+    });
+    
+    setSavingVariantCode(null);
+    
+    if (success) {
+      toast({ title: 'Berhasil', description: 'Harga varian berhasil diperbarui' });
+      setEditingVariantCode(null);
+      onSuccess();
+    } else {
+      toast({ title: 'Gagal', description: 'Gagal memperbarui harga varian', variant: 'destructive' });
+    }
+  };
+
   const handleClose = () => {
     resetForm();
+    setEditingVariantCode(null);
     onOpenChange(false);
   };
 
@@ -134,43 +193,124 @@ export function VariantManagerModal({
                   Varian Saat Ini ({variants.length})
                 </Label>
                 <div className="space-y-2">
-                  {variants.map((variant) => (
-                    <div
-                      key={variant.code}
-                      className="flex items-center justify-between gap-3 p-3 bg-secondary/30 rounded-lg"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">{variant.name}</p>
-                        <p className="text-xs text-muted-foreground">Kode: {variant.code}</p>
+                  {variants.map((variant) => {
+                    const isEditing = editingVariantCode === variant.code;
+                    const isSaving = savingVariantCode === variant.code;
+                    
+                    return (
+                      <div
+                        key={variant.code}
+                        className="p-3 bg-secondary/30 rounded-lg space-y-2"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm">{variant.name}</p>
+                            <p className="text-xs text-muted-foreground">Kode: {variant.code}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`text-sm font-mono px-2 py-1 rounded ${
+                                variant.stock === 0
+                                  ? 'bg-destructive/20 text-destructive'
+                                  : variant.stock <= 5
+                                  ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-500'
+                                  : 'bg-secondary text-muted-foreground'
+                              }`}
+                            >
+                              {variant.stock}
+                            </span>
+                            {!isEditing && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => startEditingVariant(variant)}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => setVariantToDelete(variant)}
+                                  disabled={deletingCode === variant.code}
+                                >
+                                  {deletingCode === variant.code ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Price Display / Edit */}
+                        {isEditing ? (
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Harga Eceran</Label>
+                              <Input
+                                type="number"
+                                value={editedVariant.retailPrice}
+                                onChange={(e) => setEditedVariant(prev => ({ ...prev, retailPrice: e.target.value }))}
+                                placeholder={`Default: ${formatRupiah(product.retailPrice)}`}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Harga Grosir</Label>
+                              <Input
+                                type="number"
+                                value={editedVariant.bulkPrice}
+                                onChange={(e) => setEditedVariant(prev => ({ ...prev, bulkPrice: e.target.value }))}
+                                placeholder={`Default: ${formatRupiah(product.bulkPrice)}`}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="col-span-2 flex justify-end gap-2 mt-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={cancelEditingVariant}
+                                disabled={isSaving}
+                              >
+                                <X className="w-4 h-4 mr-1" />
+                                Batal
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => saveEditedVariant(variant)}
+                                disabled={isSaving}
+                              >
+                                {isSaving ? (
+                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                ) : (
+                                  <Check className="w-4 h-4 mr-1" />
+                                )}
+                                Simpan
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-4 text-xs text-muted-foreground">
+                            <span>
+                              Eceran: <span className="font-mono text-foreground">
+                                {variant.retailPrice ? formatRupiah(variant.retailPrice) : `(${formatRupiah(product.retailPrice)})`}
+                              </span>
+                            </span>
+                            <span>
+                              Grosir: <span className="font-mono text-foreground">
+                                {variant.bulkPrice ? formatRupiah(variant.bulkPrice) : `(${formatRupiah(product.bulkPrice)})`}
+                              </span>
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-sm font-mono px-2 py-1 rounded ${
-                            variant.stock === 0
-                              ? 'bg-destructive/20 text-destructive'
-                              : variant.stock <= 5
-                              ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-500'
-                              : 'bg-secondary text-muted-foreground'
-                          }`}
-                        >
-                          {variant.stock}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => setVariantToDelete(variant)}
-                          disabled={deletingCode === variant.code}
-                        >
-                          {deletingCode === variant.code ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -214,8 +354,8 @@ export function VariantManagerModal({
                 </div>
               </div>
 
-              <div className="flex items-end gap-3">
-                <div className="space-y-1.5 flex-1">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
                   <Label htmlFor="variantStock" className="text-xs text-muted-foreground">
                     Stok Awal
                   </Label>
@@ -228,19 +368,46 @@ export function VariantManagerModal({
                     onChange={(e) => setNewVariant((prev) => ({ ...prev, stock: e.target.value }))}
                   />
                 </div>
-                <Button
-                  onClick={handleAddVariant}
-                  disabled={isAdding || !newVariant.code.trim()}
-                  className="flex-shrink-0"
-                >
-                  {isAdding ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Plus className="w-4 h-4 mr-2" />
-                  )}
-                  Tambah
-                </Button>
+                <div className="space-y-1.5">
+                  <Label htmlFor="variantRetailPrice" className="text-xs text-muted-foreground">
+                    Harga Eceran
+                  </Label>
+                  <Input
+                    id="variantRetailPrice"
+                    type="number"
+                    placeholder={`Default: ${product.retailPrice}`}
+                    min={0}
+                    value={newVariant.retailPrice}
+                    onChange={(e) => setNewVariant((prev) => ({ ...prev, retailPrice: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="variantBulkPrice" className="text-xs text-muted-foreground">
+                    Harga Grosir
+                  </Label>
+                  <Input
+                    id="variantBulkPrice"
+                    type="number"
+                    placeholder={`Default: ${product.bulkPrice}`}
+                    min={0}
+                    value={newVariant.bulkPrice}
+                    onChange={(e) => setNewVariant((prev) => ({ ...prev, bulkPrice: e.target.value }))}
+                  />
+                </div>
               </div>
+
+              <Button
+                onClick={handleAddVariant}
+                disabled={isAdding || !newVariant.code.trim()}
+                className="w-full"
+              >
+                {isAdding ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                Tambah Varian
+              </Button>
             </div>
           </div>
 

@@ -1,7 +1,9 @@
 export interface ProductVariant {
-  code: string;      // Variant code/SKU (e.g., "RED", "BLUE", "XL")
-  name: string;      // Variant display name (e.g., "Merah", "Biru", "XL")
-  stock: number;     // Stock for this specific variant
+  code: string;        // Variant code/SKU (e.g., "RED", "BLUE", "XL")
+  name: string;        // Variant display name (e.g., "Merah", "Biru", "XL")
+  stock: number;       // Stock for this specific variant
+  retailPrice?: number;  // Optional: variant-specific retail price (uses product price if not set)
+  bulkPrice?: number;    // Optional: variant-specific bulk price (uses product price if not set)
 }
 
 export interface Product {

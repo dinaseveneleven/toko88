@@ -1,4 +1,4 @@
-import { ProductVariant } from '@/types/pos';
+import { ProductVariant, Product } from '@/types/pos';
 import { useState } from 'react';
 import { Check, ChevronDown, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,14 +9,25 @@ import {
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 
+const formatRupiah = (amount: number): string => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
 interface VariantSelectorProps {
   variants: ProductVariant[];
   selectedCode: string | null;
   onSelect: (code: string) => void;
   disabled?: boolean;
+  product: Product;
+  priceType?: 'retail' | 'bulk';
 }
 
-export function VariantSelector({ variants, selectedCode, onSelect, disabled }: VariantSelectorProps) {
+export function VariantSelector({ variants, selectedCode, onSelect, disabled, product, priceType = 'retail' }: VariantSelectorProps) {
   const [open, setOpen] = useState(false);
   const selectedVariant = variants.find(v => v.code === selectedCode);
 
@@ -24,6 +35,16 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled }: 
     onSelect(code);
     setOpen(false);
   };
+
+  // Get price for a variant (uses variant price if set, otherwise product price)
+  const getVariantPrice = (variant: ProductVariant) => {
+    if (priceType === 'bulk') {
+      return variant.bulkPrice ?? product.bulkPrice;
+    }
+    return variant.retailPrice ?? product.retailPrice;
+  };
+
+  const selectedPrice = selectedVariant ? getVariantPrice(selectedVariant) : null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -40,8 +61,11 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled }: 
           )}
         >
           {selectedVariant ? (
-            <span className="flex items-center gap-2 truncate">
-              <span className="truncate">{selectedVariant.name}</span>
+            <span className="flex items-center gap-2 truncate w-full">
+              <span className="truncate flex-1 text-left">{selectedVariant.name}</span>
+              <span className="font-mono text-[10px] text-primary shrink-0">
+                {formatRupiah(selectedPrice || 0)}
+              </span>
               <span className={cn(
                 "text-[10px] px-1.5 py-0.5 rounded-full shrink-0",
                 selectedVariant.stock === 0 
@@ -69,6 +93,7 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled }: 
             const isSelected = variant.code === selectedCode;
             const isOutOfStock = variant.stock === 0;
             const isLowStock = variant.stock > 0 && variant.stock <= 5;
+            const variantPrice = getVariantPrice(variant);
             
             return (
               <button
@@ -91,6 +116,9 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled }: 
                   {isSelected && <Check className="w-2.5 h-2.5" />}
                 </div>
                 <span className="flex-1 text-left truncate">{variant.name}</span>
+                <span className="font-mono text-[10px] text-primary shrink-0">
+                  {formatRupiah(variantPrice)}
+                </span>
                 <span className={cn(
                   "flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full shrink-0",
                   isOutOfStock 

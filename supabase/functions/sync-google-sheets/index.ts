@@ -40,7 +40,7 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS);
 
 // Input validation schemas
-const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'deleteProduct', 'repairPriceFormat', 'updateVariantStock', 'addVariant', 'deleteVariant'] as const;
+const VALID_ACTIONS = ['getProducts', 'addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'deleteProduct', 'repairPriceFormat', 'updateVariantStock', 'addVariant', 'deleteVariant', 'updateVariantInventory'] as const;
 type ValidAction = typeof VALID_ACTIONS[number];
 
 function isValidAction(action: string): action is ValidAction {
@@ -314,6 +314,8 @@ function normalizeProductsRow(row: any[]): any[] {
     row[6],
     row[7] ?? '', // VariantCode
     row[8] ?? '', // VariantName
+    row[9] !== undefined && row[9] !== '' ? parseRupiah(row[9]) : '', // VariantRetailPrice
+    row[10] !== undefined && row[10] !== '' ? parseRupiah(row[10]) : '', // VariantBulkPrice
   ];
 }
 
@@ -361,7 +363,7 @@ function normalizeProductIdForMatch(id: string): string {
 // Build products from Products sheet rows, grouping variants by product ID
 // If a row has VariantCode (column H), it's a variant row
 // Products are grouped by ID, with variants aggregated
-function buildProductsFromRows(rows: any[][]): { id: string; name: string; retailPrice: number; bulkPrice: number; purchasePrice: number; stock: number; category: string; variants?: { code: string; name: string; stock: number }[]; rowIndex: number }[] {
+function buildProductsFromRows(rows: any[][]): { id: string; name: string; retailPrice: number; bulkPrice: number; purchasePrice: number; stock: number; category: string; variants?: { code: string; name: string; stock: number; retailPrice?: number; bulkPrice?: number }[]; rowIndex: number }[] {
   const productMap = new Map<string, {
     id: string;
     name: string;
@@ -370,7 +372,7 @@ function buildProductsFromRows(rows: any[][]): { id: string; name: string; retai
     purchasePrice: number;
     stock: number;
     category: string;
-    variants: { code: string; name: string; stock: number; rowIndex: number }[];
+    variants: { code: string; name: string; stock: number; retailPrice?: number; bulkPrice?: number; rowIndex: number }[];
     rowIndex: number;
   }>();
 
@@ -385,6 +387,8 @@ function buildProductsFromRows(rows: any[][]): { id: string; name: string; retai
     const category = String(row[6] ?? '').trim() || 'Lainnya';
     const variantCode = String(row[7] ?? '').trim();
     const variantName = String(row[8] ?? '').trim();
+    const variantRetailPrice = row[9] !== undefined && row[9] !== '' ? parseRupiah(row[9]) : undefined;
+    const variantBulkPrice = row[10] !== undefined && row[10] !== '' ? parseRupiah(row[10]) : undefined;
 
     if (!productId) continue;
 
@@ -411,6 +415,8 @@ function buildProductsFromRows(rows: any[][]): { id: string; name: string; retai
         code: variantCode,
         name: variantName || variantCode,
         stock,
+        retailPrice: variantRetailPrice,
+        bulkPrice: variantBulkPrice,
         rowIndex: i,
       });
     } else {
@@ -436,7 +442,7 @@ function buildProductsFromRows(rows: any[][]): { id: string; name: string; retai
   }
 
   // Calculate total stock from variants if they exist
-  const products: { id: string; name: string; retailPrice: number; bulkPrice: number; purchasePrice: number; stock: number; category: string; variants?: { code: string; name: string; stock: number }[]; rowIndex: number }[] = [];
+  const products: { id: string; name: string; retailPrice: number; bulkPrice: number; purchasePrice: number; stock: number; category: string; variants?: { code: string; name: string; stock: number; retailPrice?: number; bulkPrice?: number }[]; rowIndex: number }[] = [];
   
   for (const product of productMap.values()) {
     if (product.variants.length > 0) {
@@ -449,7 +455,13 @@ function buildProductsFromRows(rows: any[][]): { id: string; name: string; retai
         purchasePrice: product.purchasePrice,
         stock: product.stock,
         category: product.category,
-        variants: product.variants.map(v => ({ code: v.code, name: v.name, stock: v.stock })),
+        variants: product.variants.map(v => ({ 
+          code: v.code, 
+          name: v.name, 
+          stock: v.stock,
+          ...(v.retailPrice !== undefined ? { retailPrice: v.retailPrice } : {}),
+          ...(v.bulkPrice !== undefined ? { bulkPrice: v.bulkPrice } : {}),
+        })),
         rowIndex: product.rowIndex,
       });
     } else {
@@ -492,7 +504,7 @@ serve(async (req) => {
     }
 
     // Actions that require authentication
-    const authRequiredActions = ['addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'updateVariantStock', 'addVariant', 'deleteVariant'];
+    const authRequiredActions = ['addTransaction', 'updateStock', 'updateInventory', 'addProduct', 'updateVariantStock', 'addVariant', 'deleteVariant', 'updateVariantInventory'];
     
     let user = null;
     
@@ -576,7 +588,7 @@ serve(async (req) => {
       console.log(`[${requestId}] Using bulk price percentage: ${bulkPricePercentage}%`);
       
       // Read Products sheet with variant columns (A-I)
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
       
       // Build products with variants grouped
       const builtProducts = buildProductsFromRows(rows);
@@ -620,7 +632,7 @@ serve(async (req) => {
         });
 
         // Fire and forget - update in background, and re-apply currency format (best effort)
-        updateSheetData(accessToken, sheetId, "Products!A2:I", updatedRows)
+        updateSheetData(accessToken, sheetId, "Products!A2:K", updatedRows)
           .then(() => ensureProductsCurrencyFormat(accessToken, sheetId))
           .then(() => console.log(`Updated ${productsToUpdate.length} products with default bulk prices`))
           .catch((err: unknown) => console.error('Failed to update bulk prices:', err));
@@ -725,7 +737,7 @@ serve(async (req) => {
         validateStock(update.stock);
       }
 
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
 
       const updatesByKey = new Map<string, { id: string; stock: number }>();
       for (const u of stockUpdates) {
@@ -770,7 +782,7 @@ serve(async (req) => {
         );
       }
 
-      await updateSheetData(accessToken, sheetId, "Products!A2:I", updatedRows);
+      await updateSheetData(accessToken, sheetId, "Products!A2:K", updatedRows);
       await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Stock updated for ${stockUpdates.length} products`);
@@ -798,7 +810,7 @@ serve(async (req) => {
         validateStock(update.stock);
       }
 
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
 
       // Create a map for quick lookup: "normalizedProductId|variantCode" -> update
       const updatesByKey = new Map<string, { productId: string; variantCode: string; stock: number }>();
@@ -846,7 +858,7 @@ serve(async (req) => {
         );
       }
 
-      await updateSheetData(accessToken, sheetId, "Products!A2:I", updatedRows);
+      await updateSheetData(accessToken, sheetId, "Products!A2:K", updatedRows);
       await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Variant stock updated for ${variantUpdates.length} variants`);
@@ -856,9 +868,105 @@ serve(async (req) => {
       });
     }
 
-    // Action: Add a new variant to an existing product
+    // Action: Update variant inventory (price and stock)
+    if (action === "updateVariantInventory") {
+      const { variantUpdates } = data || {};
+
+      if (!variantUpdates || !Array.isArray(variantUpdates)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid variant inventory update data' }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate updates
+      for (const update of variantUpdates) {
+        validateString(update.productId, 'Product ID', 50);
+        validateString(update.variantCode, 'Variant Code', 50);
+        if (update.stock !== undefined) validateStock(update.stock);
+        if (update.retailPrice !== undefined && update.retailPrice !== '') {
+          validatePositiveNumber(update.retailPrice, 'Variant Retail Price');
+        }
+        if (update.bulkPrice !== undefined && update.bulkPrice !== '') {
+          validatePositiveNumber(update.bulkPrice, 'Variant Bulk Price');
+        }
+      }
+
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
+
+      // Create a map for quick lookup: "normalizedProductId|variantCode" -> update
+      const updatesByKey = new Map<string, { productId: string; variantCode: string; stock?: number; retailPrice?: number | ''; bulkPrice?: number | '' }>();
+      for (const u of variantUpdates) {
+        const key = `${normalizeProductIdForMatch(String(u.productId))}|${String(u.variantCode).toUpperCase()}`;
+        updatesByKey.set(key, { 
+          productId: String(u.productId), 
+          variantCode: String(u.variantCode), 
+          stock: u.stock,
+          retailPrice: u.retailPrice,
+          bulkPrice: u.bulkPrice,
+        });
+      }
+
+      const appliedKeys = new Set<string>();
+
+      const updatedRows = rows.map((row) => {
+        const productId = String(row[0] ?? '').trim();
+        const variantCode = String(row[7] ?? '').trim(); // Column H is VariantCode
+        
+        if (!variantCode) {
+          // Not a variant row, keep as-is
+          return normalizeProductsRow(row);
+        }
+        
+        const key = `${normalizeProductIdForMatch(productId)}|${variantCode.toUpperCase()}`;
+        const update = updatesByKey.get(key);
+        const normalized = normalizeProductsRow(row);
+
+        if (update) {
+          appliedKeys.add(key);
+          // Update fields if provided
+          if (update.stock !== undefined) {
+            normalized[5] = update.stock; // Stock column (F)
+          }
+          if (update.retailPrice !== undefined) {
+            normalized[9] = update.retailPrice === '' ? '' : update.retailPrice; // VariantRetailPrice (J)
+          }
+          if (update.bulkPrice !== undefined) {
+            normalized[10] = update.bulkPrice === '' ? '' : update.bulkPrice; // VariantBulkPrice (K)
+          }
+        }
+
+        return normalized;
+      });
+
+      const notFoundUpdates = variantUpdates.filter((u: { productId: string; variantCode: string }) => {
+        const key = `${normalizeProductIdForMatch(String(u.productId))}|${String(u.variantCode).toUpperCase()}`;
+        return !appliedKeys.has(key);
+      });
+
+      if (notFoundUpdates.length > 0) {
+        console.log(`[${requestId}] updateVariantInventory: Variants not found: ${JSON.stringify(notFoundUpdates)}`);
+        return new Response(
+          JSON.stringify({
+            error: 'Some variants were not found in Google Sheets',
+            notFoundVariants: notFoundUpdates.map((u: { productId: string; variantCode: string }) => ({ productId: u.productId, variantCode: u.variantCode })),
+          }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      await updateSheetData(accessToken, sheetId, "Products!A2:K", updatedRows);
+      await ensureProductsCurrencyFormat(accessToken, sheetId);
+
+      console.log(`[${requestId}] Variant inventory updated for ${variantUpdates.length} variants`);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "addVariant") {
-      const { productId, variantCode, variantName, stock } = data || {};
+      const { productId, variantCode, variantName, stock, retailPrice, bulkPrice } = data || {};
 
       if (!productId || typeof productId !== 'string') {
         return new Response(
@@ -871,9 +979,11 @@ serve(async (req) => {
       const validatedVariantCode = validateString(variantCode, 'Variant Code', 50);
       const validatedVariantName = validateString(variantName || variantCode, 'Variant Name', 100);
       const validatedStock = validateStock(stock ?? 0);
+      const validatedRetailPrice = retailPrice !== undefined && retailPrice !== '' ? validatePositiveNumber(retailPrice, 'Variant Retail Price') : '';
+      const validatedBulkPrice = bulkPrice !== undefined && bulkPrice !== '' ? validatePositiveNumber(bulkPrice, 'Variant Bulk Price') : '';
 
       // Get existing products to find the product data
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
 
       // Find the product (any row with matching ID)
       let productData: any[] | null = null;
@@ -907,20 +1017,22 @@ serve(async (req) => {
         }
       }
 
-      // Create new variant row with same product info
+      // Create new variant row with same product info + variant-specific prices
       const newVariantRow = [
         productData[0], // ID
         productData[1], // Name
-        parseRupiah(productData[2]), // RetailPrice
-        parseRupiah(productData[3]), // BulkPrice
+        parseRupiah(productData[2]), // RetailPrice (base product)
+        parseRupiah(productData[3]), // BulkPrice (base product)
         parseRupiah(productData[4]), // PurchasePrice
         validatedStock, // Stock for this variant
         productData[6] || '', // Category
         sanitizeForSheets(validatedVariantCode), // VariantCode
         sanitizeForSheets(validatedVariantName), // VariantName
+        validatedRetailPrice, // VariantRetailPrice (optional)
+        validatedBulkPrice, // VariantBulkPrice (optional)
       ];
 
-      await appendSheetData(accessToken, sheetId, "Products!A:I", [newVariantRow]);
+      await appendSheetData(accessToken, sheetId, "Products!A:K", [newVariantRow]);
       await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Variant ${validatedVariantCode} added to product ${validatedProductId}`);
@@ -951,7 +1063,7 @@ serve(async (req) => {
       const validatedProductId = validateString(productId, 'Product ID', 50);
       const validatedVariantCode = validateString(variantCode, 'Variant Code', 50);
 
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
       const normalizedRequestId = normalizeProductIdForMatch(validatedProductId);
 
       // Find the row index of the variant to delete
@@ -1041,7 +1153,7 @@ serve(async (req) => {
         }
       }
 
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
 
       const updatesByKey = new Map<string, any>();
       for (const u of inventoryUpdates) {
@@ -1088,7 +1200,7 @@ serve(async (req) => {
         );
       }
 
-      await updateSheetData(accessToken, sheetId, "Products!A2:I", updatedRows);
+      await updateSheetData(accessToken, sheetId, "Products!A2:K", updatedRows);
       await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Inventory updated for ${inventoryUpdates.length} products`);
@@ -1117,7 +1229,7 @@ serve(async (req) => {
       const stock = validateStock(product.stock);
 
       // Get existing products to generate a unique ID
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
       
       // Generate unique ID (format: P001, P002, etc.)
       let maxId = 0;
@@ -1131,7 +1243,7 @@ serve(async (req) => {
       }
       const newId = `P${String(maxId + 1).padStart(3, '0')}`;
 
-      // Append new product row: [id, name, retailPrice, bulkPrice, purchasePrice, stock, category, variantCode, variantName]
+      // Append new product row: [id, name, retailPrice, bulkPrice, purchasePrice, stock, category, variantCode, variantName, variantRetailPrice, variantBulkPrice]
       const newRow = [
         newId,
         sanitizeForSheets(name),
@@ -1142,9 +1254,11 @@ serve(async (req) => {
         sanitizeForSheets(category),
         '', // VariantCode (empty for non-variant products)
         '', // VariantName (empty for non-variant products)
+        '', // VariantRetailPrice (empty for non-variant products)
+        '', // VariantBulkPrice (empty for non-variant products)
       ];
 
-      await appendSheetData(accessToken, sheetId, "Products!A:I", [newRow]);
+      await appendSheetData(accessToken, sheetId, "Products!A:K", [newRow]);
       await ensureProductsCurrencyFormat(accessToken, sheetId);
 
       console.log(`[${requestId}] Product ${newId} added successfully`);
@@ -1165,7 +1279,7 @@ serve(async (req) => {
       }
 
       // Get existing products
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
       
       // Find the row index of the product to delete
       let rowIndexToDelete = -1;
@@ -1247,7 +1361,7 @@ serve(async (req) => {
 
     if (action === "repairPriceFormat") {
       // Get all products and normalize price values to numbers, then apply currency format
-      const rows = await getSheetData(accessToken, sheetId, "Products!A2:I");
+      const rows = await getSheetData(accessToken, sheetId, "Products!A2:K");
       
       if (rows.length === 0) {
         return new Response(JSON.stringify({ success: true, message: 'No products to repair' }), {
@@ -1259,7 +1373,7 @@ serve(async (req) => {
       const normalizedRows = rows.map((row) => normalizeProductsRow(row));
 
       // Write back normalized data
-      await updateSheetData(accessToken, sheetId, "Products!A2:I", normalizedRows);
+      await updateSheetData(accessToken, sheetId, "Products!A2:K", normalizedRows);
 
       // Apply currency format
       await ensureProductsCurrencyFormat(accessToken, sheetId);
