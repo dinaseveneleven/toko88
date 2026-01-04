@@ -134,7 +134,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       onTouchStart={() => canQuickAdd && setIsPressed(true)}
       onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 md:gap-5 select-none",
+        "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 select-none",
         "transition-all duration-200 ease-out min-h-[160px] sm:min-h-[240px] md:min-h-[280px]",
         canQuickAdd && "cursor-pointer",
         allVariantsOutOfStock && "opacity-50",
@@ -165,6 +165,9 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
           <span className="font-medium">{selectedVariant ? selectedVariant.stock : product.stock}</span>
         </div>
       </div>
+
+      {/* Spacer to push content down */}
+      <div className="flex-1" />
 
       {/* Price */}
       <div className="flex items-center justify-between">

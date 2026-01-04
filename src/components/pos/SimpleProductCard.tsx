@@ -88,7 +88,7 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
       onTouchStart={() => !isOutOfStock && setIsPressed(true)}
       onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 md:gap-5 cursor-pointer select-none",
+        "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 cursor-pointer select-none",
         "transition-all duration-200 ease-out min-h-[140px] sm:min-h-[220px] md:min-h-[260px]",
         isOutOfStock && "opacity-50 cursor-not-allowed",
         isPressed && !isOutOfStock && "scale-[0.97] bg-primary/5"
@@ -114,8 +114,11 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
         </div>
       </div>
 
+      {/* Spacer to push content down */}
+      <div className="flex-1" />
+
       {/* Price */}
-      <div className="flex items-center justify-between mt-auto">
+      <div className="flex items-center justify-between">
         <span className={cn(
           "text-[10px] sm:text-sm font-medium",
           isGrosir ? "text-pos-bulk" : "text-pos-retail"
