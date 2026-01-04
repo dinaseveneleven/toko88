@@ -49,13 +49,13 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
           type="button"
           disabled={disabled}
           className={cn(
-            "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl",
+            "w-full flex items-center justify-between gap-3 px-3 sm:px-4 py-3 sm:py-3.5 rounded-xl",
             "bg-secondary/40 backdrop-blur-sm",
             "border border-border/50",
             "hover:bg-secondary/60 hover:border-border",
             "active:scale-[0.98]",
             "transition-all duration-200 ease-out",
-            "text-sm text-left",
+            "text-sm sm:text-base text-left",
             "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
             disabled && "opacity-40 cursor-not-allowed"
           )}
@@ -71,18 +71,18 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
 
           <ChevronDown 
             className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform duration-200",
+              "h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground transition-transform duration-200",
               open && "rotate-180"
             )} 
           />
         </button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] p-1.5 bg-card/95 backdrop-blur-xl border-border/60 shadow-2xl rounded-xl z-50" 
+        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] p-2 bg-card/95 backdrop-blur-xl border-border/60 shadow-2xl rounded-xl z-50" 
         align="start"
         sideOffset={6}
       >
-        <div className="max-h-[240px] overflow-y-auto space-y-1 scrollbar-hide">
+        <div className="max-h-[280px] overflow-y-auto space-y-1 scrollbar-hide">
           {variants.map((variant, index) => {
             const isSelected = variant.code === selectedCode;
             const isOutOfStock = variant.stock === 0;
@@ -101,23 +101,23 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
                   isOutOfStock && "opacity-35 cursor-not-allowed"
                 )}
               >
-                <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-3 px-3 sm:px-4 py-3 sm:py-3.5">
                   {/* Left: Checkbox + Name */}
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div
                       className={cn(
-                        "w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-150",
+                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-150",
                         isSelected 
                           ? "border-primary bg-primary scale-110" 
                           : "border-muted-foreground/30 bg-transparent"
                       )}
                     >
                       {isSelected && (
-                        <Check className="w-2.5 h-2.5 text-primary-foreground animate-scale-in" />
+                        <Check className="w-3 h-3 text-primary-foreground animate-scale-in" />
                       )}
                     </div>
                     <span className={cn(
-                      "text-sm truncate transition-colors",
+                      "text-sm sm:text-base truncate transition-colors",
                       isSelected ? "text-foreground font-medium" : "text-muted-foreground"
                     )}>
                       {variant.name}
@@ -126,12 +126,12 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
 
                   {/* Right: Price + Stock */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="font-mono text-xs text-muted-foreground/80">
+                    <span className="font-mono text-xs sm:text-sm text-muted-foreground/80">
                       {formatRupiah(variantPrice)}
                     </span>
                     <span
                       className={cn(
-                        "text-xs tabular-nums font-medium min-w-[20px] text-right px-1.5 py-0.5 rounded-md",
+                        "text-xs sm:text-sm tabular-nums font-medium min-w-[24px] text-right px-2 py-0.5 rounded-md",
                         isOutOfStock
                           ? "text-destructive bg-destructive/10"
                           : variant.stock <= 5
