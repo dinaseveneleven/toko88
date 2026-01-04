@@ -166,20 +166,16 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
         </div>
       </div>
 
-      {/* Spacer to push content down */}
-      <div className="flex-1" />
-
-      {/* Price */}
-      <div className="flex items-center justify-between">
+      {/* Price - Centered */}
+      <div className="flex flex-col items-center justify-center flex-1">
         <span className={cn(
-          "text-[10px] sm:text-sm font-medium",
+          "text-[10px] sm:text-xs font-medium mb-1",
           isGrosir ? "text-pos-bulk" : "text-pos-retail"
         )}>
           {isGrosir ? 'Grosir' : 'Eceran'}
         </span>
         <span className={cn(
-          "font-mono text-sm sm:text-xl md:text-2xl font-bold",
-          isGrosir ? "text-pos-bulk" : "text-pos-retail"
+          "font-mono text-lg sm:text-2xl md:text-3xl font-bold text-primary"
         )}>
           {formatRupiah(displayPrice)}
         </span>
