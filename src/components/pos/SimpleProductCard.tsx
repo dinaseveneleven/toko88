@@ -1,6 +1,6 @@
 import { useState, memo, useCallback } from 'react';
 import { Product } from '@/types/pos';
-import { Plus, Minus, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SimpleProductCardProps {
@@ -88,120 +88,104 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
       onTouchStart={() => !isOutOfStock && setIsPressed(true)}
       onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "group relative h-full rounded-2xl overflow-hidden cursor-pointer select-none",
-        "bg-card/80 backdrop-blur-sm",
-        "border border-border/40",
-        "hover:border-border/80 hover:shadow-lg hover:shadow-black/5",
+        "pos-card h-full p-2 sm:p-4 md:p-5 flex flex-col gap-2 sm:gap-3 md:gap-4 cursor-pointer select-none",
         "transition-all duration-200 ease-out",
-        "flex flex-col",
         isOutOfStock && "opacity-50 cursor-not-allowed",
-        isPressed && !isOutOfStock && "scale-[0.97] shadow-inner bg-primary/5"
+        isPressed && !isOutOfStock && "scale-[0.97] bg-primary/5"
       )}
     >
-      {/* Quick Add Indicator */}
-      {!isOutOfStock && (
-        <div className={cn(
-          "absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center",
-          "bg-primary/10 text-primary",
-          "opacity-0 group-hover:opacity-100",
-          "transition-opacity duration-200"
-        )}>
-          <ShoppingCart className="w-3.5 h-3.5" />
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="flex-1 p-3 sm:p-4 flex flex-col gap-3">
-        {/* Header */}
-        <div className="space-y-1.5">
-          <h3 className="font-semibold text-foreground text-sm sm:text-base leading-snug line-clamp-2 pr-8">
+      {/* Header: Name + Stock */}
+      <div className="flex items-start justify-between gap-1 sm:gap-2 md:gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-foreground text-xs sm:text-sm md:text-base leading-tight line-clamp-2">
             {product.name}
           </h3>
-          <span className={cn(
-            "inline-flex items-center text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium",
-            isOutOfStock
-              ? "bg-destructive/10 text-destructive"
-              : isLowStock
-                ? "bg-warning/10 text-warning"
-                : "bg-secondary text-muted-foreground"
-          )}>
-            Stok: {product.stock}
-          </span>
         </div>
-
-        {/* Price Display */}
-        <div className="flex items-baseline justify-between">
-          <span className={cn(
-            "text-xs font-medium",
-            isGrosir ? "text-pos-bulk" : "text-pos-retail"
-          )}>
-            {isGrosir ? 'Grosir' : 'Eceran'}
-          </span>
-          <span className={cn(
-            "font-mono text-lg sm:text-xl font-bold tracking-tight",
-            isGrosir ? "text-pos-bulk" : "text-pos-retail"
-          )}>
-            {formatRupiah(displayPrice)}
-          </span>
+        <div className={cn(
+          "flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs md:text-sm px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 md:py-1.5 rounded-full flex-shrink-0",
+          isOutOfStock
+            ? "bg-destructive/20 text-destructive"
+            : isLowStock
+              ? "bg-warning/20 text-warning"
+              : "bg-secondary text-muted-foreground"
+        )}>
+          <Package className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4" />
+          <span>{product.stock}</span>
         </div>
-
-        {/* Quantity Selector - Interactive Zone */}
-        {!isOutOfStock && (
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="flex items-center justify-center gap-2 py-1 mt-auto"
-          >
-            <button
-              type="button"
-              onClick={(e) => handleQuantityChange(-1, e)}
-              disabled={quantity <= 1}
-              className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center",
-                "bg-secondary/60 hover:bg-secondary",
-                "active:scale-95 active:bg-secondary",
-                "transition-all duration-150",
-                "disabled:opacity-30 disabled:cursor-not-allowed"
-              )}
-            >
-              <Minus className="w-4 h-4 text-foreground" />
-            </button>
-            
-            <input
-              type="number"
-              value={inputValue}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onBlur={handleInputBlur}
-              onFocus={handleInputFocus}
-              onClick={handleInputClick}
-              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-              className={cn(
-                "w-14 h-10 text-center text-sm font-mono font-medium",
-                "bg-secondary/40 border border-border/50 rounded-xl",
-                "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
-                "transition-all duration-150",
-                "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              )}
-              min={1}
-              max={availableStock}
-            />
-            
-            <button
-              type="button"
-              onClick={(e) => handleQuantityChange(1, e)}
-              disabled={quantity >= availableStock}
-              className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center",
-                "bg-secondary/60 hover:bg-secondary",
-                "active:scale-95 active:bg-secondary",
-                "transition-all duration-150",
-                "disabled:opacity-30 disabled:cursor-not-allowed"
-              )}
-            >
-              <Plus className="w-4 h-4 text-foreground" />
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* Price */}
+      <div className="flex items-center justify-between">
+        <span className={cn(
+          "text-[10px] sm:text-xs md:text-sm font-medium",
+          isGrosir ? "text-pos-bulk" : "text-pos-retail"
+        )}>
+          {isGrosir ? 'Grosir' : 'Eceran'}
+        </span>
+        <span className={cn(
+          "font-mono text-sm sm:text-base md:text-xl font-bold",
+          isGrosir ? "text-pos-bulk" : "text-pos-retail"
+        )}>
+          {formatRupiah(displayPrice)}
+        </span>
+      </div>
+
+      {/* Quantity Selector - Interactive Zone */}
+      {!isOutOfStock && (
+        <div 
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center justify-center gap-1 sm:gap-2 md:gap-3"
+        >
+          <button
+            type="button"
+            onClick={(e) => handleQuantityChange(-1, e)}
+            disabled={quantity <= 1}
+            className={cn(
+              "h-8 w-8 sm:h-8 sm:w-8 md:h-10 md:w-10 min-h-[32px] min-w-[32px] rounded-lg flex items-center justify-center",
+              "bg-secondary/60 hover:bg-secondary border border-border/50",
+              "active:scale-95",
+              "transition-all duration-150",
+              "disabled:opacity-30 disabled:cursor-not-allowed"
+            )}
+          >
+            <Minus className="w-3 h-3 md:w-4 md:h-4 text-foreground" />
+          </button>
+          
+          <input
+            type="number"
+            value={inputValue}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onBlur={handleInputBlur}
+            onFocus={handleInputFocus}
+            onClick={handleInputClick}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+            className={cn(
+              "w-12 sm:w-16 md:w-20 h-8 md:h-10 text-center text-xs sm:text-sm md:text-base font-mono",
+              "bg-transparent border border-border/50 rounded-lg",
+              "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
+              "transition-all duration-150",
+              "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            )}
+            min={1}
+            max={availableStock}
+          />
+          
+          <button
+            type="button"
+            onClick={(e) => handleQuantityChange(1, e)}
+            disabled={quantity >= availableStock}
+            className={cn(
+              "h-8 w-8 sm:h-8 sm:w-8 md:h-10 md:w-10 min-h-[32px] min-w-[32px] rounded-lg flex items-center justify-center",
+              "bg-secondary/60 hover:bg-secondary border border-border/50",
+              "active:scale-95",
+              "transition-all duration-150",
+              "disabled:opacity-30 disabled:cursor-not-allowed"
+            )}
+          >
+            <Plus className="w-3 h-3 md:w-4 md:h-4 text-foreground" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
