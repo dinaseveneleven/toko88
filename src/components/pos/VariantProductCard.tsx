@@ -1,4 +1,4 @@
-import { useState, useMemo, memo, useCallback } from 'react';
+import { useState, useMemo, memo, useCallback, useRef } from 'react';
 import { Product } from '@/types/pos';
 import { Plus, Minus, Package } from 'lucide-react';
 import { VariantSelector } from './VariantSelector';
@@ -19,11 +19,15 @@ const formatRupiah = (num: number) => {
   }).format(num);
 };
 
+const DOUBLE_TAP_DELAY = 300;
+const DOZEN = 12;
+
 const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery = '' }: VariantProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
   const [inputValue, setInputValue] = useState('1');
   const [selectedVariantCode, setSelectedVariantCode] = useState<string | null>(null);
   const [isPressed, setIsPressed] = useState(false);
+  const lastTapTimeRef = useRef<{ plus: number; minus: number }>({ plus: 0, minus: 0 });
   
   const variants = product.variants || [];
 
@@ -64,14 +68,25 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
     return isGrosir ? product.bulkPrice : product.retailPrice;
   }, [selectedVariant, isGrosir, product.bulkPrice, product.retailPrice]);
 
-  const handleQuantityChange = useCallback((delta: number, e: React.MouseEvent) => {
+  const handleQuantityChange = useCallback((delta: number, e: React.MouseEvent, isDoubleTap = false) => {
     e.stopPropagation();
+    const increment = isGrosir && isDoubleTap ? delta * DOZEN : delta;
     setQuantity((prev) => {
-      const newQty = Math.max(1, Math.min(prev + delta, availableStock));
+      const newQty = Math.max(1, Math.min(prev + increment, availableStock));
       setInputValue(String(newQty));
       return newQty;
     });
-  }, [availableStock]);
+  }, [availableStock, isGrosir]);
+
+  const handleButtonClick = useCallback((type: 'plus' | 'minus', e: React.MouseEvent) => {
+    const now = Date.now();
+    const lastTap = lastTapTimeRef.current[type];
+    const isDoubleTap = now - lastTap < DOUBLE_TAP_DELAY;
+    lastTapTimeRef.current[type] = now;
+    
+    const delta = type === 'plus' ? 1 : -1;
+    handleQuantityChange(delta, e, isDoubleTap);
+  }, [handleQuantityChange]);
 
   const handleInputChange = useCallback((value: string) => {
     setInputValue(value);
@@ -201,7 +216,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
         >
           <button
             type="button"
-            onClick={(e) => handleQuantityChange(-1, e)}
+            onClick={(e) => handleButtonClick('minus', e)}
             disabled={quantity <= 1}
             className={cn(
               "h-8 w-8 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl flex items-center justify-center",
@@ -210,6 +225,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
               "transition-all duration-150",
               "disabled:opacity-30 disabled:cursor-not-allowed"
             )}
+            title={isGrosir ? "Double-tap for ±12" : undefined}
           >
             <Minus className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-foreground" />
           </button>
@@ -235,7 +251,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
           
           <button
             type="button"
-            onClick={(e) => handleQuantityChange(1, e)}
+            onClick={(e) => handleButtonClick('plus', e)}
             disabled={quantity >= availableStock}
             className={cn(
               "h-8 w-8 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl flex items-center justify-center",
@@ -244,6 +260,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
               "transition-all duration-150",
               "disabled:opacity-30 disabled:cursor-not-allowed"
             )}
+            title={isGrosir ? "Double-tap for ±12" : undefined}
           >
             <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-foreground" />
           </button>
