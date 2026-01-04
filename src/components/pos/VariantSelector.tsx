@@ -50,26 +50,29 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
           type="button"
           disabled={disabled}
           className={cn(
-            "w-full flex items-center justify-between px-3 py-2 rounded-lg",
+            "w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg",
             "bg-secondary/30 hover:bg-secondary/50 transition-colors",
-            "text-sm text-left",
+            "text-xs sm:text-sm text-left",
             disabled && "opacity-50 cursor-not-allowed"
           )}
         >
-          <span className={cn(
-            "truncate",
-            selectedVariant ? "text-foreground" : "text-muted-foreground"
-          )}>
+          <span
+            className={cn(
+              "truncate flex-1 min-w-0",
+              selectedVariant ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
             {selectedVariant ? selectedVariant.name : "Pilih varian..."}
           </span>
-          <div className="flex items-center gap-2 shrink-0 ml-2">
+
+          <div className="flex items-center gap-2 shrink-0">
             {selectedVariant && (
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="hidden sm:inline font-mono text-xs text-muted-foreground">
                 {formatRupiah(getVariantPrice(selectedVariant))}
               </span>
             )}
             {selectedVariant && (
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="hidden sm:inline text-xs text-muted-foreground tabular-nums">
                 {selectedVariant.stock}
               </span>
             )}
@@ -78,7 +81,7 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
         </button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[var(--radix-popover-trigger-width)] p-1.5 bg-card border-border shadow-xl z-50" 
+        className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] p-1.5 bg-card border-border shadow-xl z-50" 
         align="start"
         sideOffset={4}
       >
@@ -94,37 +97,42 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
                 onClick={() => !isOutOfStock && handleSelect(variant.code)}
                 disabled={isOutOfStock}
                 className={cn(
-                  "w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors",
+                  "w-full rounded-md transition-colors",
                   "hover:bg-secondary/50",
                   isSelected && "bg-secondary",
                   isOutOfStock && "opacity-40 cursor-not-allowed"
                 )}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={cn(
-                    "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                    isSelected 
-                      ? "border-primary bg-primary" 
-                      : "border-muted-foreground/40"
-                  )}>
-                    {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                <div className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className={cn(
+                        "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                        isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+                      )}
+                    >
+                      {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                    </div>
+                    <span className="text-xs sm:text-sm truncate text-foreground">{variant.name}</span>
                   </div>
-                  <span className="text-sm truncate text-foreground">{variant.name}</span>
-                </div>
-                <div className="flex items-center gap-3 shrink-0 ml-2">
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {formatRupiah(variantPrice)}
-                  </span>
-                  <span className={cn(
-                    "text-xs tabular-nums min-w-[24px] text-right",
-                    isOutOfStock 
-                      ? "text-destructive"
-                      : variant.stock <= 5
-                        ? "text-warning"
-                        : "text-muted-foreground"
-                  )}>
-                    {variant.stock}
-                  </span>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 pl-6 sm:pl-0">
+                    <span className="font-mono text-[11px] sm:text-xs text-muted-foreground">
+                      {formatRupiah(variantPrice)}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[11px] sm:text-xs tabular-nums min-w-[24px] text-right",
+                        isOutOfStock
+                          ? "text-destructive"
+                          : variant.stock <= 5
+                            ? "text-warning"
+                            : "text-muted-foreground"
+                      )}
+                    >
+                      {variant.stock}
+                    </span>
+                  </div>
                 </div>
               </button>
             );
