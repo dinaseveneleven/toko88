@@ -100,6 +100,16 @@ const SimpleProductCardComponent = ({ product, pricingMode, onAdd }: SimpleProdu
           <h3 className="font-semibold text-foreground text-xs sm:text-base md:text-lg leading-snug line-clamp-2">
             {product.name}
           </h3>
+          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mt-1 sm:mt-1.5">
+            <span className="inline-flex items-center text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
+              {product.category}
+            </span>
+            {isGrosir && (
+              <span className="inline-flex items-center text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/15 text-primary font-medium">
+                Grosir
+              </span>
+            )}
+          </div>
         </div>
         <div className={cn(
           "flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-sm px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-full flex-shrink-0",
