@@ -121,7 +121,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
 
   return (
     <div 
-      className={`pos-card p-2 sm:p-4 md:p-5 flex flex-col gap-2 sm:gap-3 md:gap-4 active:scale-[0.98] transition-transform ${
+      className={`pos-card h-full p-2 sm:p-4 md:p-5 flex flex-col gap-2 sm:gap-3 md:gap-4 active:scale-[0.98] transition-transform ${
         allVariantsOutOfStock ? 'opacity-50' : ''
       }`}
     >
