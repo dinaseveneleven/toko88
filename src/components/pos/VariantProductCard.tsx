@@ -134,7 +134,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       onTouchStart={() => canQuickAdd && setIsPressed(true)}
       onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 select-none min-h-[180px] sm:min-h-[220px]",
+        "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 select-none min-h-[220px] sm:min-h-[280px]",
         "transition-all duration-200 ease-out",
         canQuickAdd && "cursor-pointer",
         allVariantsOutOfStock && "opacity-50",
