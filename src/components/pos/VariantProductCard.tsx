@@ -134,8 +134,8 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       onTouchStart={() => canQuickAdd && setIsPressed(true)}
       onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "pos-card h-full p-3 sm:p-4 md:p-5 flex flex-col gap-3 sm:gap-4 select-none",
-        "transition-all duration-200 ease-out min-h-[160px] sm:min-h-[200px] md:min-h-[240px]",
+        "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 md:gap-5 select-none",
+        "transition-all duration-200 ease-out min-h-[160px] sm:min-h-[240px] md:min-h-[280px]",
         canQuickAdd && "cursor-pointer",
         allVariantsOutOfStock && "opacity-50",
         isPressed && canQuickAdd && "scale-[0.97] bg-primary/5"
@@ -144,24 +144,24 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       {/* Header: Name + Stock */}
       <div className="flex items-start justify-between gap-2 sm:gap-3">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground text-xs sm:text-sm md:text-base leading-snug line-clamp-2">
+          <h3 className="font-semibold text-foreground text-xs sm:text-base md:text-lg leading-snug line-clamp-2">
             {product.name}
           </h3>
           <div className="flex items-center gap-1.5 mt-1">
-            <span className="inline-flex items-center gap-0.5 text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+            <span className="inline-flex items-center gap-0.5 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
               {variants.length} varian
             </span>
           </div>
         </div>
         <div className={cn(
-          "flex items-center gap-1 text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 rounded-full flex-shrink-0",
+          "flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-sm px-1.5 sm:px-3 py-1 sm:py-1.5 rounded-full flex-shrink-0",
           allVariantsOutOfStock || (isOutOfStock && selectedVariant)
             ? "bg-destructive/20 text-destructive"
             : isLowStock && selectedVariant
               ? "bg-warning/20 text-warning"
               : "bg-secondary text-muted-foreground"
         )}>
-          <Package className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+          <Package className="w-3 h-3 sm:w-4 sm:h-4" />
           <span className="font-medium">{selectedVariant ? selectedVariant.stock : product.stock}</span>
         </div>
       </div>
@@ -169,13 +169,13 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       {/* Price */}
       <div className="flex items-center justify-between">
         <span className={cn(
-          "text-[10px] sm:text-xs font-medium",
+          "text-[10px] sm:text-sm font-medium",
           isGrosir ? "text-pos-bulk" : "text-pos-retail"
         )}>
           {isGrosir ? 'Grosir' : 'Eceran'}
         </span>
         <span className={cn(
-          "font-mono text-sm sm:text-lg md:text-xl font-bold",
+          "font-mono text-sm sm:text-xl md:text-2xl font-bold",
           isGrosir ? "text-pos-bulk" : "text-pos-retail"
         )}>
           {formatRupiah(displayPrice)}
@@ -205,14 +205,14 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
             onClick={(e) => handleQuantityChange(-1, e)}
             disabled={quantity <= 1}
             className={cn(
-              "h-8 w-8 sm:h-10 sm:w-10 md:h-11 md:w-11 rounded-lg sm:rounded-xl flex items-center justify-center",
+              "h-8 w-8 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl flex items-center justify-center",
               "bg-secondary/60 hover:bg-secondary border border-border/50",
               "active:scale-95",
               "transition-all duration-150",
               "disabled:opacity-30 disabled:cursor-not-allowed"
             )}
           >
-            <Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-foreground" />
+            <Minus className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-foreground" />
           </button>
           
           <input
@@ -224,7 +224,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
             onClick={handleInputClick}
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             className={cn(
-              "w-12 sm:w-16 h-8 sm:h-10 md:h-11 text-center text-xs sm:text-sm font-mono font-medium",
+              "w-12 sm:w-20 h-8 sm:h-12 text-center text-xs sm:text-base font-mono font-medium",
               "bg-transparent border border-border/50 rounded-lg sm:rounded-xl",
               "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
               "transition-all duration-150",
@@ -239,14 +239,14 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
             onClick={(e) => handleQuantityChange(1, e)}
             disabled={quantity >= availableStock}
             className={cn(
-              "h-8 w-8 sm:h-10 sm:w-10 md:h-11 md:w-11 rounded-lg sm:rounded-xl flex items-center justify-center",
+              "h-8 w-8 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl flex items-center justify-center",
               "bg-secondary/60 hover:bg-secondary border border-border/50",
               "active:scale-95",
               "transition-all duration-150",
               "disabled:opacity-30 disabled:cursor-not-allowed"
             )}
           >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-foreground" />
+            <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-foreground" />
           </button>
         </div>
       )}
