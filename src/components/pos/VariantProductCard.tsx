@@ -147,10 +147,18 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
           <h3 className="font-semibold text-foreground text-xs sm:text-base md:text-lg leading-snug line-clamp-2">
             {product.name}
           </h3>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="inline-flex items-center gap-0.5 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mt-1 sm:mt-1.5">
+            <span className="inline-flex items-center text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-medium">
+              {product.category}
+            </span>
+            <span className="inline-flex items-center text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
               {variants.length} varian
             </span>
+            {isGrosir && (
+              <span className="inline-flex items-center text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/15 text-primary font-medium">
+                Grosir
+              </span>
+            )}
           </div>
         </div>
         <div className={cn(
