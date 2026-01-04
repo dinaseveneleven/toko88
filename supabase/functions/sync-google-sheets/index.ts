@@ -394,7 +394,10 @@ function buildProductsFromRows(rows: any[][]): { id: string; name: string; retai
 
     const normalizedId = normalizeProductIdForMatch(productId);
 
-    if (variantCode) {
+    // Variant row if either code OR name is present (code is optional)
+    const isVariantRow = variantCode || variantName;
+    
+    if (isVariantRow) {
       // This is a variant row
       if (!productMap.has(normalizedId)) {
         productMap.set(normalizedId, {
@@ -412,7 +415,7 @@ function buildProductsFromRows(rows: any[][]): { id: string; name: string; retai
       
       const product = productMap.get(normalizedId)!;
       product.variants.push({
-        code: variantCode,
+        code: variantCode || variantName, // Use name as code fallback
         name: variantName || variantCode,
         stock,
         retailPrice: variantRetailPrice,
