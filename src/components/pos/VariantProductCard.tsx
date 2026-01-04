@@ -134,15 +134,15 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       onTouchStart={() => canQuickAdd && setIsPressed(true)}
       onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 select-none min-h-[220px] sm:min-h-[280px]",
-        "transition-all duration-200 ease-out",
+        "pos-card h-full p-4 sm:p-5 md:p-6 flex flex-col gap-4 sm:gap-5 select-none",
+        "transition-all duration-200 ease-out min-h-[200px] sm:min-h-[260px]",
         canQuickAdd && "cursor-pointer",
         allVariantsOutOfStock && "opacity-50",
         isPressed && canQuickAdd && "scale-[0.97] bg-primary/5"
       )}
     >
       {/* Header: Name + Stock */}
-      <div className="flex items-start justify-between gap-2 sm:gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-foreground text-sm sm:text-base md:text-lg leading-snug line-clamp-2">
             {product.name}
@@ -154,14 +154,14 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
           </div>
         </div>
         <div className={cn(
-          "flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-full flex-shrink-0",
+          "flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-3 py-1.5 rounded-full flex-shrink-0",
           allVariantsOutOfStock || (isOutOfStock && selectedVariant)
             ? "bg-destructive/20 text-destructive"
             : isLowStock && selectedVariant
               ? "bg-warning/20 text-warning"
               : "bg-secondary text-muted-foreground"
         )}>
-          <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+          <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span className="font-medium">{selectedVariant ? selectedVariant.stock : product.stock}</span>
         </div>
       </div>
@@ -175,7 +175,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
           {isGrosir ? 'Grosir' : 'Eceran'}
         </span>
         <span className={cn(
-          "font-mono text-base sm:text-xl md:text-2xl font-bold",
+          "font-mono text-lg sm:text-xl md:text-2xl font-bold",
           isGrosir ? "text-pos-bulk" : "text-pos-retail"
         )}>
           {formatRupiah(displayPrice)}
