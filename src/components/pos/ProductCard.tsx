@@ -10,8 +10,13 @@ interface ProductCardProps {
 }
 
 export const ProductCard = ({ product, pricingMode, onAdd, searchQuery }: ProductCardProps) => {
-  // Strict check: only true if variants array exists AND has at least one item
-  const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+  // Treat as "variant product" only if there is at least one *real* variant (non-empty code or name)
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const hasVariants = variants.some((v) => {
+    const code = typeof v?.code === 'string' ? v.code.trim() : '';
+    const name = typeof v?.name === 'string' ? v.name.trim() : '';
+    return code.length > 0 || name.length > 0;
+  });
 
   if (hasVariants) {
     return (
