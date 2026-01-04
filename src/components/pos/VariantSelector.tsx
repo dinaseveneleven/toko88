@@ -1,13 +1,12 @@
 import { ProductVariant, Product } from '@/types/pos';
 import { useState } from 'react';
-import { Check, ChevronDown, Package } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
 
 const formatRupiah = (amount: number): string => {
   return new Intl.NumberFormat('id-ID', {
@@ -44,55 +43,49 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
     return variant.retailPrice ?? product.retailPrice;
   };
 
-  const selectedPrice = selectedVariant ? getVariantPrice(selectedVariant) : null;
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
+        <button
+          type="button"
           disabled={disabled}
           className={cn(
-            "w-full h-9 px-3 justify-between text-xs font-normal",
-            "bg-secondary/50 border-border/50 hover:bg-secondary/80",
-            !selectedVariant && "text-muted-foreground"
+            "w-full flex items-center justify-between px-3 py-2 rounded-lg",
+            "bg-secondary/30 hover:bg-secondary/50 transition-colors",
+            "text-sm text-left",
+            disabled && "opacity-50 cursor-not-allowed"
           )}
         >
-          <span className="truncate text-left flex-1">
+          <span className={cn(
+            "truncate",
+            selectedVariant ? "text-foreground" : "text-muted-foreground"
+          )}>
             {selectedVariant ? selectedVariant.name : "Pilih varian..."}
           </span>
-          {selectedVariant && (
-            <div className="flex items-center gap-2 shrink-0 ml-2">
-              <span className="font-mono text-[10px] text-primary whitespace-nowrap">
-                {formatRupiah(selectedPrice || 0)}
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            {selectedVariant && (
+              <span className="font-mono text-xs text-muted-foreground">
+                {formatRupiah(getVariantPrice(selectedVariant))}
               </span>
-              <span className={cn(
-                "text-[10px] tabular-nums",
-                selectedVariant.stock === 0 
-                  ? "text-destructive"
-                  : selectedVariant.stock <= 5
-                    ? "text-warning"
-                    : "text-muted-foreground"
-              )}>
+            )}
+            {selectedVariant && (
+              <span className="text-xs text-muted-foreground tabular-nums">
                 {selectedVariant.stock}
               </span>
-            </div>
-          )}
-          <ChevronDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
-        </Button>
+            )}
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[var(--radix-popover-trigger-width)] p-1 bg-popover border-border shadow-lg z-50" 
+        className="w-[var(--radix-popover-trigger-width)] p-1.5 bg-card border-border shadow-xl z-50" 
         align="start"
         sideOffset={4}
       >
-        <div className="max-h-[200px] overflow-y-auto">
+        <div className="max-h-[200px] overflow-y-auto space-y-0.5">
           {variants.map((variant) => {
             const isSelected = variant.code === selectedCode;
             const isOutOfStock = variant.stock === 0;
-            const isLowStock = variant.stock > 0 && variant.stock <= 5;
             const variantPrice = getVariantPrice(variant);
             
             return (
@@ -101,35 +94,38 @@ export function VariantSelector({ variants, selectedCode, onSelect, disabled, pr
                 onClick={() => !isOutOfStock && handleSelect(variant.code)}
                 disabled={isOutOfStock}
                 className={cn(
-                  "w-full flex items-center gap-2 px-2 py-2 text-xs rounded-sm transition-colors",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  isSelected && "bg-accent",
+                  "w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors",
+                  "hover:bg-secondary/50",
+                  isSelected && "bg-secondary",
                   isOutOfStock && "opacity-40 cursor-not-allowed"
                 )}
               >
-                <div className={cn(
-                  "w-4 h-4 rounded-full border flex items-center justify-center shrink-0",
-                  isSelected 
-                    ? "border-primary bg-primary text-primary-foreground" 
-                    : "border-muted-foreground/30"
-                )}>
-                  {isSelected && <Check className="w-2.5 h-2.5" />}
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className={cn(
+                    "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                    isSelected 
+                      ? "border-primary bg-primary" 
+                      : "border-muted-foreground/40"
+                  )}>
+                    {isSelected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                  </div>
+                  <span className="text-sm truncate text-foreground">{variant.name}</span>
                 </div>
-                <span className="flex-1 text-left truncate">{variant.name}</span>
-                <span className="font-mono text-[10px] text-primary shrink-0">
-                  {formatRupiah(variantPrice)}
-                </span>
-                <span className={cn(
-                  "flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full shrink-0",
-                  isOutOfStock 
-                    ? "bg-destructive/20 text-destructive"
-                    : isLowStock
-                      ? "bg-warning/20 text-warning"
-                      : "bg-muted text-muted-foreground"
-                )}>
-                  <Package className="w-2.5 h-2.5" />
-                  {variant.stock}
-                </span>
+                <div className="flex items-center gap-3 shrink-0 ml-2">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {formatRupiah(variantPrice)}
+                  </span>
+                  <span className={cn(
+                    "text-xs tabular-nums min-w-[24px] text-right",
+                    isOutOfStock 
+                      ? "text-destructive"
+                      : variant.stock <= 5
+                        ? "text-warning"
+                        : "text-muted-foreground"
+                  )}>
+                    {variant.stock}
+                  </span>
+                </div>
               </button>
             );
           })}
