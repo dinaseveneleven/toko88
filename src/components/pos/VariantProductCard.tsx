@@ -134,7 +134,7 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       onTouchStart={() => canQuickAdd && setIsPressed(true)}
       onTouchEnd={() => setIsPressed(false)}
       className={cn(
-        "pos-card h-full p-2 sm:p-4 md:p-5 flex flex-col gap-2 sm:gap-3 md:gap-4 select-none",
+        "pos-card h-full p-3 sm:p-5 md:p-6 flex flex-col gap-3 sm:gap-4 select-none min-h-[180px] sm:min-h-[220px]",
         "transition-all duration-200 ease-out",
         canQuickAdd && "cursor-pointer",
         allVariantsOutOfStock && "opacity-50",
@@ -142,40 +142,40 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       )}
     >
       {/* Header: Name + Stock */}
-      <div className="flex items-start justify-between gap-1 sm:gap-2 md:gap-3">
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground text-xs sm:text-sm md:text-base leading-tight line-clamp-2">
+          <h3 className="font-semibold text-foreground text-sm sm:text-base md:text-lg leading-snug line-clamp-2">
             {product.name}
           </h3>
-          <div className="flex items-center gap-1 mt-1">
-            <span className="inline-flex items-center gap-0.5 text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="inline-flex items-center gap-0.5 text-[11px] sm:text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
               {variants.length} varian
             </span>
           </div>
         </div>
         <div className={cn(
-          "flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs md:text-sm px-1.5 sm:px-2 md:px-3 py-0.5 sm:py-1 md:py-1.5 rounded-full flex-shrink-0",
+          "flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded-full flex-shrink-0",
           allVariantsOutOfStock || (isOutOfStock && selectedVariant)
             ? "bg-destructive/20 text-destructive"
             : isLowStock && selectedVariant
               ? "bg-warning/20 text-warning"
               : "bg-secondary text-muted-foreground"
         )}>
-          <Package className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4" />
-          <span>{selectedVariant ? selectedVariant.stock : product.stock}</span>
+          <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+          <span className="font-medium">{selectedVariant ? selectedVariant.stock : product.stock}</span>
         </div>
       </div>
 
       {/* Price */}
       <div className="flex items-center justify-between">
         <span className={cn(
-          "text-[10px] sm:text-xs md:text-sm font-medium",
+          "text-xs sm:text-sm font-medium",
           isGrosir ? "text-pos-bulk" : "text-pos-retail"
         )}>
           {isGrosir ? 'Grosir' : 'Eceran'}
         </span>
         <span className={cn(
-          "font-mono text-sm sm:text-base md:text-xl font-bold",
+          "font-mono text-base sm:text-xl md:text-2xl font-bold",
           isGrosir ? "text-pos-bulk" : "text-pos-retail"
         )}>
           {formatRupiah(displayPrice)}
@@ -198,21 +198,21 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
       {selectedVariantCode && !isOutOfStock && (
         <div 
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center justify-center gap-1 sm:gap-2 md:gap-3"
+          className="flex items-center justify-center gap-2 sm:gap-3 mt-auto"
         >
           <button
             type="button"
             onClick={(e) => handleQuantityChange(-1, e)}
             disabled={quantity <= 1}
             className={cn(
-              "h-8 w-8 sm:h-8 sm:w-8 md:h-10 md:w-10 min-h-[32px] min-w-[32px] rounded-lg flex items-center justify-center",
+              "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center",
               "bg-secondary/60 hover:bg-secondary border border-border/50",
               "active:scale-95",
               "transition-all duration-150",
               "disabled:opacity-30 disabled:cursor-not-allowed"
             )}
           >
-            <Minus className="w-3 h-3 md:w-4 md:h-4 text-foreground" />
+            <Minus className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
           </button>
           
           <input
@@ -224,8 +224,8 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
             onClick={handleInputClick}
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             className={cn(
-              "w-12 sm:w-16 md:w-20 h-8 md:h-10 text-center text-xs sm:text-sm md:text-base font-mono",
-              "bg-transparent border border-border/50 rounded-lg",
+              "w-16 sm:w-20 h-10 sm:h-12 text-center text-sm sm:text-base font-mono font-medium",
+              "bg-transparent border border-border/50 rounded-xl",
               "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
               "transition-all duration-150",
               "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -239,14 +239,14 @@ const VariantProductCardComponent = ({ product, pricingMode, onAdd, searchQuery 
             onClick={(e) => handleQuantityChange(1, e)}
             disabled={quantity >= availableStock}
             className={cn(
-              "h-8 w-8 sm:h-8 sm:w-8 md:h-10 md:w-10 min-h-[32px] min-w-[32px] rounded-lg flex items-center justify-center",
+              "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center",
               "bg-secondary/60 hover:bg-secondary border border-border/50",
               "active:scale-95",
               "transition-all duration-150",
               "disabled:opacity-30 disabled:cursor-not-allowed"
             )}
           >
-            <Plus className="w-3 h-3 md:w-4 md:h-4 text-foreground" />
+            <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
           </button>
         </div>
       )}

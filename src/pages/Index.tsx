@@ -594,8 +594,8 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Responsive product grid: 2 cols mobile, 2 cols tablet (bigger cards), 3 cols xl desktop */}
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-2 sm:gap-4 md:gap-5 items-stretch">
+            {/* Responsive product grid: 2 cols mobile, 2 cols tablet, 3 cols desktop */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 items-stretch">
               {!initialLoadDone && products.length === 0 ? (
                 <ProductGridSkeleton count={6} />
               ) : (
