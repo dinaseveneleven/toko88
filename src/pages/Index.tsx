@@ -9,26 +9,23 @@ import { SearchBar } from '@/components/pos/SearchBar';
 import { CategoryFilter } from '@/components/pos/CategoryFilter';
 import { FloatingCartButton } from '@/components/pos/FloatingCartButton';
 import { MobileCartSheet } from '@/components/pos/MobileCartSheet';
+import { BluetoothPrinterButton } from '@/components/pos/BluetoothPrinterButton';
 import { useToast } from '@/hooks/use-toast';
 import { useGoogleSheets } from '@/hooks/useGoogleSheets';
 import { useAuth } from '@/hooks/useAuth';
 import { useTripleTap } from '@/hooks/useTripleTap';
 import { supabase } from '@/integrations/supabase/client';
-import { Package, LogOut, Shield, RefreshCw, History, Maximize, Minimize, Bluetooth } from 'lucide-react';
+import { Package, LogOut, Shield, RefreshCw, History, Maximize, Minimize } from 'lucide-react';
 import logo88 from '@/assets/logo-88.png';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useFullscreen } from '@/hooks/useFullscreen';
-import { useBluetoothPrinter } from '@/hooks/useBluetoothPrinter';
-import { isBluetoothSupported } from '@/utils/escpos';
-
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { isAuthenticated, isAdmin, logout } = useAuth();
   const { fetchProducts, getCachedProducts, clearCache, saveTransaction, updateStock, error: sheetsError } = useGoogleSheets();
   const { isFullscreen, isSupported, toggleFullscreen } = useFullscreen();
-  const { isConnected, isConnecting, printerName, connectPrinter, disconnectPrinter } = useBluetoothPrinter();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -522,21 +519,6 @@ const Index = () => {
                   <span className="hidden sm:inline">Admin</span>
                 </Button>
               )}
-              {isBluetoothSupported() && (
-                <Button
-                  variant={isConnected ? "default" : "outline"}
-                  size="sm"
-                  onClick={isConnected ? disconnectPrinter : connectPrinter}
-                  disabled={isConnecting}
-                  className="gap-2 px-2 sm:px-3 h-9 sm:h-9"
-                  title={isConnected ? printerName || 'Printer' : 'Hubungkan Printer'}
-                >
-                  <Bluetooth className="w-4 h-4" />
-                  <span className="hidden sm:inline text-xs">
-                    {isConnecting ? 'Menghubungkan...' : isConnected ? printerName : 'Printer'}
-                  </span>
-                </Button>
-              )}
               {isSupported && (
                 <Button
                   variant="outline"
@@ -653,6 +635,9 @@ const Index = () => {
           </div>
         </div>
       </main>
+
+      {/* Bluetooth Printer Connection Button */}
+      <BluetoothPrinterButton />
 
       {/* Floating Cart Button - shown on mobile/tablet (hidden on xl desktop) */}
       <FloatingCartButton
